@@ -6,11 +6,20 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const userDataDir = path.resolve(__dirname, '../../.auth/outlook-profile');
 
 const browser = await chromium.launchPersistentContext(userDataDir, {
-  headless: false,
+  headless: true,
   viewport: { width: 1440, height: 950 },
-  args: ['--disable-dev-shm-usage']
+  args: ['--disable-dev-shm-usage', '--no-sandbox']
 });
+
 const page = browser.pages()[0] || await browser.newPage();
+
 await page.goto('https://outlook.office.com/mail/', { waitUntil: 'domcontentloaded' });
-console.log('Inicia sesión en Outlook. Cuando veas el inbox cargado, vuelve a la terminal y presiona Ctrl+C.');
-await new Promise(() => {});
+
+console.log('Login headless iniciado.');
+console.log('Si Outlook pide MFA o login interactivo, Codespace no podrá hacerlo visible sin VNC.');
+console.log('Siguiente paso recomendado: usar el RPA desde una sesión ya abierta o hacer el flujo attended.');
+console.log('URL actual:', page.url());
+
+await page.screenshot({ path: 'outlook-login-debug.png', fullPage: true });
+
+await browser.close();

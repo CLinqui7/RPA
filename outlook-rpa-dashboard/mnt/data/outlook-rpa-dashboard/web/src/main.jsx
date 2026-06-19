@@ -3,7 +3,9 @@ import { createRoot } from 'react-dom/client';
 import { Bell, Inbox, RefreshCcw, CheckCircle2, AlertCircle, Mail } from 'lucide-react';
 import './styles.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  window.location.origin.replace('-5173.app.github.dev', '-4000.app.github.dev');
 
 function formatDate(value) {
   if (!value) return 'Sin fecha';

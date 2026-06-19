@@ -32,7 +32,7 @@ export async function scanOutlook({ maxEmails = config.outlookMaxEmails, searchQ
     viewport: { width: 1440, height: 950 },
     acceptDownloads: true,
     downloadsPath: path.resolve(__dirname, '../../downloads'),
-    args: ['--disable-dev-shm-usage']
+  args: ['--disable-dev-shm-usage', '--no-sandbox']
   });
 
   const page = browser.pages()[0] || await browser.newPage();

@@ -5,8 +5,25 @@ import { runScan } from './runScan.js';
 import { listEvents, markEvent } from './runRepository.js';
 
 const app = express();
-app.use(cors({ origin: config.corsOrigin }));
-app.use(express.json());
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+
+    const allowed = [
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      config.corsOrigin
+    ].filter(Boolean);
+
+    const isCodespace = origin.endsWith('.app.github.dev');
+
+    if (allowed.includes(origin) || isCodespace) {
+      return callback(null, true);
+    }
+
+    return callback(null, true); // MVP: permitir mientras estamos en desarrollo
+  }
+}));app.use(express.json());
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
