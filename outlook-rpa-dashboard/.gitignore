@@ -1,0 +1,12 @@
+node_modules/
+api/node_modules/
+web/node_modules/
+web/dist/
+api/.env
+web/.env
+.env
+api/.auth/
+api/downloads/
+api/debug/
+*.log
+.DS_Store
