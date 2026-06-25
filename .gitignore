@@ -1,21 +1,8 @@
+# Dependencies
 node_modules/
 **/node_modules/
 
-.env
-.env.*
-!.env.example
-**/.env
-**/.env.*
-!**/.env.example
-
-.auth/
-**/.auth/
-
-debug/
-**/debug/
-downloads/
-**/downloads/
-
+# Build outputs
 dist/
 **/dist/
 build/
@@ -23,15 +10,34 @@ build/
 coverage/
 **/coverage/
 
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Environment / secrets
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
 
-.DS_Store
-Thumbs.db
+# Outlook / browser session
+.auth/
+**/.auth/
 
+# RPA temporary files
+debug/
+**/debug/
+downloads/
+**/downloads/
+
+# Accidental extracted paths / archives
 mnt/
 **/mnt/
 _archive_local/
 *.zip
+
+# Logs / OS
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
