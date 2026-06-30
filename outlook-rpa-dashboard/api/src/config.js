@@ -24,7 +24,18 @@ export const config = {
   outlookLoginHeadless: boolEnv(process.env.OUTLOOK_LOGIN_HEADLESS, !process.env.DISPLAY),
   outlookLoginWaitMs: numberEnv(process.env.OUTLOOK_LOGIN_WAIT_MS, 10 * 60 * 1000),
   outlookLoadTimeoutMs: numberEnv(process.env.OUTLOOK_LOAD_TIMEOUT_MS, 90000),
-  outlookLoginGraceMs: numberEnv(process.env.OUTLOOK_LOGIN_GRACE_MS, 8000)
+  outlookLoginGraceMs: numberEnv(process.env.OUTLOOK_LOGIN_GRACE_MS, 8000),
+
+  // MVP A2000 invoice intake:
+  // First milestone only downloads PDFs from Outlook when the subject matches this filter.
+  invoiceSubjectFilter: process.env.INVOICE_SUBJECT_FILTER || 'factura american',
+  invoiceDownloadOnlyMatching: boolEnv(process.env.INVOICE_DOWNLOAD_ONLY_MATCHING, true),
+  invoiceReceivedOnly: boolEnv(process.env.INVOICE_RECEIVED_ONLY, true),
+  invoiceRequireUnread: boolEnv(process.env.INVOICE_REQUIRE_UNREAD, true),
+  invoiceMarkAsRead: boolEnv(process.env.INVOICE_MARK_AS_READ, true),
+  invoiceSkipAlreadyDownloaded: boolEnv(process.env.INVOICE_SKIP_ALREADY_DOWNLOADED, true),
+  invoiceStorageBucket: process.env.INVOICE_STORAGE_BUCKET || 'po-documents',
+  invoiceLocalDownloadDir: process.env.INVOICE_LOCAL_DOWNLOAD_DIR || 'downloads/invoices'
 };
 
 export function assertConfig() {
