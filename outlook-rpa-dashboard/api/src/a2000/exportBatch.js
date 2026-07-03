@@ -25,12 +25,45 @@ function trimMax(value, max = 20) {
   return clean(value).slice(0, max);
 }
 
+function isCitiOrder(order = {}) {
+  return clean(order.parser_name).toLowerCase() === 'cititrends'
+    || clean(order.customer_code).toUpperCase() === 'CITI'
+    || clean(order.customer_raw).toLowerCase().includes('citi');
+}
+
+function headerDivisionForExport(order = {}) {
+  return isCitiOrder(order) ? clean(order.division_code) : clean(order.division_code || 'X');
+}
+
+function headerWarehouseForExport(order = {}) {
+  return isCitiOrder(order) ? clean(order.warehouse_code) : clean(order.warehouse_code || 'PE');
+}
+
+function lineWarehouseForExport(order = {}, line = {}) {
+  return isCitiOrder(order) ? clean(line.warehouse_code || order.warehouse_code) : clean(line.warehouse_code || order.warehouse_code || 'PE');
+}
+
 function mapTermsCode(raw) {
   const value = clean(raw).toUpperCase().replace(/\s+/g, ' ');
   if (!value) return '';
   // Temporary A2000 mapping for the demo. Confirm with Rafa if BEALLSOUTL uses another code.
   if (value === 'ROG NET 60' || value === 'NET 60 DAYS OF ROG' || value.includes('ROG NET 60')) return 'X6';
   return '';
+}
+
+function requiresMappedStyle(order) {
+  const parserName = clean(order.parser_name).toLowerCase();
+  const customerCode = clean(order.customer_code).toUpperCase();
+  // Citi PO prints vendor style values such as SENA, but those are not internal A2000 STYLE codes.
+  // Do not let raw Citi style/color leak into the import. Wait for PT/export/checklist mapping.
+  return parserName === 'cititrends' || customerCode === 'CITI';
+}
+
+function lineHasImportableStyle(order, line) {
+  if (requiresMappedStyle(order)) {
+    return !!(clean(line.style_code) && clean(line.color_code));
+  }
+  return !!(clean(line.style_code || line.style_raw) && clean(line.color_code || line.color_raw));
 }
 
 function isImportableOrder(order) {
@@ -40,11 +73,11 @@ function isImportableOrder(order) {
     clean(order.order_no) &&
     clean(order.start_date) &&
     clean(order.cancel_date) &&
-    clean(order.division_code || 'X') &&
-    clean(order.warehouse_code || 'PE')
+    headerDivisionForExport(order) &&
+    headerWarehouseForExport(order)
   );
   const lines = order.purchase_order_lines || [];
-  const hasLine = lines.some(line => clean(line.style_code || line.style_raw) && clean(line.color_code || line.color_raw) && clean(line.sales_price) && clean(line.qty_sz1 ?? line.quantity ?? line.qty_total));
+  const hasLine = lines.some(line => lineHasImportableStyle(order, line) && clean(line.sales_price) && clean(line.qty_sz1 ?? line.quantity ?? line.qty_total));
   return hasHeader && hasLine;
 }
 
@@ -96,7 +129,7 @@ function orderToA2000HeaderRow(order) {
   row.CUST_DEPT = codeOrBlank(order.dept_code, order.dept_raw);
   row.REGION = clean(order.region_code);
   row.DC_NO = clean(order.dc_code);
-  row.DIV_NO = clean(order.division_code || 'X');
+  row.DIV_NO = headerDivisionForExport(order);
   row.BOOK_SEASON = clean(order.book_season_code);
   row.SHIP_VIA_NO = clean(order.ship_via_code);
   row.PRIORITY = clean(order.priority_code);
@@ -122,7 +155,7 @@ function orderToA2000HeaderRow(order) {
   row.USER_REF3 = trimMax(order.status, 20);
   row.USER_REF4 = '';
   row.USER_REF5 = '';
-  row.DEF_WHOUSE = clean(order.warehouse_code || 'PE');
+  row.DEF_WHOUSE = headerWarehouseForExport(order);
   row.SH_RULE = clean(order.shipping_handling_rule);
   row.FIRST_COST_RULE = clean(order.first_cost_rule);
   row.PRICE_LIST_ID = clean(order.price_list_id);
@@ -146,10 +179,15 @@ function lineToA2000LineRow(order, line) {
   row.CUST_NO = clean(order.customer_code);
   row._NO = codeOrBlank(order.store_code, order.store_raw);
   row.ORDER_NO = clean(order.order_no);
-  row.STYLE = codeOrBlank(line.style_code, line.style_raw);
-  row.COLOR_NO = codeOrBlank(line.color_code, line.color_raw);
+  if (requiresMappedStyle(order)) {
+    row.STYLE = clean(line.style_code);
+    row.COLOR_NO = clean(line.color_code);
+  } else {
+    row.STYLE = codeOrBlank(line.style_code, line.style_raw);
+    row.COLOR_NO = codeOrBlank(line.color_code, line.color_raw);
+  }
   row.SALES_PRICE = clean(line.sales_price);
-  row.WHOUSE = clean(line.warehouse_code || order.warehouse_code || 'PE');
+  row.WHOUSE = lineWarehouseForExport(order, line);
   row.QTY_SZ1 = clean(line.qty_sz1 ?? line.quantity ?? line.qty_total);
   for (let i = 2; i <= 18; i += 1) {
     row[`QTY_SZ${i}`] = clean(line[`qty_sz${i}`]);
