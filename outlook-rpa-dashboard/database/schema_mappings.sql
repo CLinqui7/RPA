@@ -10,8 +10,7 @@ create table if not exists public.a2000_code_mappings (
   a2000_code text,
   confidence numeric default 0.5,
   source text default 'manual',
-  notes text,
-
+  notes text
 );
 
 create table if not exists public.a2000_style_color_mappings (
@@ -53,7 +52,6 @@ create table if not exists public.po_truth_lines (
 
 create index if not exists idx_po_truth_lines_order_no on public.po_truth_lines(order_no);
 create index if not exists idx_po_truth_lines_style_color on public.po_truth_lines(style, color);
-
 
 create unique index if not exists idx_a2000_code_mappings_unique_expr
 on public.a2000_code_mappings (

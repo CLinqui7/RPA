@@ -58,21 +58,14 @@ export function normalizeStyleColor({ customerRaw, parser, styleRaw, colorRaw })
 
   if (customer === 'bealls') return beallsColor(style, color);
 
-  // Customers where export/checklist evidence shows style/color split by the final suffix.
-  // Examples:
-  //   EHH108-26-EVP   -> STYLE EHH108-26, COLOR EVP
-  //   WMH3101U-42-003 -> STYLE WMH3101U-42, COLOR 003
-  //   EHH350-42-G13   -> STYLE EHH350-42, COLOR G13
-  if (['variety', 'shoeshow', 'spencers', 'gabes'].includes(customer)) {
-    const split = splitLastHyphen(style);
-    if (split) return split;
+  // Strict PDF-only flows. Leave A2000 mapping blank until PT/export/checklist/master supplies it.
+  if (['cititrends', 'gabes', 'shoeshow'].includes(customer)) {
+    return { style_code: null, color_code: null };
   }
 
-  if (customer === 'cititrends') {
-    return {
-      style_code: style,
-      color_code: /^[A-Z0-9]{2,6}$/i.test(color) ? color.toUpperCase() : null
-    };
+  if (['variety', 'spencers'].includes(customer)) {
+    const split = splitLastHyphen(style);
+    if (split) return split;
   }
 
   return {

@@ -25,8 +25,42 @@ function tokenClean(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
+const VISUAL_COLOR_STARTS = new Set([
+  'BLACK', 'DOVE', 'KHAKI', 'PINK', 'RED', 'BROWN', 'WHITE', 'BLUE', 'MULTI',
+  'TAN', 'NAVY', 'GREY', 'GRAY', 'TAUPE', 'IVORY', 'SILVER', 'GOLD',
+  'BEIGE', 'NATURAL', 'GREEN', 'PURPLE', 'ORANGE', 'YELLOW'
+]);
+
+function isVisualColorStart(value) {
+  return VISUAL_COLOR_STARTS.has(String(value || '').trim().toUpperCase());
+}
+
+function isStandaloneStyleSuffix(value) {
+  const v = String(value || '').trim();
+  if (!/^-?[A-Z0-9]{2,8}$/i.test(v)) return false;
+  if (/^\d{5,12}$/.test(v)) return false;
+  if (/^\$/.test(v) || /^\d+(?:\.\d{2})$/.test(v)) return false;
+  if (/^(TOTAL|PAGE|UNITS|COST)$/i.test(v)) return false;
+  return true;
+}
+
+function appendStyleSuffix(styleRaw, suffixRaw) {
+  const suffix = String(suffixRaw || '').trim().toUpperCase();
+  if (!suffix) return styleRaw;
+  if (suffix.startsWith('-')) return `${styleRaw}${suffix}`;
+  if (String(styleRaw || '').endsWith('-')) return `${styleRaw}${suffix}`;
+  return `${styleRaw}-${suffix}`;
+}
+
+function suffixLineAfterRow(rawLines, startIndex) {
+  const candidate = tokenClean(rawLines[startIndex + 1] || '');
+  return isStandaloneStyleSuffix(candidate) ? candidate : null;
+}
+
 function isSkuToken(value) {
-  return /^\d{7,12}$/.test(String(value || '').trim());
+  // Bealls puede traer SKU de 6 dígitos en algunos POs bulk
+  // y SKU de 7-12 dígitos en otros layouts.
+  return /^\d{5,12}$/.test(String(value || '').trim());
 }
 
 function isPriceToken(value) {
@@ -196,7 +230,7 @@ function extractTerms(text) {
 
 function parseSkuWindow(rawLines, startIndex) {
   const first = rawLines[startIndex];
-  const starts = first.match(/^(\d{7,12})\b\s*(.*)$/);
+  const starts = first.match(/^(\d{5,12})\b\s*(.*)$/);
   if (!starts) return null;
 
   const window = rawLines.slice(startIndex, startIndex + 6).join(' ');
@@ -208,11 +242,15 @@ function parseSkuWindow(rawLines, startIndex) {
   let styleRaw = tokens[cursor] || '';
   cursor += 1;
 
-  // Style can be split over two text rows, e.g. EHH400-42- / 003.
+  // Style can be split in two ways:
+  // 1) same text flow: EHH108-26- EVP Black Tattoo . Eve Twill Tote $11.00 100
+  // 2) next visual row: EHH108-26- Black Tattoo . Eve Twill Tote $11.00 100 / EVP
+  // Never consume visual color words such as Black/Dove/Khaki as a style suffix.
   if (
     styleRaw.endsWith('-') &&
     tokens[cursor] &&
     isSuffixToken(tokens[cursor]) &&
+    !isVisualColorStart(tokens[cursor]) &&
     tokens[cursor + 1] &&
     !isSizeToken(tokens[cursor + 1])
   ) {
@@ -234,12 +272,12 @@ function parseSkuWindow(rawLines, startIndex) {
   const sizeRaw = tokens[sizeIndex];
 
   // Some extractors put the style suffix BELOW the row, not immediately after style:
-  // 99155767 EHH400-42- Black . Ellen Clutch $9.00 425
-  // 003
-  if (styleRaw.endsWith('-')) {
-    const nextLine = tokenClean(rawLines[startIndex + 1] || '');
-    if (isSuffixToken(nextLine)) styleRaw = `${styleRaw}${nextLine}`;
-  }
+  // 99153227 EHH108-26- Black Tattoo . Eve Twill Tote $11.00 100
+  // EVP
+  // 159556 ABH4303E-42 Black . NYLON SQUARE SPACE WEEKENDER BAG W FLAT POUCH $9.00 463
+  // -003
+  const nextSuffix = suffixLineAfterRow(rawLines, startIndex);
+  if (nextSuffix) styleRaw = appendStyleSuffix(styleRaw, nextSuffix);
 
   let priceIndex = -1;
   for (let i = sizeIndex + 1; i < tokens.length; i += 1) {
@@ -269,7 +307,7 @@ function parseRowsFromLines(text) {
   const seen = new Set();
 
   for (let i = 0; i < rawLines.length; i += 1) {
-    if (!/^\d{7,12}\b/.test(rawLines[i])) continue;
+    if (!/^\d{5,12}\b/.test(rawLines[i])) continue;
     const row = parseSkuWindow(rawLines, i);
     if (!row) continue;
     const key = [row.customer_sku, row.style_raw, row.color_raw, row.size_raw, row.sales_price, row.qty_total, row.description].join('|');
@@ -288,7 +326,8 @@ function parseRowsFromCompactText(text) {
 
   // Fallback for completely collapsed rows without line breaks:
   // 99134190TSG1R01-G02Black.BLACK SUNGLASS SMART EYEWEAR$13.0086
-  const collapsed = /(\d{7,12})\s*([A-Z0-9]+(?:[\/A-Z0-9]*)(?:-[A-Z0-9\/]+)*-?)(?:\s+)?([A-Z0-9]{2,8})?\s*(Black|Brown Multi|Pink\/Black|Red\/Black|Pink|Brown|Red|White|Blue|Multi)\s*(\.|\d{1,3}[A-Z]?)\s+(.+?)\s*\$\s*(\d+(?:\.\d{2})?)(\d{1,6})\b/gi;
+  // 159544 AB101-42- Black . NYLON DIAMOND QUILT DUFFLE BAG $9.00 908
+  const collapsed = /(\d{5,12})\s*([A-Z0-9]+(?:[\/A-Z0-9]*)(?:-[A-Z0-9\/]+)*-?)(?:\s+)?([A-Z0-9]{2,8})?\s*(Black|Brown Multi|Pink\/Black|Red\/Black|Pink|Brown|Red|White|Blue|Multi)\s*(\.|\d{1,3}[A-Z]?)\s+(.+?)\s*\$\s*(\d+(?:\.\d{2})?)(\d{1,6})\b/gi;
   let m;
   while ((m = collapsed.exec(one)) !== null) {
     let styleRaw = m[2];

@@ -1,5 +1,6 @@
 import { compactText, missingFields, inferStatus } from '../helpers.js';
 import { normalizeForA2000 } from '../mappers/normalizeForA2000.js';
+import { enrichOrderWithMasters } from '../enrichment/enrichOrder.js';
 import { parseBealls } from './bealls.js';
 import { parseGabes } from './gabes.js';
 import { parseCitiTrends } from './cititrends.js';
@@ -84,5 +85,5 @@ export function parsePurchaseOrder({ text, fileName, document }) {
     };
   }
 
-  return addQuality(normalizeForA2000(parsed));
+  return addQuality(enrichOrderWithMasters(normalizeForA2000(parsed)));
 }
