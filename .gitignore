@@ -41,3 +41,11 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 Thumbs.db
+
+# Local project backups
+backup_*/
+**/backup_*/
+*_BACKUP_*/
+
+# Local patch/archive ZIPs
+*.zip
