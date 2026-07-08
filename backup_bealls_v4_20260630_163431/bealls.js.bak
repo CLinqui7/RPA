@@ -1,0 +1,437 @@
+import { cleanText, compactText, normalizeDate, normalizeInteger, normalizeMoney } from '../helpers.js';
+
+function linesOf(text) {
+  return String(text || '')
+    .replace(/\u00a0/g, ' ')
+    .split(/\r?\n+/)
+    .map((x) => x.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+}
+
+function normalizeFileNameValue(fileName, key) {
+  const re = new RegExp(`${key}#\\s*(\\d+)`, 'i');
+  return String(fileName || '').match(re)?.[1] || null;
+}
+
+function money(value) {
+  return normalizeMoney(String(value || '').replace(/[$,]/g, ''));
+}
+
+function int(value) {
+  return normalizeInteger(String(value || '').replace(/[,]/g, ''));
+}
+
+function tokenClean(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function isSkuToken(value) {
+  return /^\d{7,12}$/.test(String(value || '').trim());
+}
+
+function isPriceToken(value) {
+  return /^\$?\d{1,6}(?:\.\d{2})$/.test(String(value || '').trim());
+}
+
+function isQtyToken(value) {
+  return /^\d{1,6}$/.test(String(value || '').replace(/,/g, '').trim());
+}
+
+function isSizeToken(value) {
+  const v = String(value || '').trim();
+  return v === '.' || /^\d{1,3}[A-Z]?$/.test(v) || /^[A-Z]{1,4}$/.test(v);
+}
+
+function isSuffixToken(value) {
+  return /^[A-Z0-9]{2,8}$/i.test(String(value || '').trim());
+}
+
+function normalizeStyleRaw(raw) {
+  return String(raw || '').replace(/\s+/g, '').replace(/--+/g, '-').toUpperCase();
+}
+
+function splitLastHyphen(styleRaw) {
+  const raw = normalizeStyleRaw(styleRaw);
+  const m = raw.match(/^(.+)-([A-Z0-9]{2,8})$/i);
+  if (!m) return null;
+  return { style_code: m[1], color_code: m[2].toUpperCase() };
+}
+
+const BEALLS_STYLE_MAP = {
+  // E GLUCK smart eyewear, confirmed by packing slip.
+  'TSG1R01-G02': { style_code: 'TSG1R01', color_code: 'G02', list_price: 65, upc: '199347426533' },
+  'TSG1R01-G65': { style_code: 'TSG1R01', color_code: 'G65', list_price: 65, upc: '199347426526' },
+  'TSG1R01-Z16': { style_code: 'TSG1R01', color_code: 'Z16', list_price: 65, upc: '199347426540' },
+
+  // Bealls Outlet EH 1858440, confirmed by PS/PT.
+  'EHH400-42-003': { style_code: 'EHH400-42', color_code: '003', list_price: null, upc: '199347349559' },
+  'EHH400-42|BLACK': { style_code: 'EHH400-42', color_code: '003', list_price: null, upc: '199347349559' },
+
+  // Bealls Outlet 1817648 / 1817649, confirmed by pick ticket.
+  'EHW432|BLACK': { style_code: 'EHW432-42', color_code: '003', list_price: null, upc: '199347366990' },
+  'EHW436B|PINK/BLACK': { style_code: 'EHW436A/B-42', color_code: '89K', list_price: null, upc: '199347367119' },
+  'EHW436A|PINK/BLACK': { style_code: 'EHW436A/B-42', color_code: '89K', list_price: null, upc: '199347367119' },
+  'EHW452A|RED/BLACK': { style_code: 'EHW452A/B-42', color_code: '410', list_price: null, upc: '199347367201' },
+  'EHW452B|RED/BLACK': { style_code: 'EHW452A/B-42', color_code: '410', list_price: null, upc: '199347367201' },
+  'EHW537|RED/BLACK': { style_code: 'EHW537-42', color_code: '410', list_price: null, upc: '199347366624' },
+  'EHW549|BLACK': { style_code: 'EHW549-42', color_code: '003', list_price: null, upc: '199347367317' },
+
+  // Previous Bealls examples.
+  'EHH108-26-EVP': { style_code: 'EHH108-26', color_code: 'EVP' },
+  'EHH108-26-LPT': { style_code: 'EHH108-26', color_code: 'LPT' },
+  'EHH108-26-TLP': { style_code: 'EHH108-26', color_code: 'TLP' },
+  '03STORMY13KP|BLACK': { style_code: '03STORMY13KP', color_code: 'BKA' }
+};
+
+const VISUAL_COLOR_FALLBACK = {
+  BLACK: '003',
+  'BROWN MULTI': '009',
+  BROWN: '009',
+  'PINK/BLACK': '89K',
+  'RED/BLACK': '410',
+  PINK: '009',
+  RED: '410'
+};
+
+function mapStyleColor(styleRaw, colorRaw) {
+  const style = normalizeStyleRaw(styleRaw);
+  const visual = tokenClean(colorRaw).toUpperCase();
+  const fullKey = style;
+  const visualKey = `${style}|${visual}`;
+
+  if (BEALLS_STYLE_MAP[fullKey]) return BEALLS_STYLE_MAP[fullKey];
+  if (BEALLS_STYLE_MAP[visualKey]) return BEALLS_STYLE_MAP[visualKey];
+
+  const split = splitLastHyphen(style);
+  if (split) return split;
+
+  return {
+    style_code: style || null,
+    color_code: VISUAL_COLOR_FALLBACK[visual] || (/^[A-Z0-9]{2,8}$/.test(visual) ? visual : null),
+    list_price: null,
+    upc: null
+  };
+}
+
+function extractDeptAndOrder(text, fileName = '') {
+  const one = compactText(text);
+  const deptFromFilename = normalizeFileNameValue(fileName, 'Dept');
+  const poFromFilename = normalizeFileNameValue(fileName, 'PO');
+
+  const direct = one.match(/DEPT\.\s*NUMBER:\s*(\d{1,6})\s+ORDER\s*NUMBER:\s*(\d{5,12})/i);
+  if (direct) {
+    return {
+      deptFromFilename,
+      deptFromPdf: direct[1],
+      orderFromPdf: direct[2],
+      deptNo: direct[1],
+      orderNo: direct[2]
+    };
+  }
+
+  const collapsed = one.match(/DEPT\.\s*NUMBER:\s*ORDER\s*NUMBER:\s*(\d{7,18})/i)?.[1] || null;
+  const tableOrder = one.match(/Order\s*Number\s*Ship\s*Date\s*Cancel\s*Date\s*Freight\s*Allowance\s*(\d{5,12})/i)?.[1]
+    || one.match(/BulkDomestic-\d+-(\d{5,12})\b/i)?.[1]
+    || poFromFilename
+    || null;
+
+  if (collapsed && tableOrder && collapsed.endsWith(tableOrder)) {
+    const dept = collapsed.slice(0, -tableOrder.length);
+    return { deptFromFilename, deptFromPdf: dept, orderFromPdf: tableOrder, deptNo: dept, orderNo: tableOrder };
+  }
+
+  const deptFromPdf = one.match(/DEPT\.\s*NUMBER:\s*(\d{1,6})\b/i)?.[1] || null;
+  const orderFromPdf = one.match(/ORDER\s*NUMBER:\s*(\d{5,12})\b/i)?.[1] || tableOrder || null;
+
+  return {
+    deptFromFilename,
+    deptFromPdf,
+    orderFromPdf,
+    deptNo: deptFromPdf || deptFromFilename || null,
+    orderNo: orderFromPdf || poFromFilename || null
+  };
+}
+
+function extractDates(text) {
+  const one = compactText(text);
+  let orderDate = one.match(/Order Date:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i)?.[1] || null;
+  let shipDate = one.match(/Ship Date:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i)?.[1] || null;
+  let cancelDate = one.match(/Cancel Date:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i)?.[1] || null;
+
+  const oldBulk = one.match(/Cancel Date:\s*(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
+  if (oldBulk) {
+    cancelDate = cancelDate || oldBulk[1];
+    shipDate = shipDate || oldBulk[2];
+    orderDate = orderDate || oldBulk[3];
+  }
+
+  const table = one.match(/Order\s*Number\s*Ship\s*Date\s*Cancel\s*Date\s*Freight\s*Allowance\s*\d{5,12}\s*(\d{1,2}\/\d{1,2}\/\d{4})\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
+  if (table) {
+    shipDate = shipDate || table[1];
+    cancelDate = cancelDate || table[2];
+  }
+
+  return {
+    order_date: normalizeDate(orderDate),
+    start_date: normalizeDate(shipDate),
+    cancel_date: normalizeDate(cancelDate)
+  };
+}
+
+function extractStore(text) {
+  const one = compactText(text);
+
+  // IMPORTANT: read center/address first. Do not scan after a generic Store: label,
+  // because the next 3-digit token can be a color such as 003.
+  return one.match(/LOGISTICS\s+SUPPORT\s+CENTER\s+#(\d{3,5})/i)?.[1]
+    || one.match(/DIST\s+CENTER\s+#(\d{3,5})/i)?.[1]
+    || one.match(/Ship\s*To:\s*Bealls\s*Stores\s*(\d{3,5})/i)?.[1]
+    || one.match(/Mark\s*For:.*?#(\d{3,5})/i)?.[1]
+    || null;
+}
+
+function extractTerms(text) {
+  return compactText(text).match(/\b(ROG\s*NET\s*\d+)\b/i)?.[1]?.replace(/\s+/g, ' ').toUpperCase() || null;
+}
+
+function parseSkuWindow(rawLines, startIndex) {
+  const first = rawLines[startIndex];
+  const starts = first.match(/^(\d{7,12})\b\s*(.*)$/);
+  if (!starts) return null;
+
+  const window = rawLines.slice(startIndex, startIndex + 6).join(' ');
+  const tokens = window.split(/\s+/).filter(Boolean);
+  if (!tokens.length || !isSkuToken(tokens[0])) return null;
+
+  const customerSku = tokens[0];
+  let cursor = 1;
+  let styleRaw = tokens[cursor] || '';
+  cursor += 1;
+
+  // Style can be split over two text rows, e.g. EHH400-42- / 003.
+  if (
+    styleRaw.endsWith('-') &&
+    tokens[cursor] &&
+    isSuffixToken(tokens[cursor]) &&
+    tokens[cursor + 1] &&
+    !isSizeToken(tokens[cursor + 1])
+  ) {
+    styleRaw = `${styleRaw}${tokens[cursor]}`;
+    cursor += 1;
+  }
+
+  let sizeIndex = -1;
+  for (let i = cursor + 1; i < tokens.length; i += 1) {
+    if (isSizeToken(tokens[i]) && tokens.slice(cursor, i).length > 0) {
+      // A size token must be followed by a description and a price in the next tokens.
+      const hasPriceAfter = tokens.slice(i + 1, i + 12).some(isPriceToken);
+      if (hasPriceAfter) { sizeIndex = i; break; }
+    }
+  }
+  if (sizeIndex < 0) return null;
+
+  const colorRaw = tokens.slice(cursor, sizeIndex).join(' ');
+  const sizeRaw = tokens[sizeIndex];
+
+  // Some extractors put the style suffix BELOW the row, not immediately after style:
+  // 99155767 EHH400-42- Black . Ellen Clutch $9.00 425
+  // 003
+  if (styleRaw.endsWith('-')) {
+    const nextLine = tokenClean(rawLines[startIndex + 1] || '');
+    if (isSuffixToken(nextLine)) styleRaw = `${styleRaw}${nextLine}`;
+  }
+
+  let priceIndex = -1;
+  for (let i = sizeIndex + 1; i < tokens.length; i += 1) {
+    if (isPriceToken(tokens[i])) { priceIndex = i; break; }
+  }
+  if (priceIndex < 0 || !tokens[priceIndex + 1] || !isQtyToken(tokens[priceIndex + 1])) return null;
+
+  const description = tokens.slice(sizeIndex + 1, priceIndex).join(' ');
+  if (!description || /^Total$/i.test(description)) return null;
+
+  return {
+    customer_sku: customerSku,
+    style_raw: styleRaw,
+    color_raw: colorRaw,
+    size_raw: sizeRaw,
+    description,
+    sales_price: money(tokens[priceIndex]),
+    qty_total: int(tokens[priceIndex + 1]),
+    raw_source: rawLines.slice(startIndex, startIndex + 6),
+    source_strategy: 'bealls_token_window_v20'
+  };
+}
+
+function parseRowsFromLines(text) {
+  const rawLines = linesOf(text);
+  const rows = [];
+  const seen = new Set();
+
+  for (let i = 0; i < rawLines.length; i += 1) {
+    if (!/^\d{7,12}\b/.test(rawLines[i])) continue;
+    const row = parseSkuWindow(rawLines, i);
+    if (!row) continue;
+    const key = [row.customer_sku, row.style_raw, row.color_raw, row.size_raw, row.sales_price, row.qty_total, row.description].join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function parseRowsFromCompactText(text) {
+  const one = compactText(text);
+  const rows = [];
+  const seen = new Set();
+
+  // Fallback for completely collapsed rows without line breaks:
+  // 99134190TSG1R01-G02Black.BLACK SUNGLASS SMART EYEWEAR$13.0086
+  const collapsed = /(\d{7,12})\s*([A-Z0-9]+(?:[\/A-Z0-9]*)(?:-[A-Z0-9\/]+)*-?)(?:\s+)?([A-Z0-9]{2,8})?\s*(Black|Brown Multi|Pink\/Black|Red\/Black|Pink|Brown|Red|White|Blue|Multi)\s*(\.|\d{1,3}[A-Z]?)\s+(.+?)\s*\$\s*(\d+(?:\.\d{2})?)(\d{1,6})\b/gi;
+  let m;
+  while ((m = collapsed.exec(one)) !== null) {
+    let styleRaw = m[2];
+    let colorRaw = m[4];
+    if (styleRaw.endsWith('-') && m[3]) styleRaw = `${styleRaw}${m[3]}`;
+    const row = {
+      customer_sku: m[1],
+      style_raw: styleRaw,
+      color_raw: colorRaw,
+      size_raw: m[5],
+      description: tokenClean(m[6]),
+      sales_price: money(m[7]),
+      qty_total: int(m[8]),
+      raw_source: [m[0]],
+      source_strategy: 'bealls_compact_v20'
+    };
+    const key = [row.customer_sku, row.style_raw, row.color_raw, row.size_raw, row.sales_price, row.qty_total, row.description].join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push(row);
+  }
+  return rows;
+}
+
+function rowsToLines(rows) {
+  const groups = new Map();
+
+  for (const row of rows) {
+    const mapped = mapStyleColor(row.style_raw, row.color_raw);
+    const styleCode = mapped.style_code;
+    const colorCode = mapped.color_code;
+    if (!styleCode || !colorCode) continue;
+
+    const key = [styleCode, colorCode, row.sales_price].join('|');
+    if (!groups.has(key)) {
+      groups.set(key, {
+        style_raw: normalizeStyleRaw(row.style_raw),
+        style_code: styleCode,
+        color_raw: row.color_raw,
+        color_code: colorCode,
+        description: row.description,
+        sales_price: row.sales_price,
+        list_price: mapped.list_price || null,
+        ticket_sku: mapped.upc || null,
+        qty_total: 0,
+        customer_sku: row.customer_sku || null,
+        sourceRows: []
+      });
+    }
+
+    const group = groups.get(key);
+    group.qty_total += Number(row.qty_total || 0);
+    group.sourceRows.push(row);
+  }
+
+  let lineNo = 1;
+  return [...groups.values()].map((group) => ({
+    line_no: lineNo++,
+    customer_sku: group.customer_sku,
+    ticket_sku: group.ticket_sku,
+    style_raw: group.style_raw,
+    style_code: group.style_code,
+    color_raw: group.color_raw,
+    color_code: group.color_code,
+    size_raw: '.',
+    size_code: 'PC',
+    description: group.description,
+    sales_price: group.sales_price,
+    list_price: group.list_price,
+    qty_total: group.qty_total,
+    qty_sz1: group.qty_total,
+    warehouse_code: 'PE',
+    raw: {
+      source: 'bealls_v20_universal_token_parser',
+      upc: group.ticket_sku,
+      source_rows: group.sourceRows
+    }
+  }));
+}
+
+function extractBeallsLines(text) {
+  const rows = [];
+  const seen = new Set();
+  const lineRows = parseRowsFromLines(text);
+  // If normal line extraction works, do NOT also run compact extraction.
+  // Compact fallback can over-match across several table rows and create ghost duplicates.
+  const sourceRows = lineRows.length ? lineRows : parseRowsFromCompactText(text);
+  for (const row of sourceRows) {
+    const key = [row.customer_sku, row.style_raw, row.color_raw, row.sales_price, row.qty_total, row.description].join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push(row);
+  }
+  return rowsToLines(rows);
+}
+
+export function parseBealls({ text, fileName }) {
+  const rawText = cleanText(text || '');
+  const oneLine = compactText(rawText);
+  const { deptFromFilename, deptFromPdf, orderFromPdf, orderNo, deptNo } = extractDeptAndOrder(rawText, fileName || '');
+  const dates = extractDates(rawText);
+  const storeRaw = extractStore(rawText);
+  const termsRaw = extractTerms(rawText);
+  const totalQty = oneLine.match(/Total Qty\.\s*(\d[\d,]*)/i)?.[1] || null;
+  const totalAmount = oneLine.match(/Total Cost\s*\$\s*([\d,]+\.\d{2})/i)?.[1] || null;
+  const lines = extractBeallsLines(rawText);
+
+  const warnings = [];
+  if (deptFromFilename && deptFromPdf && deptFromFilename !== deptFromPdf) {
+    warnings.push({ field: 'department', pdf: deptFromPdf, filename: deptFromFilename, message: 'Using PDF DEPT. NUMBER because filename may contain leading category/digit noise.' });
+  }
+  const poFromFilename = normalizeFileNameValue(fileName || '', 'PO');
+  if (poFromFilename && orderFromPdf && poFromFilename !== orderFromPdf) {
+    warnings.push({ field: 'order_no', pdf: orderFromPdf, filename: poFromFilename, message: 'Using PDF ORDER NUMBER because it is printed in the document.' });
+  }
+
+  return {
+    parser: 'bealls',
+    confidence: lines.length ? 0.99 : 0.6,
+    header: {
+      customer_raw: 'Bealls',
+      customer_code: 'BEALLSOUTL',
+      order_no: orderNo,
+      order_date: dates.order_date || null,
+      start_date: dates.start_date || null,
+      cancel_date: dates.cancel_date || null,
+      book_date: null,
+      dept_raw: deptNo,
+      dept_code: deptNo,
+      division_code: 'H',
+      store_raw: storeRaw,
+      store_code: storeRaw,
+      terms_raw: termsRaw,
+      terms_code: termsRaw === 'ROG NET 60' ? 'X6' : null,
+      ship_via_code: null,
+      warehouse_code: 'PE',
+      raw: { deptFromFilename, deptFromPdf, orderFromPdf, totalQty, totalAmount, warnings }
+    },
+    lines,
+    totals: {
+      qty: int(totalQty) || lines.reduce((acc, line) => acc + Number(line.qty_total || 0), 0),
+      amount: normalizeMoney(totalAmount)
+    },
+    conflicts: []
+  };
+}

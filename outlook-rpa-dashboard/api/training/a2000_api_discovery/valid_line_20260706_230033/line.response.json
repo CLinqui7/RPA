@@ -1,0 +1,2 @@
+
+{ "status": "Fail", "message": "Lines processed : 1", "updated": 0, "errors": 1, "data": [], "errors": [{"line": 1, "column": "STYLE", "value": "11KS306S9962", "message": "Wrong division for style"}]}

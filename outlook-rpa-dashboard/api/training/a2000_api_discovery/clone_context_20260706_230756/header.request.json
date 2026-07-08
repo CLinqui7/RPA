@@ -1,0 +1,17 @@
+{
+  "IGNORE_ERRORS": "N",
+  "ORDER_HD": [
+    {
+      "CUST_NO": "CITI",
+      "STORE_NO": "1",
+      "ORDER_NO": "CTX260706230757",
+      "ORDER_DATE": "07/06/26",
+      "START_DATE": "07/13/26",
+      "CANCEL_DATE": "07/20/26",
+      "DIV_NO": "AL",
+      "TERM_NO": "X6",
+      "SHIP_VIA_NO": "ROUTING",
+      "DEF_WHOUSE": "PE"
+    }
+  ]
+}

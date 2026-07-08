@@ -20,3 +20,37 @@ mnt/
 *.zip
 *.log
 .DS_Store
+
+# RPA browser/session/cache - NEVER COMMIT
+api/.auth/
+api/.auth/**
+
+# Runtime downloads
+api/downloads/
+api/downloads/**
+
+# Heavy masters, pass separately
+api/masters/
+api/masters/**
+
+# Local exports/runtime
+api/exports/
+api/tmp/
+tmp/
+*.log
+
+# Old patch zips
+*.zip
+
+# Env/secrets
+.env
+api/.env
+web/.env
+*.env
+
+# Dependencies/builds
+node_modules/
+api/node_modules/
+web/node_modules/
+web/dist/
+dist/

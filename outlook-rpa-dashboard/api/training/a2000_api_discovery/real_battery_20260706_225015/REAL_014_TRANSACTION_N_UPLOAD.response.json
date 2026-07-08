@@ -1,0 +1,2 @@
+
+{ "status": "Fail", "message": "Lines processed : 2", "updated": 0, "errors": 2, "data": [], "errors": [{"line": 2, "column": "DIV_NO", "value": "", "message": "Value is required"},{"line": 2, "column": "TERM_NO", "value": "", "message": "No default terms code found"},{"line": 2, "column": "CUST_NO", "value": "__INVALID_CUST__", "message": "Code is not on file"},{"line": 2, "column": "STORE_NO", "value": "__INVALID_STORE__", "message": "Code is not on file"}]}

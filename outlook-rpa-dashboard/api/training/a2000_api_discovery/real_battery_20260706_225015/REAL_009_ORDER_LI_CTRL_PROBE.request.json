@@ -1,0 +1,17 @@
+{
+  "IGNORE_ERRORS": "N",
+  "ORDER_LI": [
+    {
+      "SEQ_ORDER_NO": 3758959,
+      "LINE_NO": 1,
+      "CUST_NO": "CITI",
+      "STORE_NO": "184",
+      "ORDER_NO": "API260706225021",
+      "STYLE": "ZZ_BAD_STYLE",
+      "COLOR_NO": "ZZ_BAD_COLOR",
+      "SALES_PRICE": 1.0,
+      "WHOUSE": "PE",
+      "QTY_SZ1": 1
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "IGNORE_ERRORS": "N",
+  "ORDER_LI": [
+    {
+      "SEQ_ORDER_NO": 3758962,
+      "LINE_NO": 1,
+      "CUST_NO": "CITI",
+      "STORE_NO": "1",
+      "ORDER_NO": "CTX260706230757",
+      "STYLE": "11KS306S9962",
+      "COLOR_NO": "0C9",
+      "SALES_PRICE": 7.1429,
+      "WHOUSE": "PE",
+      "QTY_SZ4": 1
+    }
+  ]
+}

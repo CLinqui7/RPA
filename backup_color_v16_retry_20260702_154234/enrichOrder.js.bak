@@ -1,0 +1,308 @@
+import { cleanMasterValue, loadMasterData, normalizeMasterToken, normalizeMasterText } from './masterData.js';
+
+function clean(value) {
+  return cleanMasterValue(value);
+}
+
+function upper(value) {
+  return clean(value).toUpperCase();
+}
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function candidateSummary(rows, limit = 8) {
+  return rows.slice(0, limit).map((row) => ({
+    style: clean(row.Style),
+    color: clean(row.Clr),
+    color_description: clean(row['Clr Desc']),
+    sku: clean(row.Sku),
+    div: clean(row.Div),
+    customer: clean(row.Customer),
+    scale: clean(row.Scale),
+    scale_abbr: clean(row['Scale Abbr']),
+    price: clean(row.Price)
+  }));
+}
+
+function inferCustomer(parsed, masters) {
+  const header = parsed.header || {};
+  const current = upper(header.customer_code);
+  if (current && masters.customerByCode.has(current)) return current;
+
+  const parser = clean(parsed.parser).toLowerCase();
+  if (parser === 'cititrends' && masters.customerByCode.has('CITI')) return 'CITI';
+  if (parser === 'bealls' && masters.customerByCode.has('BEALLSOUTL')) return 'BEALLSOUTL';
+
+  const rawKey = normalizeMasterToken(header.customer_raw);
+  if (rawKey && masters.customerByName.has(rawKey)) return upper(masters.customerByName.get(rawKey).Customer);
+  return current || null;
+}
+
+function applyCustomerMaster(parsed, masters, conflicts, trace) {
+  const header = parsed.header || {};
+  const customerCode = inferCustomer(parsed, masters);
+  if (!customerCode) return null;
+
+  const customer = masters.customerByCode.get(customerCode);
+  if (!customer) return null;
+
+  header.customer_code = header.customer_code || customerCode;
+  header.raw = header.raw || {};
+  header.raw.customer_master = {
+    customer: customerCode,
+    name: clean(customer['Cust Name']),
+    terms: clean(customer.Terms),
+    terms_description: clean(customer['Terms Description']),
+    address: [customer['Addr 1'], customer.City, customer.State, customer.Postal].map(clean).filter(Boolean).join(', ')
+  };
+
+  if (!header.terms_code && clean(customer.Terms)) header.terms_code = clean(customer.Terms);
+  if (header.terms_raw && customer['Terms Description']) {
+    const termsRaw = normalizeMasterText(header.terms_raw);
+    const termsDescription = normalizeMasterText(customer['Terms Description']);
+    const looseRaw = termsRaw.replace(/DAYS/g, '').replace(/\s+/g, ' ');
+    const looseDesc = termsDescription.replace(/CIT/g, '').replace(/DAYS/g, '').replace(/\s+/g, ' ');
+    if (looseRaw && looseDesc && !looseDesc.includes(looseRaw.replace(/NET (\d+) ROG/, 'ROG NET $1')) && !termsRaw.includes('NET')) {
+      conflicts.push({ field: 'terms_code', message: 'Terms raw is present but could not be confidently compared with customer master.', pdf: header.terms_raw, master: customer['Terms Description'] });
+    }
+  }
+
+  trace.customer = header.raw.customer_master;
+  return customerCode;
+}
+
+function applyDefaultStore(parsed, masters, customerCode, trace) {
+  const header = parsed.header || {};
+  const parser = clean(parsed.parser).toLowerCase();
+
+  // User-approved rule: Citi PO does not print a store, so use Citi default office from stores_master.
+  // This is not a PDF value. It is explicitly marked as master_default_office.
+  if (parser === 'cititrends' && customerCode === 'CITI' && !header.store_code) {
+    const defaultStore = masters.defaultStoreByCustomer.get(customerCode);
+    if (defaultStore) {
+      header.store_code = clean(defaultStore.Store) || null;
+      header.store_raw = header.store_raw || clean(defaultStore['St Name']) || null;
+      header.raw = header.raw || {};
+      header.raw.store_master = {
+        source: 'stores_master_default_office',
+        customer: customerCode,
+        store: clean(defaultStore.Store),
+        name: clean(defaultStore['St Name']),
+        address: [defaultStore['St Addr 1'], defaultStore['St City'], defaultStore['St State'], defaultStore['St Postal']].map(clean).filter(Boolean).join(', '),
+        active: clean(defaultStore.Active)
+      };
+      trace.store = header.raw.store_master;
+    }
+  }
+
+  if (header.store_code && customerCode) {
+    const store = masters.storeByCustomerStore.get(`${customerCode}|${upper(header.store_code)}`);
+    if (store) {
+      header.raw = header.raw || {};
+      header.raw.store_master = header.raw.store_master || {
+        source: 'stores_master_exact',
+        customer: customerCode,
+        store: clean(store.Store),
+        name: clean(store['St Name']),
+        address: [store['St Addr 1'], store['St City'], store['St State'], store['St Postal']].map(clean).filter(Boolean).join(', '),
+        active: clean(store.Active)
+      };
+      if (!header.ship_via_code && clean(store['Ship Via'])) header.ship_via_code = clean(store['Ship Via']);
+      if (!header.warehouse_code && clean(store.Wh)) header.warehouse_code = clean(store.Wh);
+    }
+  }
+}
+
+function styleRowsForStyle(masters, styleCode) {
+  return masters.skuByStyle.get(upper(styleCode)) || [];
+}
+
+function inferStyleFromMaster({ masters, customerCode, styleRaw, description }) {
+  const rawToken = normalizeMasterToken(styleRaw);
+  if (!rawToken) return { style_code: null, candidates: [] };
+
+  const searchCustomers = unique([customerCode, 'STOCK']);
+  const styles = new Set();
+
+  for (const customer of searchCustomers) {
+    const direct = masters.styleByCustomerNorm.get(`${customer}|${rawToken}`);
+    if (direct) direct.forEach((style) => styles.add(style));
+  }
+
+  // Fuzzy but bounded: only scan styles already in the index by exact normalized fields.
+  // For Citi JANICET, Master Style JANICE-T normalizes to JANICET, so this usually hits above.
+  if (!styles.size && description) {
+    const descToken = normalizeMasterToken(description).slice(0, 16);
+    if (descToken) {
+      for (const [key, set] of masters.styleByCustomerNorm.entries()) {
+        const [customer, token] = key.split('|');
+        if (!searchCustomers.includes(customer)) continue;
+        if (token.includes(rawToken) || rawToken.includes(token) || token.includes(descToken)) {
+          set.forEach((style) => styles.add(style));
+        }
+      }
+    }
+  }
+
+  const candidates = [...styles].flatMap((style) => styleRowsForStyle(masters, style));
+  const uniqueStyles = unique([...styles]);
+  return {
+    style_code: uniqueStyles.length === 1 ? uniqueStyles[0] : null,
+    candidates
+  };
+}
+
+function colorMatches(row, colorRaw, description) {
+  const color = normalizeMasterToken(colorRaw);
+  const desc = normalizeMasterToken(description);
+  const rowTokens = [row.Clr, row['Clr Desc'], row['Clr Abbr'], row['Nrf Color']].map(normalizeMasterToken).filter(Boolean);
+  if (!color && !desc) return false;
+  if (color && rowTokens.some((token) => token === color || token.includes(color) || color.includes(token))) return true;
+  if (desc && rowTokens.some((token) => desc.includes(token) || token.includes(desc))) return true;
+  return false;
+}
+
+function inferColorFromMaster({ styleRows, colorRaw, description }) {
+  const matches = styleRows.filter((row) => colorMatches(row, colorRaw, description));
+  const colors = unique(matches.map((row) => upper(row.Clr)));
+  return {
+    color_code: colors.length === 1 ? colors[0] : null,
+    candidates: matches.length ? matches : styleRows
+  };
+}
+
+function findSkuRow(masters, styleCode, colorCode) {
+  if (!styleCode || !colorCode) return null;
+  return masters.skuByStyleColor.get(`${upper(styleCode)}|${upper(colorCode)}`) || null;
+}
+
+function findMasterUpc(masters, styleCode, colorCode, sizeRaw) {
+  if (!styleCode || !colorCode) return { upc: null, row: null, candidates: [] };
+  const style = upper(styleCode);
+  const color = upper(colorCode);
+  const size = normalizeMasterToken(sizeRaw === '-' ? 'PC' : sizeRaw);
+  const exact = size ? masters.upcByStyleColorSize.get(`${style}|${color}|${size}`) || [] : [];
+  const candidates = exact.length ? exact : (masters.upcByStyleColor.get(`${style}|${color}`) || []);
+  if (!candidates.length) return { upc: null, row: null, candidates: [] };
+
+  const pc = candidates.find((row) => normalizeMasterToken(row['Size Name']) === 'PC' || normalizeMasterToken(row.Scale) === 'PC') || null;
+  const row = pc || (candidates.length === 1 ? candidates[0] : null);
+  return { upc: row ? clean(row['Upc No']) : null, row, candidates };
+}
+
+function enrichLine(line, parsed, masters, customerCode, conflicts) {
+  const parser = clean(parsed.parser).toLowerCase();
+  const raw = { ...(line.raw || {}) };
+  const originalTicketSku = line.ticket_sku || line.upc || null;
+
+  if (originalTicketSku) {
+    line.customer_upc = originalTicketSku;
+    raw.customer_upc_source = raw.customer_upc_source || 'invoice_or_pdf';
+  }
+
+  // Bealls already parses style/color from the PO. Citi usually needs style/color master help.
+  if (!line.style_code) {
+    const inferred = inferStyleFromMaster({ masters, customerCode, styleRaw: line.style_raw, description: line.description });
+    if (inferred.style_code) line.style_code = inferred.style_code;
+    raw.style_master_candidates = candidateSummary(inferred.candidates);
+  }
+
+  const styleRows = line.style_code ? styleRowsForStyle(masters, line.style_code) : [];
+
+  if (!line.color_code && styleRows.length) {
+    const inferredColor = inferColorFromMaster({ styleRows, colorRaw: line.color_raw, description: line.description });
+    if (inferredColor.color_code) line.color_code = inferredColor.color_code;
+    raw.color_master_candidates = candidateSummary(inferredColor.candidates);
+  }
+
+  const skuRow = findSkuRow(masters, line.style_code, line.color_code);
+  if (skuRow) {
+    line.internal_sku = line.internal_sku || clean(skuRow.Sku) || null;
+    line.master_sku = line.master_sku || clean(skuRow.Sku) || null;
+    line.master_price = line.master_price || Number(clean(skuRow.Price)) || null;
+    line.master_division_code = line.master_division_code || clean(skuRow.Div) || null;
+    if (!line.description && clean(skuRow['Sku Descr'])) line.description = clean(skuRow['Sku Descr']);
+    raw.sku_master = {
+      style: clean(skuRow.Style),
+      color: clean(skuRow.Clr),
+      sku: clean(skuRow.Sku),
+      div: clean(skuRow.Div),
+      customer: clean(skuRow.Customer),
+      price: clean(skuRow.Price),
+      scale: clean(skuRow.Scale),
+      scale_abbr: clean(skuRow['Scale Abbr'])
+    };
+  }
+
+  const upc = findMasterUpc(masters, line.style_code, line.color_code, line.size_raw || line.size_code);
+  if (upc.upc) {
+    line.master_upc = upc.upc;
+    // Only fill ticket_sku from master when the document did not already print a UPC.
+    if (!line.ticket_sku) line.ticket_sku = upc.upc;
+    raw.upc_master = {
+      upc: upc.upc,
+      style: clean(upc.row?.Style),
+      color: clean(upc.row?.Clr),
+      size_name: clean(upc.row?.['Size Name']),
+      div: clean(upc.row?.Div),
+      sku: clean(upc.row?.Sku)
+    };
+  } else if (line.style_code && line.color_code) {
+    raw.upc_master_candidates = (upc.candidates || []).slice(0, 10).map((row) => ({
+      upc: clean(row['Upc No']),
+      style: clean(row.Style),
+      color: clean(row.Clr),
+      size_name: clean(row['Size Name']),
+      sku: clean(row.Sku)
+    }));
+  }
+
+  // If all style/color rows agree on division, use it at header level later.
+  if (!line.master_division_code && styleRows.length) {
+    const divisions = unique(styleRows.map((row) => clean(row.Div)));
+    if (divisions.length === 1) line.master_division_code = divisions[0];
+  }
+
+  if (parser === 'cititrends' && line.customer_upc && line.master_upc && line.customer_upc !== line.master_upc) {
+    raw.upc_note = 'Citi printed UPC is kept as customer_upc. Master UPC is stored separately and does not overwrite the invoice UPC.';
+  }
+
+  line.raw = raw;
+  return line;
+}
+
+function applyHeaderFromLines(parsed) {
+  const header = parsed.header || {};
+  const lineDivisions = unique((parsed.lines || []).map((line) => line.master_division_code || line.division_code));
+  if (!header.division_code && lineDivisions.length === 1) header.division_code = lineDivisions[0];
+}
+
+export function enrichOrderWithMasters(parsed) {
+  if (process.env.A2000_MASTER_ENRICH === 'false') return parsed;
+
+  const masters = loadMasterData();
+  parsed.raw_enrichment = parsed.raw_enrichment || {};
+  parsed.raw_enrichment.master_lookup = {
+    attempted: true,
+    master_dir: masters.masterDir,
+    loaded: masters.loaded,
+    counts: masters.counts,
+    error: masters.error || null
+  };
+
+  if (!masters.loaded || masters.error) return parsed;
+
+  const conflicts = parsed.conflicts || [];
+  const trace = {};
+  const customerCode = applyCustomerMaster(parsed, masters, conflicts, trace);
+  applyDefaultStore(parsed, masters, customerCode, trace);
+
+  parsed.lines = (parsed.lines || []).map((line) => enrichLine(line, parsed, masters, customerCode, conflicts));
+  applyHeaderFromLines(parsed);
+
+  parsed.conflicts = conflicts;
+  parsed.raw_enrichment.master_lookup.trace = trace;
+  return parsed;
+}

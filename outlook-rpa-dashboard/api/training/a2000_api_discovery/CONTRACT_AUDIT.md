@@ -1,0 +1,135 @@
+# A2000 Upload Contract Audit
+
+Generated: 2026-07-06T21:56:01.636Z
+
+## ORDER_HD
+
+- CSV fields: 59
+- API Define fields: 60
+- MATCH: 59
+- CSV_ONLY: 0
+- DEFINE_ONLY: 1
+
+| Field | CSV Order | Define Order | Status |
+|---|---:|---:|---|
+| SEQ_ORDER_NO | 1 | 1 | MATCH |
+| CUST_NO | 2 | 2 | MATCH |
+| STORE_NO | 3 | 3 | MATCH |
+| ORDER_NO | 4 | 4 | MATCH |
+| ORDER_DATE | 5 | 5 | MATCH |
+| START_DATE | 6 | 6 | MATCH |
+| CANCEL_DATE | 7 | 7 | MATCH |
+| BOOK_DATE | 8 | 8 | MATCH |
+| CUST_DEPT | 9 | 9 | MATCH |
+| REGION | 10 | 10 | MATCH |
+| DC_NO | 11 | 11 | MATCH |
+| DIV_NO | 12 | 12 | MATCH |
+| BOOK_SEASON | 13 | 13 | MATCH |
+| SHIP_VIA_NO | 14 | 14 | MATCH |
+| PRIORITY | 15 | 15 | MATCH |
+| TERM_NO | 16 | 16 | MATCH |
+| DISC_CODE | 17 | 17 | MATCH |
+| FACTOR_NO | 18 | 18 | MATCH |
+| FACTOR_APPR_NO | 19 | 19 | MATCH |
+| SMAN1_NO | 20 | 20 | MATCH |
+| SMAN2_NO | 21 | 21 | MATCH |
+| SMAN3_NO | 22 | 22 | MATCH |
+| SMAN1_COMM | 23 | 23 | MATCH |
+| SMAN2_COMM | 24 | 24 | MATCH |
+| SMAN3_COMM | 25 | 25 | MATCH |
+| USER_REF1 | 26 | 26 | MATCH |
+| USER_REF2 | 27 | 27 | MATCH |
+| BACK_ORDER | 28 | 28 | MATCH |
+| MASTER_INVOICE | 29 | 29 | MATCH |
+| REORDER | 30 | 30 | MATCH |
+| TAG | 31 | 31 | MATCH |
+| ORDER_ALIAS | 32 | 32 | MATCH |
+| CURRENCY | 33 | 33 | MATCH |
+| EXCHANGE_RATE | 34 | 34 | MATCH |
+| USER_REF3 | 35 | 35 | MATCH |
+| USER_REF4 | 36 | 36 | MATCH |
+| USER_REF5 | 37 | 37 | MATCH |
+| DEF_WHOUSE | 38 | 38 | MATCH |
+| SH_RULE | 39 | 39 | MATCH |
+| FIRST_COST_RULE | 40 | 40 | MATCH |
+| PRICE_LIST_ID | 41 | 41 | MATCH |
+| PROMO_CODE | 42 | 42 | MATCH |
+| ORDER_TYPE | 43 | 43 | MATCH |
+| ORDER_HOLD | 44 | 44 | MATCH |
+| EVENT_DATE | 45 | 45 | MATCH |
+| SALES_TAX1 | 46 | 46 | MATCH |
+| SALES_TAX2 | 47 | 47 | MATCH |
+| SALES_TAX1L | 48 | 48 | MATCH |
+| TAX_AUTH | 49 | 49 | MATCH |
+| STNAME | 50 | 50 | MATCH |
+| STADDR_1 | 51 | 51 | MATCH |
+| STADDR_2 | 52 | 52 | MATCH |
+| STCITY | 53 | 53 | MATCH |
+| STSTATE | 54 | 54 | MATCH |
+| POSTAL | 55 | 55 | MATCH |
+| COUNTRY | 56 | 56 | MATCH |
+| TEL | 57 | 57 | MATCH |
+| E_MAIL | 58 | 58 | MATCH |
+| TAX_EXEMPT | 59 | 59 | MATCH |
+| SHIP_ACT_NO |  | 60 | DEFINE_ONLY |
+
+## ORDER_LI
+
+- CSV fields: 41
+- API Define fields: 48
+- MATCH: 40
+- CSV_ONLY: 1
+- DEFINE_ONLY: 8
+
+| Field | CSV Order | Define Order | Status |
+|---|---:|---:|---|
+| SEQ_ORDER_NO | 1 | 1 | MATCH |
+| LINE_NO | 2 | 2 | MATCH |
+| CUST_NO | 3 | 3 | MATCH |
+| _NO | 4 |  | CSV_ONLY |
+| ORDER_NO | 5 | 5 | MATCH |
+| STYLE | 6 | 6 | MATCH |
+| COLOR_NO | 7 | 7 | MATCH |
+| SALES_PRICE | 8 | 8 | MATCH |
+| WHOUSE | 9 | 9 | MATCH |
+| QTY_SZ1 | 10 | 10 | MATCH |
+| QTY_SZ2 | 11 | 11 | MATCH |
+| QTY_SZ3 | 12 | 12 | MATCH |
+| QTY_SZ4 | 13 | 13 | MATCH |
+| QTY_SZ5 | 14 | 14 | MATCH |
+| QTY_SZ6 | 15 | 15 | MATCH |
+| QTY_SZ7 | 16 | 16 | MATCH |
+| QTY_SZ8 | 17 | 17 | MATCH |
+| QTY_SZ9 | 18 | 18 | MATCH |
+| QTY_SZ10 | 19 | 19 | MATCH |
+| QTY_SZ11 | 20 | 20 | MATCH |
+| QTY_SZ12 | 21 | 21 | MATCH |
+| QTY_SZ13 | 22 | 22 | MATCH |
+| QTY_SZ14 | 23 | 23 | MATCH |
+| QTY_SZ15 | 24 | 24 | MATCH |
+| QTY_SZ16 | 25 | 25 | MATCH |
+| QTY_SZ17 | 26 | 26 | MATCH |
+| QTY_SZ18 | 27 | 27 | MATCH |
+| SIZE_NO | 28 | 28 | MATCH |
+| CUST_STYLE1 | 29 | 29 | MATCH |
+| CUST_STYLE2 | 30 | 30 | MATCH |
+| SUB_STYLE | 31 | 31 | MATCH |
+| SUB_COLOR_NO | 32 | 32 | MATCH |
+| REF | 33 | 33 | MATCH |
+| ORDER_ALIAS | 34 | 34 | MATCH |
+| LIST_PRICE | 35 | 35 | MATCH |
+| SMAN1_NO | 36 | 36 | MATCH |
+| SMAN2_NO | 37 | 37 | MATCH |
+| SMAN3_NO | 38 | 38 | MATCH |
+| SMAN1_COMM | 39 | 39 | MATCH |
+| SMAN2_COMM | 40 | 40 | MATCH |
+| SMAN3_COMM | 41 | 41 | MATCH |
+| STORE_NO |  | 4 | DEFINE_ONLY |
+| USER_REF1 |  | 42 | DEFINE_ONLY |
+| USER_REF2 |  | 43 | DEFINE_ONLY |
+| USER_REF3 |  | 44 | DEFINE_ONLY |
+| USER_REF4 |  | 45 | DEFINE_ONLY |
+| USER_REF5 |  | 46 | DEFINE_ONLY |
+| USER_DT_REF1 |  | 47 | DEFINE_ONLY |
+| USER_DT_REF2 |  | 48 | DEFINE_ONLY |
+

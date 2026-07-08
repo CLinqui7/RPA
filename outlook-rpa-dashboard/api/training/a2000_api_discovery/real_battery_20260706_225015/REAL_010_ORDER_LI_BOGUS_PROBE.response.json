@@ -1,0 +1,2 @@
+
+{ "status": "Fail", "message": "Lines processed : 1", "updated": 0, "errors": 1, "data": [], "errors": [{"line": 1, "column": "", "value": "", "message": "Can't find order header"},{"line": 1, "column": "QTY_SZ1", "value": "1", "message": "Invalid size for scale ()"},{"line": 1, "column": "", "value": "", "message": "Validation failed (ORA-01403: no data found)"},{"line": 1, "column": "STYLE", "value": "ZZ_BAD_STYLE", "message": "Code is not on file"},{"line": 1, "column": "COLOR_NO", "value": "ZZ_BAD_COLOR", "message": "Code is not on file"}]}

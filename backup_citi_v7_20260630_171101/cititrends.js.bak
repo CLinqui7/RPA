@@ -1,0 +1,433 @@
+import { compactText, normalizeDate, normalizeInteger, normalizeMoney } from '../helpers.js';
+
+const KNOWN_COLORS = [
+  'BLACK-OFF BLACK',
+  'PINK/BLACK',
+  'RED/BLACK',
+  'OFF BLACK',
+  'WHITE',
+  'BLACK',
+  'PINK',
+  'YELLOW',
+  'BLUE',
+  'RED',
+  'GREEN',
+  'BROWN',
+  'MULTI',
+  'NATURAL',
+  'GREY',
+  'GRAY',
+  'PURPLE',
+  'ORANGE',
+  'SILVER',
+  'GOLD'
+];
+
+// Truth layer from Citi PT/export/A2000 validation, not from the PO PDF.
+// The Citi PDF prints vendor/customer style values such as SENA, but A2000 needs
+// internal style/color/store/size distribution. Keep this as an MVP bootstrap;
+// later this should be loaded from Supabase mapping/imported PT exports.
+const CITI_TRUTH_BY_ORDER = {
+  '0000187960': {
+    source: 'manual_a2000_screenshot_export3_pt1756205',
+    store_code: '4',
+    division_code: 'MJ',
+    header_warehouse_code: 'HT',
+    line_warehouse_code: 'PE',
+    ship_via_code: 'ROUTING',
+    terms_code: 'X6',
+    lines: [
+      {
+        customer_sku: '1216-008769-0000022-0096-00000',
+        upc: '400429960099',
+        style_raw: 'SENA',
+        style_code: '11SENAL',
+        color_code: 'PKA',
+        color_display: 'PNK',
+        a2000_description: 'SENA-L LADIES THONG SANDAL',
+        line_price: 5.9067,
+        sales_price: 4.5,
+        pick_ticket: '1756205',
+        size_labels: ['6', '6.5', '7', '7.5', '8', '8.5', '9', '10'],
+        qty_sizes: [100, 100, 200, 100, 200, 200, 200, 100]
+      }
+    ]
+  },
+  // Known summary from export(3). These are included so future PDFs from the same
+  // Citi batch can be completed once their PO files are introduced.
+  '0000187961': {
+    source: 'export3_summary_pt1756206',
+    store_code: '4',
+    division_code: 'MJ',
+    header_warehouse_code: 'HT',
+    line_warehouse_code: 'PE',
+    ship_via_code: 'ROUTING',
+    terms_code: 'X6',
+    lines: [
+      { style_code: '11SUPERL', color_code: 'H19', pick_ticket: '1756206', qty_sizes: [100, 100, 200, 100, 200, 200, 200, 100] },
+      { style_code: '11SUPERL', color_code: 'WHA', pick_ticket: '1756206', qty_sizes: [100, 100, 200, 100, 200, 200, 200, 100] }
+    ]
+  },
+  '0000190009': {
+    source: 'export3_summary_pt1756207',
+    store_code: '4',
+    division_code: 'MJ',
+    header_warehouse_code: 'HT',
+    line_warehouse_code: 'PE',
+    ship_via_code: 'ROUTING',
+    terms_code: 'X6',
+    lines: [
+      { style_code: '11BLOSSOMK', color_code: 'PKB', pick_ticket: '1756207', qty_sizes: [0, 0, 300, 300, 300, 300, 300, 300] }
+    ]
+  }
+};
+
+function cleanLine(value) {
+  return String(value || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function getLines(text) {
+  return String(text || '')
+    .replace(/\u00a0/g, ' ')
+    .split(/\r?\n+/)
+    .map(cleanLine)
+    .filter(Boolean);
+}
+
+function money(value) {
+  return normalizeMoney(String(value || '').replace(/[$,]/g, ''));
+}
+
+function int(value) {
+  return normalizeInteger(String(value || '').replace(/[,]/g, ''));
+}
+
+function extractBetweenTableMarkers(lines) {
+  const start = lines.findIndex((line) => /Vendor\s+Style\s+Description\s*\/\s*Color\/?\s*Item\s+Number/i.test(line));
+  if (start < 0) return lines;
+
+  let end = lines.findIndex((line, index) => index > start && /\*\*\*\s*End\s+of\s+Order\s*\*\*\*/i.test(line));
+  if (end < 0) end = lines.length;
+  return lines.slice(start + 1, end);
+}
+
+function splitDescriptionAndColor(value) {
+  const raw = cleanLine(value);
+  const upper = raw.toUpperCase();
+
+  for (const color of KNOWN_COLORS) {
+    if (upper.endsWith(color)) {
+      return {
+        description: raw.slice(0, raw.length - color.length).trim() || raw,
+        color_raw: color
+      };
+    }
+  }
+
+  const parts = raw.split(/\s+/);
+  return {
+    description: parts.slice(0, -1).join(' ') || raw,
+    color_raw: parts.length > 1 ? parts.at(-1) : null
+  };
+}
+
+function parseStyleLine(line) {
+  const value = cleanLine(line);
+  if (!value) return null;
+  if (/^(Vendor Style|MSRP|Total|Reference PO|Page\s+\d+|Ticket Option|Vendor\b|Ship To\b|Comments\b)/i.test(value)) return null;
+  if (/^(\d{4}-\d{6}-\d{7}-\d{4}-\d{5})\b/.test(value)) return null;
+  if (/^\d+\s+PAIRS\b/i.test(value)) return null;
+
+  // Citi vendor style can be short like SENA or longer like KS306-S9962.
+  const match = value.match(/^([A-Z0-9][A-Z0-9\-\/]{1,40})\s+(.+)$/i);
+  if (!match) return null;
+
+  const vendorStyle = match[1].trim().toUpperCase();
+  const descriptionColor = cleanLine(match[2]);
+  if (!descriptionColor) return null;
+
+  const split = splitDescriptionAndColor(descriptionColor);
+  return {
+    vendor_style_raw: vendorStyle,
+    style_raw: vendorStyle,
+    description: split.description,
+    color_raw: split.color_raw,
+    source_line: value
+  };
+}
+
+function parseDetailLine(line) {
+  const value = cleanLine(line);
+
+  // Layout text usually gives: SKU UPC MSRP COST SIZE QTY
+  // pdf-parse may give only: SKU UPC COST SIZE QTY. MSRP then stays null.
+  const detail = value.match(/(\d{4}-\d{6}-\d{7}-\d{4}-\d{5})\s+(\d{11,14})(?:\s+(\d+(?:\.\d{2})))?\s+(\d+(?:\.\d{2,4}))\s+(-|[A-Z0-9.\/\-]+)\s+([\d,]+)/i);
+  if (!detail) return null;
+
+  return {
+    customer_sku: detail[1],
+    upc: detail[2],
+    ticket_sku: detail[2],
+    list_price: money(detail[3]),
+    sales_price: money(detail[4]),
+    size_raw: detail[5],
+    qty_total: int(detail[6]),
+    qty_sz1: int(detail[6]),
+    source_line: value
+  };
+}
+
+function findPreviousStyleLine(tableLines, detailIndex) {
+  for (let i = detailIndex - 1; i >= 0; i -= 1) {
+    const parsed = parseStyleLine(tableLines[i]);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
+function findNextNote(tableLines, detailIndex) {
+  const next = cleanLine(tableLines[detailIndex + 1] || '');
+  if (!next) return null;
+  if (/^\d+\s+PAIRS\b/i.test(next)) return next;
+  return null;
+}
+
+function extractItems(text) {
+  const lines = getLines(text);
+  const tableLines = extractBetweenTableMarkers(lines);
+  const rows = [];
+  const seen = new Set();
+
+  for (let i = 0; i < tableLines.length; i += 1) {
+    const detail = parseDetailLine(tableLines[i]);
+    if (!detail) continue;
+
+    const style = findPreviousStyleLine(tableLines, i) || {};
+    const key = [detail.customer_sku, detail.upc, detail.sales_price, detail.qty_total].join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    rows.push({
+      line_no: rows.length + 1,
+      customer_sku: detail.customer_sku,
+      ticket_sku: detail.ticket_sku,
+      upc: detail.upc,
+
+      // IMPORTANT: this is the vendor/customer style printed on the Citi PO.
+      // It is NOT guaranteed to be the internal A2000 STYLE, so style_code remains null until truth mapping.
+      vendor_style_raw: style.vendor_style_raw || null,
+      style_raw: style.style_raw || null,
+      style_code: null,
+
+      description: style.description || null,
+      color_raw: style.color_raw || null,
+      color_code: null,
+      size_raw: detail.size_raw,
+      size_code: detail.size_raw === '-' ? 'PC' : null,
+      list_price: detail.list_price,
+      sales_price: detail.sales_price,
+      qty_total: detail.qty_total,
+      qty_sz1: detail.qty_sz1,
+      warehouse_code: null,
+      raw: {
+        source: 'cititrends_table_v3_pdf_only',
+        style_line: style.source_line || null,
+        detail_line: detail.source_line,
+        note: findNextNote(tableLines, i),
+        pdf_qty_total: detail.qty_total,
+        pdf_msrp: detail.list_price
+      }
+    });
+  }
+
+  return rows;
+}
+
+function extractPoNumber(oneLine) {
+  return oneLine.match(/Purchase\s+Order\s+(\d{6,})/i)?.[1]
+    || oneLine.match(/Citi\s+Trends\s+-\s+Purchase\s+Order\s+(\d{6,})/i)?.[1]
+    || null;
+}
+
+function extractDates(oneLine) {
+  // Most reliable layout: Order Date <date> Ship On <date> Cancel After <date>
+  let match = oneLine.match(/Order\s+Date\s+Ship\s+On\s+Cancel\s+After\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
+  if (!match) {
+    match = oneLine.match(/Order\s+Date\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+Ship\s+On\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+Cancel\s+After\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
+  }
+  if (!match) {
+    match = oneLine.match(/Ship\s+On\s+Cancel\s+After\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
+  }
+
+  return {
+    order_date: normalizeDate(match?.[1]),
+    start_date: normalizeDate(match?.[2]),
+    cancel_date: normalizeDate(match?.[3])
+  };
+}
+
+function extractVendorNumber(oneLine) {
+  return oneLine.match(/Vendor\s+AMERICAN\s+EXCH(?:A|N)N?GE\s+TIME\s+(\d{4,8})/i)?.[1]
+    || oneLine.match(/Vendor\s+.*?\s+(\d{4,8})\s+Ship\s+To/i)?.[1]
+    || null;
+}
+
+function orderNoVariants(orderNo) {
+  const raw = String(orderNo || '').trim();
+  if (!raw) return [];
+  return [raw, raw.replace(/^0+/, '')].filter(Boolean);
+}
+
+function sum(values = []) {
+  return values.reduce((acc, value) => acc + Number(value || 0), 0);
+}
+
+function setQtySizeFields(line, qtySizes = []) {
+  const next = { ...line };
+  const total = sum(qtySizes);
+  next.qty_total = total || next.qty_total;
+  next.qty_sz1 = qtySizes[0] ?? null;
+  for (let i = 2; i <= 18; i += 1) {
+    next[`qty_sz${i}`] = qtySizes[i - 1] ?? null;
+  }
+  return next;
+}
+
+function findTruthLine(line, truthLines = []) {
+  return truthLines.find((truth) => {
+    const skuOk = !truth.customer_sku || truth.customer_sku === line.customer_sku;
+    const upcOk = !truth.upc || truth.upc === line.upc;
+    const styleOk = !truth.style_raw || cleanLine(truth.style_raw).toUpperCase() === cleanLine(line.style_raw).toUpperCase();
+    const unmappedStyleOk = !truth.customer_sku && !truth.upc && !truth.style_raw;
+    return (skuOk && upcOk && styleOk) || unmappedStyleOk;
+  }) || null;
+}
+
+function applyCitiTruth({ orderNo, header, lines, parsedTotalQty, parsedTotalAmount }) {
+  const truth = orderNoVariants(orderNo).map((candidate) => CITI_TRUTH_BY_ORDER[candidate]).find(Boolean);
+  if (!truth) return { header, lines, truthApplied: false };
+
+  const nextHeader = {
+    ...header,
+    store_code: truth.store_code || header.store_code,
+    division_code: truth.division_code || header.division_code,
+    warehouse_code: truth.header_warehouse_code || header.warehouse_code,
+    ship_via_code: truth.ship_via_code || header.ship_via_code,
+    terms_code: truth.terms_code || header.terms_code,
+    raw: {
+      ...(header.raw || {}),
+      a2000_truth_source: truth.source,
+      pdf_total_qty: parsedTotalQty || null,
+      pdf_total_amount: parsedTotalAmount || null,
+      note: 'Citi A2000 fields completed from PT/export/A2000 screenshot. PDF total may differ from operational pick quantity.'
+    }
+  };
+
+  const nextLines = lines.map((line) => {
+    const truthLine = findTruthLine(line, truth.lines);
+    if (!truthLine) return line;
+
+    const withQty = setQtySizeFields(line, truthLine.qty_sizes || []);
+    return {
+      ...withQty,
+      style_code: truthLine.style_code || line.style_code,
+      color_code: truthLine.color_code || line.color_code,
+      // Keep the printed PDF color in raw, but expose the A2000 display color when available.
+      color_raw: truthLine.color_display || line.color_raw,
+      description: truthLine.a2000_description || line.description,
+      sales_price: truthLine.sales_price ?? line.sales_price,
+      // Do not put PDF MSRP into A2000 LIST_PRICE. A2000 line price is a different value.
+      list_price: null,
+      warehouse_code: truth.line_warehouse_code || truthLine.warehouse_code || line.warehouse_code || 'PE',
+      raw: {
+        ...(line.raw || {}),
+        a2000_truth_source: truth.source,
+        pick_ticket: truthLine.pick_ticket || null,
+        size_labels: truthLine.size_labels || null,
+        pdf_qty_total: line.qty_total,
+        pdf_msrp: line.list_price,
+        a2000_line_price: truthLine.line_price ?? null,
+        a2000_qty_total: withQty.qty_total
+      }
+    };
+  });
+
+  return { header: nextHeader, lines: nextLines, truthApplied: true };
+}
+
+export function parseCitiTrends({ text }) {
+  const rawText = String(text || '');
+  const oneLine = compactText(rawText);
+  const orderNo = extractPoNumber(oneLine);
+  const extractedLines = extractItems(rawText);
+  const termsRaw = oneLine.match(/\b(NET\s+\d+\s+DAYS\s+ROG)\b/i)?.[1]?.replace(/\s+/g, ' ').toUpperCase() || null;
+  const dates = extractDates(oneLine);
+  const totalAmount = oneLine.match(/Total\s+\$\s*([\d,]+\.\d{2})/i)?.[1] || null;
+  const totalQty = oneLine.match(/Total\s+\$\s*[\d,]+\.\d{2}\s+([\d,]+)/i)?.[1] || null;
+  const parsedTotalQty = int(totalQty);
+  const parsedTotalAmount = normalizeMoney(totalAmount);
+
+  const baseHeader = {
+    customer_raw: 'Citi Trends',
+    customer_code: 'CITI',
+    order_no: orderNo,
+    order_date: dates.order_date,
+    start_date: dates.start_date,
+    cancel_date: dates.cancel_date,
+    book_date: dates.order_date,
+    dept_raw: null,
+    dept_code: null,
+    division_code: 'X',
+    store_raw: null,
+    store_code: null,
+    terms_raw: termsRaw,
+    terms_code: termsRaw ? 'X6' : null,
+    ship_via_code: null,
+    warehouse_code: null,
+    raw: {
+      reference_po: oneLine.match(/Reference\s+PO\s+([A-Z0-9]+)/i)?.[1] || null,
+      buyer: oneLine.match(/Buyer\s+([A-Z][A-Z\s.'-]+?)\s+Vendor\b/i)?.[1]?.trim() || null,
+      ticket_option: oneLine.match(/Ticket\s+Option\s+(.+?)\s+Vendor\s+Style/i)?.[1]?.trim() || null,
+      vendor_no: extractVendorNumber(oneLine),
+      note: 'Citi PO does not provide internal A2000 STYLE/COLOR/store distribution. Complete these from PT/export/checklist before importing.'
+    }
+  };
+
+  const truthResult = applyCitiTruth({
+    orderNo,
+    header: baseHeader,
+    lines: extractedLines,
+    parsedTotalQty,
+    parsedTotalAmount
+  });
+
+  const lines = truthResult.lines;
+  const calculatedQty = lines.reduce((acc, line) => acc + Number(line.qty_total || 0), 0);
+  const calculatedAmount = lines.reduce((acc, line) => acc + Number(line.qty_total || 0) * Number(line.sales_price || 0), 0);
+  const conflicts = [];
+
+  // If no PT/export truth is available, PDF totals should match extracted PDF rows.
+  // If truth is applied, keep PDF total in raw and use operational A2000 quantities instead.
+  if (!truthResult.truthApplied && parsedTotalQty && calculatedQty && parsedTotalQty !== calculatedQty) {
+    conflicts.push({
+      field: 'total_qty',
+      pdf_total: parsedTotalQty,
+      calculated_from_lines: calculatedQty,
+      message: 'Citi PDF total quantity differs from extracted line quantity.'
+    });
+  }
+
+  return {
+    parser: 'cititrends',
+    confidence: lines.length ? 0.97 : 0.45,
+    header: truthResult.header,
+    lines,
+    totals: {
+      qty: calculatedQty || parsedTotalQty || null,
+      amount: calculatedAmount || parsedTotalAmount || null,
+      pdf_qty: parsedTotalQty || null,
+      pdf_amount: parsedTotalAmount || null
+    },
+    conflicts
+  };
+}
