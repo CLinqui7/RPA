@@ -1,0 +1,12 @@
+{
+  "IGNORE_ERRORS": "N",
+  "ORDER_HD": [
+    {
+      "SEQ_ORDER_NO": "NOT_A_NUMBER",
+      "CUST_NO": "__INVALID_CUST__",
+      "STORE_NO": "__INVALID_STORE__",
+      "ORDER_NO": "API_TEST_CARLOS_INVALID_20260706_221133",
+      "DIV_NO": ""
+    }
+  ]
+}

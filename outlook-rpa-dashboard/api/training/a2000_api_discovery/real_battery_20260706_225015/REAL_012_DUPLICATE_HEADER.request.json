@@ -1,0 +1,17 @@
+{
+  "IGNORE_ERRORS": "N",
+  "ORDER_HD": [
+    {
+      "CUST_NO": "CITI",
+      "STORE_NO": "184",
+      "ORDER_NO": "API260706225021",
+      "ORDER_DATE": "07/06/26",
+      "START_DATE": "07/13/26",
+      "CANCEL_DATE": "07/20/26",
+      "DIV_NO": "X",
+      "SHIP_VIA_NO": "ROUTING",
+      "TERM_NO": "X6",
+      "DEF_WHOUSE": "PE"
+    }
+  ]
+}

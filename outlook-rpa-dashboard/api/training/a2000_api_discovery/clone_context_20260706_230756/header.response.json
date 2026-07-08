@@ -1,0 +1,2 @@
+
+{ "status": "Success", "message": "Lines processed : 1", "updated": 1, "errors": 0, "data": [{"SEQ_ORDER_NO": 3758962,"CUST_NO": "CITI","STORE_NO": "1","ORDER_NO": "CTX260706230757","ORDER_DATE": "06-JUL-26","START_DATE": "13-JUL-26","CANCEL_DATE": "20-JUL-26","BOOK_DATE": "06-JUL-26","DIV_NO": "AL","SHIP_VIA_NO": "ROUTING","PRIORITY": "C","TERM_NO": "X6","BACK_ORDER": "Y","MASTER_INVOICE": "N","REORDER": "N","TAG": "COMPLETE","DEF_WHOUSE": "PE"}], "errors": []}

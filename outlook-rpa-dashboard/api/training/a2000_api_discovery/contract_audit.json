@@ -1,0 +1,1011 @@
+{
+  "generatedAt": "2026-07-06T21:56:01.636Z",
+  "source": {
+    "csv": "api/src/a2000/csv.js",
+    "orderHd": "ORDER_HD.define.json",
+    "orderLi": "ORDER_LI.define.json"
+  },
+  "contracts": [
+    {
+      "name": "ORDER_HD",
+      "csvFieldCount": 59,
+      "defineFieldCount": 60,
+      "matchCount": 59,
+      "csvOnlyCount": 0,
+      "defineOnlyCount": 1,
+      "fields": [
+        {
+          "contract": "ORDER_HD",
+          "field": "SEQ_ORDER_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 1,
+          "defineOrder": 1,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "CUST_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 2,
+          "defineOrder": 2,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "STORE_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 3,
+          "defineOrder": 3,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "ORDER_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 4,
+          "defineOrder": 4,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "ORDER_DATE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 5,
+          "defineOrder": 5,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "START_DATE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 6,
+          "defineOrder": 6,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "CANCEL_DATE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 7,
+          "defineOrder": 7,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "BOOK_DATE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 8,
+          "defineOrder": 8,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "CUST_DEPT",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 9,
+          "defineOrder": 9,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "REGION",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 10,
+          "defineOrder": 10,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "DC_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 11,
+          "defineOrder": 11,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "DIV_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 12,
+          "defineOrder": 12,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "BOOK_SEASON",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 13,
+          "defineOrder": 13,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "SHIP_VIA_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 14,
+          "defineOrder": 14,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "PRIORITY",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 15,
+          "defineOrder": 15,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "TERM_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 16,
+          "defineOrder": 16,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "DISC_CODE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 17,
+          "defineOrder": 17,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "FACTOR_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 18,
+          "defineOrder": 18,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "FACTOR_APPR_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 19,
+          "defineOrder": 19,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "SMAN1_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 20,
+          "defineOrder": 20,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "SMAN2_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 21,
+          "defineOrder": 21,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "SMAN3_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 22,
+          "defineOrder": 22,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "SMAN1_COMM",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 23,
+          "defineOrder": 23,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "SMAN2_COMM",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 24,
+          "defineOrder": 24,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "SMAN3_COMM",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 25,
+          "defineOrder": 25,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "USER_REF1",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 26,
+          "defineOrder": 26,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "USER_REF2",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 27,
+          "defineOrder": 27,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "BACK_ORDER",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 28,
+          "defineOrder": 28,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "MASTER_INVOICE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 29,
+          "defineOrder": 29,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "REORDER",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 30,
+          "defineOrder": 30,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "TAG",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 31,
+          "defineOrder": 31,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "ORDER_ALIAS",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 32,
+          "defineOrder": 32,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "CURRENCY",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 33,
+          "defineOrder": 33,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "EXCHANGE_RATE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 34,
+          "defineOrder": 34,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "USER_REF3",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 35,
+          "defineOrder": 35,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "USER_REF4",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 36,
+          "defineOrder": 36,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "USER_REF5",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 37,
+          "defineOrder": 37,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "DEF_WHOUSE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 38,
+          "defineOrder": 38,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "SH_RULE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 39,
+          "defineOrder": 39,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "FIRST_COST_RULE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 40,
+          "defineOrder": 40,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "PRICE_LIST_ID",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 41,
+          "defineOrder": 41,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "PROMO_CODE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 42,
+          "defineOrder": 42,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "ORDER_TYPE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 43,
+          "defineOrder": 43,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "ORDER_HOLD",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 44,
+          "defineOrder": 44,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "EVENT_DATE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 45,
+          "defineOrder": 45,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "SALES_TAX1",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 46,
+          "defineOrder": 46,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "SALES_TAX2",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 47,
+          "defineOrder": 47,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "SALES_TAX1L",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 48,
+          "defineOrder": 48,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "TAX_AUTH",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 49,
+          "defineOrder": 49,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "STNAME",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 50,
+          "defineOrder": 50,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "STADDR_1",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 51,
+          "defineOrder": 51,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "STADDR_2",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 52,
+          "defineOrder": 52,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "STCITY",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 53,
+          "defineOrder": 53,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "STSTATE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 54,
+          "defineOrder": 54,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "POSTAL",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 55,
+          "defineOrder": 55,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "COUNTRY",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 56,
+          "defineOrder": 56,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "TEL",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 57,
+          "defineOrder": 57,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "E_MAIL",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 58,
+          "defineOrder": 58,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "TAX_EXEMPT",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 59,
+          "defineOrder": 59,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_HD",
+          "field": "SHIP_ACT_NO",
+          "csv": false,
+          "apiDefine": true,
+          "csvOrder": null,
+          "defineOrder": 60,
+          "status": "DEFINE_ONLY"
+        }
+      ]
+    },
+    {
+      "name": "ORDER_LI",
+      "csvFieldCount": 41,
+      "defineFieldCount": 48,
+      "matchCount": 40,
+      "csvOnlyCount": 1,
+      "defineOnlyCount": 8,
+      "fields": [
+        {
+          "contract": "ORDER_LI",
+          "field": "SEQ_ORDER_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 1,
+          "defineOrder": 1,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "LINE_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 2,
+          "defineOrder": 2,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "CUST_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 3,
+          "defineOrder": 3,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "_NO",
+          "csv": true,
+          "apiDefine": false,
+          "csvOrder": 4,
+          "defineOrder": null,
+          "status": "CSV_ONLY"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "ORDER_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 5,
+          "defineOrder": 5,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "STYLE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 6,
+          "defineOrder": 6,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "COLOR_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 7,
+          "defineOrder": 7,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "SALES_PRICE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 8,
+          "defineOrder": 8,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "WHOUSE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 9,
+          "defineOrder": 9,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "QTY_SZ1",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 10,
+          "defineOrder": 10,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "QTY_SZ2",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 11,
+          "defineOrder": 11,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "QTY_SZ3",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 12,
+          "defineOrder": 12,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "QTY_SZ4",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 13,
+          "defineOrder": 13,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "QTY_SZ5",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 14,
+          "defineOrder": 14,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "QTY_SZ6",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 15,
+          "defineOrder": 15,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "QTY_SZ7",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 16,
+          "defineOrder": 16,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "QTY_SZ8",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 17,
+          "defineOrder": 17,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "QTY_SZ9",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 18,
+          "defineOrder": 18,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "QTY_SZ10",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 19,
+          "defineOrder": 19,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "QTY_SZ11",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 20,
+          "defineOrder": 20,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "QTY_SZ12",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 21,
+          "defineOrder": 21,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "QTY_SZ13",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 22,
+          "defineOrder": 22,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "QTY_SZ14",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 23,
+          "defineOrder": 23,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "QTY_SZ15",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 24,
+          "defineOrder": 24,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "QTY_SZ16",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 25,
+          "defineOrder": 25,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "QTY_SZ17",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 26,
+          "defineOrder": 26,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "QTY_SZ18",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 27,
+          "defineOrder": 27,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "SIZE_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 28,
+          "defineOrder": 28,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "CUST_STYLE1",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 29,
+          "defineOrder": 29,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "CUST_STYLE2",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 30,
+          "defineOrder": 30,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "SUB_STYLE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 31,
+          "defineOrder": 31,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "SUB_COLOR_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 32,
+          "defineOrder": 32,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "REF",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 33,
+          "defineOrder": 33,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "ORDER_ALIAS",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 34,
+          "defineOrder": 34,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "LIST_PRICE",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 35,
+          "defineOrder": 35,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "SMAN1_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 36,
+          "defineOrder": 36,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "SMAN2_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 37,
+          "defineOrder": 37,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "SMAN3_NO",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 38,
+          "defineOrder": 38,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "SMAN1_COMM",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 39,
+          "defineOrder": 39,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "SMAN2_COMM",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 40,
+          "defineOrder": 40,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "SMAN3_COMM",
+          "csv": true,
+          "apiDefine": true,
+          "csvOrder": 41,
+          "defineOrder": 41,
+          "status": "MATCH"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "STORE_NO",
+          "csv": false,
+          "apiDefine": true,
+          "csvOrder": null,
+          "defineOrder": 4,
+          "status": "DEFINE_ONLY"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "USER_REF1",
+          "csv": false,
+          "apiDefine": true,
+          "csvOrder": null,
+          "defineOrder": 42,
+          "status": "DEFINE_ONLY"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "USER_REF2",
+          "csv": false,
+          "apiDefine": true,
+          "csvOrder": null,
+          "defineOrder": 43,
+          "status": "DEFINE_ONLY"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "USER_REF3",
+          "csv": false,
+          "apiDefine": true,
+          "csvOrder": null,
+          "defineOrder": 44,
+          "status": "DEFINE_ONLY"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "USER_REF4",
+          "csv": false,
+          "apiDefine": true,
+          "csvOrder": null,
+          "defineOrder": 45,
+          "status": "DEFINE_ONLY"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "USER_REF5",
+          "csv": false,
+          "apiDefine": true,
+          "csvOrder": null,
+          "defineOrder": 46,
+          "status": "DEFINE_ONLY"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "USER_DT_REF1",
+          "csv": false,
+          "apiDefine": true,
+          "csvOrder": null,
+          "defineOrder": 47,
+          "status": "DEFINE_ONLY"
+        },
+        {
+          "contract": "ORDER_LI",
+          "field": "USER_DT_REF2",
+          "csv": false,
+          "apiDefine": true,
+          "csvOrder": null,
+          "defineOrder": 48,
+          "status": "DEFINE_ONLY"
+        }
+      ]
+    }
+  ]
+}
