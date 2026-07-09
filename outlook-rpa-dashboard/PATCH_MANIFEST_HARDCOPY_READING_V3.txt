@@ -1,0 +1,37 @@
+PATCH: HARDCOPY_READING_V3_MASTER_MATCH_MULTIORDER_HARDENED
+BASE: HARDCOPY_READING_V2_FIELD_CERTIFICATION_PATCH
+POLICY: PDF + OFFICIAL MASTERS ONLY
+
+RUNTIME CHANGES:
+- customer-scoped official style similarity matching
+- Variety trailing suffix to unique official color-prefix matching
+- Gabe's abbreviated description color semantics and alpha ALL-size prepack preference
+- Me Salve description color semantics with numeric SOLID preference
+- IPC ordered-unit semantics and exact composite style/color master resolution
+- ITSFASHION multi-order physical PDF splitter
+- parseRawPurchaseOrders / parsePurchaseOrders batch APIs
+- server production paths flatten 1..N orders per PDF
+- 10BELOW Ship To identity ranking within exact official address candidates
+- TJMAXX / VERSONA printed PO review conflicts
+- exact size-grid master UPC maps for multi-size lines
+- Citi customer UPC-only trace when exact official style/color has no master UPC row
+
+TEST / AUDIT CHANGES:
+- all-customer guard updated for ITSFASHION batch split
+- source hardcopy audit now supports multi-order PDFs
+- full reading dump now supports multi-order PDFs and master UPCs by size
+- V3 master-match/multi-order guard suite
+- master style/color/UPC audit suite
+
+LOCAL VERIFIED RESULTS:
+- 5/5 parser fixtures
+- 3/3 Batch01 enrichment
+- 20/20 Batch01 V3 guards
+- 27/27 all-customer guards
+- 19/19 physical hardcopy identity checks, 24 parsed orders
+- 13/13 V3 master-match/multi-order guards
+- 106/106 styles resolved
+- 106/106 colors resolved
+- 100/106 lines with official master UPC coverage
+- 101/106 lines with any UPC evidence
+- only 5 lines without UPC evidence: MARSHALLS routing document, six size-specific official UPC candidates per line and no printed size distribution

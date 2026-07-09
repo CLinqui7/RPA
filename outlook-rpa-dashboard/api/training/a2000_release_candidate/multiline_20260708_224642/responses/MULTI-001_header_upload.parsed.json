@@ -1,0 +1,27 @@
+{
+  "status": "Success",
+  "message": "Lines processed : 1",
+  "updated": 1,
+  "errors": [],
+  "data": [
+    {
+      "SEQ_ORDER_NO": 3758964,
+      "CUST_NO": "CITI",
+      "STORE_NO": "1",
+      "ORDER_NO": "RCML260708224647",
+      "ORDER_DATE": "08-JUL-26",
+      "START_DATE": "15-JUL-26",
+      "CANCEL_DATE": "22-JUL-26",
+      "BOOK_DATE": "08-JUL-26",
+      "DIV_NO": "AL",
+      "SHIP_VIA_NO": "ROUTING",
+      "PRIORITY": "C",
+      "TERM_NO": "X6",
+      "BACK_ORDER": "Y",
+      "MASTER_INVOICE": "N",
+      "REORDER": "N",
+      "TAG": "COMPLETE",
+      "DEF_WHOUSE": "PE"
+    }
+  ]
+}

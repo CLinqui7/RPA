@@ -1,0 +1,15 @@
+{
+  "VR_ORDER_HD": [
+    {
+      "CTRL_NO": 3757166,
+      "CUSTOMER": "CITI",
+      "STORE": "1",
+      "ORDER_NO": "194387",
+      "DIV": "AL",
+      "TERMS": "X6",
+      "DEF_WH": "PE",
+      "SHIP_VIA": "ROUTING",
+      "STATUS": "OPEN"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "source_pdf_file": "72041 American Exchange PO.pdf",
+  "expected": {
+    "parser": "tenbelow",
+    "header": {
+      "customer_code": "10BELOW",
+      "terms_code": "6C",
+      "division_code": "MJ",
+      "warehouse_code": "PE"
+    },
+    "lines": [
+      { "line_no": 1, "style_raw": "WILLA01L-SGA", "style_code": "WILLA01L", "color_code": "SGA", "scale_code": "RT", "scale_abbr": "6..11", "list_price": 12.35, "warehouse_code": "PE", "master_division_code": "MJ", "raw": { "composite_style_resolution": { "source": "VR_SKU_EXACT_STYLE_COLOR_PAIR", "reason": "exact_master_style_suffix_color", "base_style": "WILLA01L", "suffix_color": "SGA", "candidate_count": 1 }, "sku_master": { "color_description": "SAGE GREEN", "color_abbr": "SGN" } } },
+      { "line_no": 2, "style_raw": "RYNN05L-WHA", "style_code": "RYNN05L", "color_code": "WHA", "scale_code": "RT", "scale_abbr": "6..11", "list_price": 14.6, "warehouse_code": "PE", "master_division_code": "MJ", "raw": { "composite_style_resolution": { "source": "VR_SKU_EXACT_STYLE_COLOR_PAIR", "reason": "exact_master_style_suffix_color", "base_style": "RYNN05L", "suffix_color": "WHA", "candidate_count": 1 }, "sku_master": { "color_description": "WHITE", "color_abbr": "WHT" } } }
+    ]
+  }
+}

@@ -1,0 +1,47 @@
+PATCH: HARDCOPY_ALL_CUSTOMERS_MASTER_ONLY_HARDENED_V1
+POLICY: original source document + official A2000 masters only
+CACHE: v8
+
+Core:
+api/src/po/customerProfiles.js
+api/src/po/pdfText.js
+api/src/po/parsers/*.js
+api/src/po/enrichment/masterData.js
+api/src/po/enrichment/enrichOrder.js
+api/src/po/mappers/a2000Defaults.js
+api/src/po/mappers/normalizeForA2000.js
+api/src/po/mappers/styleColorRules.js
+api/src/a2000/csv.js
+api/src/a2000/strictImport.js
+api/src/a2000/exportBatch.js
+api/src/server.js
+api/scripts/build-master-cache.py
+
+Regression and audit:
+api/src/debug-parse-raw-pdf-batch.js
+api/src/debug-verify-parser-fixtures.js
+api/src/debug-verify-enrichment-batch01.js
+api/src/debug-inspect-enriched-pdf.js
+api/src/debug-verify-batch01-v3-guards.js
+api/src/debug-verify-all-customers-master-only.js
+api/src/debug-audit-all-hardcopy-fixtures.js
+api/training/parser_fixtures/
+api/training/enrichment_fixtures/
+api/training/parser_fixture_pdfs/
+api/training/all_customer_source_fixtures/
+api/training/source_format_fixtures/GORDONRBO/
+api/training/all_customer_source_audit_snapshot.json
+api/training/all_customer_guard_snapshot.json
+
+Documentation:
+README_ALL_HARDCOPY_CUSTOMERS_MASTER_ONLY_V1.md
+CUSTOMER_SOURCE_AUDIT_MASTER_ONLY.md
+PATCH_MANIFEST_ALL_HARDCOPY_CUSTOMERS_V1.txt
+
+Not included and not used as runtime mapping truth:
+api/training/mapping_truth
+checklists
+PT / Pick Tickets
+Packing Slips
+historical exports
+Hermanito

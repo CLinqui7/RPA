@@ -1,0 +1,38 @@
+{
+  "VR_ORDER_LI": [
+    {
+      "CTRL_NO": 3757166,
+      "STYLE": "11KS306S9962",
+      "CLR": "0C9",
+      "LINE_NO": 1,
+      "WH": "PE",
+      "CUSTOMER": "CITI",
+      "STORE": "1",
+      "ORDER_NO": "194387",
+      "DIV": "AL",
+      "PRICE": 7.1429,
+      "SCALE": "v0",
+      "SCALE_ABBR": "4..16",
+      "ORDER_QTY": 576,
+      "OPEN_QTY": 576,
+      "OPEN_SZ1": 0,
+      "OPEN_SZ2": 0,
+      "OPEN_SZ3": 0,
+      "OPEN_SZ4": 96,
+      "OPEN_SZ5": 192,
+      "OPEN_SZ6": 192,
+      "OPEN_SZ7": 96,
+      "OPEN_SZ8": 0,
+      "OPEN_SZ9": 0,
+      "OPEN_SZ10": 0,
+      "OPEN_SZ11": 0,
+      "OPEN_SZ12": 0,
+      "OPEN_SZ13": 0,
+      "OPEN_SZ14": 0,
+      "OPEN_SZ15": 0,
+      "OPEN_SZ16": 0,
+      "OPEN_SZ17": 0,
+      "OPEN_SZ18": 0
+    }
+  ]
+}

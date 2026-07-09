@@ -54,3 +54,9 @@ api/node_modules/
 web/node_modules/
 web/dist/
 dist/
+.env.local
+.env.production
+.env.development
+__pycache__/
+*.pyc
+.cache/

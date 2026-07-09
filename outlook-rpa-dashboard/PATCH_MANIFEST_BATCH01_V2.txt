@@ -1,0 +1,37 @@
+BATCH 01 COMBINED V2
+Base: outlook-rpa-dashboard-CODIGO-LIMPIO-20260708_171221.zip
+
+RAW PARSERS
+- api/src/po/parsers/ollies.js
+- api/src/po/parsers/carnival.js
+- api/src/po/parsers/tenbelow.js
+- api/src/po/parsers/index.js
+- api/src/po/pdfText.js
+
+MASTER / ENRICHMENT
+- api/src/po/enrichment/masterData.js
+- api/src/po/enrichment/enrichOrder.js
+- api/src/po/mappers/styleColorRules.js
+- api/scripts/build-master-cache.py
+
+DEBUG / TEST
+- api/src/debug-parse-raw-pdf-batch.js
+- api/src/debug-verify-parser-fixtures.js
+- api/src/debug-verify-enrichment-batch01.js
+- api/src/debug-inspect-enriched-pdf.js
+- api/training/parser_fixtures/**
+- api/training/enrichment_fixtures/batch01/**
+- api/training/mapping_truth/**
+- api/training/parser_fixture_pdfs/**
+
+DOCS
+- README_PARSER_BATCH_01_RAW_SCOPE.md
+- README_BATCH01_COMBINED_UPC_TENBELOW.md
+
+KEY RULES
+1. OLLIES exact printed UPC -> VR_UPC_STYLE reverse lookup -> STYLE/COLOR/SIZE/SCALE/DIV/SKU.
+2. OLLIES exact UPC Size Num 1..18 -> qty_total assigned to exact qty_szN bucket.
+3. Exact STYLE+COLOR in VR_SKU enriches color description, abbreviation, list price, warehouse, scale and pack qty.
+4. OLLIES printed Model# mismatch is preserved and audited; exact UPC master style wins only in enrichment.
+5. 10BELOW BASE-SUFFIX is split only when BASE exists in VR_SKU and SUFFIX is an exact Clr for BASE.
+6. Raw parser outputs remain meaning-preserving and fixture truth stays separate from mapping truth.

@@ -1,0 +1,66 @@
+{
+  "source_pdf_file": "PO_127_1674444_0_US.pdf",
+  "expected": {
+    "parser": "carnival",
+    "header": {
+      "customer_code": "CARNIVAL",
+      "terms_code": "C6"
+    },
+    "lines": [
+      {
+        "line_no": 1,
+        "style_code": "133CARNIVA01",
+        "color_raw": "BLACK",
+        "color_code": "003",
+        "qty_total": 68,
+        "raw": {
+          "uom_raw": "CASE",
+          "pack_qty_candidate_raw": 6,
+          "derived_each_qty_candidate": 408
+        }
+      },
+      {
+        "line_no": 2,
+        "style_code": "133CARNIVA01",
+        "color_raw": "BLACK",
+        "color_code": "003",
+        "qty_total": 62
+      },
+      {
+        "line_no": 3,
+        "style_code": "133CARNIVA01",
+        "color_raw": "BLACK",
+        "color_code": "003",
+        "qty_total": 59
+      },
+      {
+        "line_no": 4,
+        "style_code": "133CARNIVA01",
+        "color_raw": "BLACK",
+        "color_code": "003",
+        "qty_total": 61
+      },
+      {
+        "line_no": 5,
+        "style_code": "133CARNIVA01",
+        "color_raw": "BLACK",
+        "color_code": "003",
+        "qty_total": 54
+      },
+      {
+        "line_no": 6,
+        "style_code": "133CARNIVA01",
+        "color_raw": "BLACK",
+        "color_code": "003",
+        "qty_total": 52
+      },
+      {
+        "line_no": 7,
+        "style_code": "133CARNIVA01",
+        "color_raw": "BLACK",
+        "color_code": "003",
+        "qty_total": 45
+      }
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "ORDER_HD": {
+    "csv_fields": 59,
+    "define_fields": 60,
+    "match": 59,
+    "csv_only": [],
+    "define_only": [
+      "SHIP_ACT_NO"
+    ]
+  },
+  "ORDER_LI": {
+    "csv_fields": 41,
+    "define_fields": 48,
+    "match": 40,
+    "csv_only": [
+      "_NO"
+    ],
+    "define_only": [
+      "STORE_NO",
+      "USER_REF1",
+      "USER_REF2",
+      "USER_REF3",
+      "USER_REF4",
+      "USER_REF5",
+      "USER_DT_REF1",
+      "USER_DT_REF2"
+    ]
+  }
+}

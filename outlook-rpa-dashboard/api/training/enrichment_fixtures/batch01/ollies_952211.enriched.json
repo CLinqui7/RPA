@@ -1,0 +1,22 @@
+{
+  "source_pdf_file": "PO #952211.pdf",
+  "expected": {
+    "parser": "ollies",
+    "header": {
+      "customer_code": "OLLIES",
+      "store_raw": "5050",
+      "store_code": "5050",
+      "terms_code": "3A",
+      "division_code": "PC",
+      "warehouse_code": "PE"
+    },
+    "lines": [
+      { "line_no": 1, "style_raw": "PL1975NL-42", "style_code": "PL1975NL-42", "color_code": "176", "size_code": "PC", "scale_code": "PC", "qty_total": 4896, "qty_sz1": 4896, "sales_price": 1.6, "list_price": 3.5, "warehouse_code": "PE", "raw": { "upc_resolution": { "source": "VR_UPC_STYLE_EXACT_UPC", "lookup_value": "199347506785", "candidate_count": 1 }, "qty_bucket_resolution": { "source": "VR_UPC_STYLE_EXACT_UPC_SIZE_NUM", "size_num": 1, "quantity": 4896 } } },
+      { "line_no": 2, "style_raw": "PL1976NL-42", "style_code": "PL1976NL-42", "color_code": "670", "qty_sz1": 4896, "warehouse_code": "PE" },
+      { "line_no": 3, "style_raw": "PL17977NL-42", "style_code": "PL1977NL-42", "color_code": "861", "qty_sz1": 4896, "warehouse_code": "PE", "raw": { "style_master_override": { "source": "VR_UPC_STYLE_EXACT_UPC", "pdf_style_raw": "PL17977NL-42", "master_style": "PL1977NL-42" } } },
+      { "line_no": 4, "style_code": "PL1978NL-42", "color_code": "821", "qty_sz1": 4896 },
+      { "line_no": 5, "style_code": "PL1979NL-42", "color_code": "033", "qty_sz1": 4896 },
+      { "line_no": 6, "style_code": "PL1980NL-42", "color_code": "034", "qty_sz1": 4896 }
+    ]
+  }
+}

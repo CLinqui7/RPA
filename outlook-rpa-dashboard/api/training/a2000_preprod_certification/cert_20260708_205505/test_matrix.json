@@ -1,0 +1,317 @@
+[
+  {
+    "test_id": "CERT-000",
+    "purpose": "Environment and write safety guard",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Required variables are present. Writes are blocked outside AMEXTEST.",
+    "actual": {
+      "base_url": "https://amextest.a2000cloud.com:8890/ords/amxtest",
+      "write_tests": false
+    }
+  },
+  {
+    "test_id": "CERT-001",
+    "purpose": "OAuth client_credentials",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Bearer token obtained successfully without printing the token.",
+    "actual": {
+      "http_status": 200,
+      "token_type": "bearer",
+      "expires_in": 3600,
+      "token_length": 22
+    }
+  },
+  {
+    "test_id": "CERT-002",
+    "purpose": "ORDER_HD upload define",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Define reachable. Field/column count=60.",
+    "actual": {
+      "http_status": 200,
+      "root_keys": [
+        "IGNORE_ERRORS",
+        "ORDER_HD"
+      ],
+      "duplicate_keys": []
+    }
+  },
+  {
+    "test_id": "CERT-003",
+    "purpose": "ORDER_LI upload define",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Define reachable. Field/column count=48.",
+    "actual": {
+      "http_status": 200,
+      "root_keys": [
+        "IGNORE_ERRORS",
+        "ORDER_LI"
+      ],
+      "duplicate_keys": []
+    }
+  },
+  {
+    "test_id": "CERT-004",
+    "purpose": "VR_ORDER_HD viewer define",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Define reachable. Field/column count=135.",
+    "actual": {
+      "http_status": 200,
+      "root_keys": [
+        "COLUMNS",
+        "FILTER",
+        "SORT"
+      ],
+      "duplicate_keys": []
+    }
+  },
+  {
+    "test_id": "CERT-005",
+    "purpose": "VR_ORDER_LI viewer define",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Define reachable. Field/column count=218.",
+    "actual": {
+      "http_status": 200,
+      "root_keys": [
+        "COLUMNS",
+        "FILTER",
+        "SORT"
+      ],
+      "duplicate_keys": []
+    }
+  },
+  {
+    "test_id": "CERT-006",
+    "purpose": "VR_UTREST_LOG viewer define",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Define reachable. Field/column count=13.",
+    "actual": {
+      "http_status": 200,
+      "root_keys": [
+        "COLUMNS",
+        "FILTER",
+        "SORT"
+      ],
+      "duplicate_keys": []
+    }
+  },
+  {
+    "test_id": "CERT-007",
+    "purpose": "Compare csv.js columns against live Upload defines",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Live REST contract compared to current csv.js. REST ORDER_LI uses STORE_NO.",
+    "actual": {
+      "ORDER_HD": {
+        "csv_fields": 59,
+        "define_fields": 60,
+        "match": 59,
+        "csv_only": [],
+        "define_only": [
+          "SHIP_ACT_NO"
+        ]
+      },
+      "ORDER_LI": {
+        "csv_fields": 41,
+        "define_fields": 48,
+        "match": 40,
+        "csv_only": [
+          "_NO"
+        ],
+        "define_only": [
+          "STORE_NO",
+          "USER_REF1",
+          "USER_REF2",
+          "USER_REF3",
+          "USER_REF4",
+          "USER_REF5",
+          "USER_DT_REF1",
+          "USER_DT_REF2"
+        ]
+      }
+    }
+  },
+  {
+    "test_id": "CERT-008",
+    "purpose": "Viewer request schema and exact zero-result filter",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "POST Viewer accepts COLUMNS, FILTER singular and SORT; nonexistent ORDER_NO returns an empty list.",
+    "actual": {
+      "http_status": 200,
+      "row_count": 0
+    }
+  },
+  {
+    "test_id": "CERT-009",
+    "purpose": "Read exact source Sales Order Header context",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Exact source Header context loaded for controlled Line tests.",
+    "actual": {
+      "CTRL_NO": 3757166,
+      "CUSTOMER": "CITI",
+      "CUST_NAME": "CITI TRENDS INC",
+      "ORDER_NO": "194387",
+      "STORE": "1",
+      "ORDER_DATE": "2026-03-04T00:00:00Z",
+      "START_DATE": "2026-07-27T00:00:00Z",
+      "CANCEL_DATE": "2026-07-31T00:00:00Z",
+      "DIV": "AL",
+      "TERMS": "X6",
+      "TERMS_DESCR": "CIT ROG NET 60",
+      "DEF_WH": "PE",
+      "SHIP_VIA": "ROUTING",
+      "STATUS": "OPEN"
+    }
+  },
+  {
+    "test_id": "CERT-010",
+    "purpose": "Read source Lines and derive a real positive OPEN_SZn bucket",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "A real STYLE, CLR, SCALE and positive size bucket were selected from the tenant; Header DIV must match Line DIV.",
+    "actual": {
+      "line_count": 4,
+      "selected_line": {
+        "CTRL_NO": 3757166,
+        "STYLE": "11KS306S9962",
+        "CLR": "0C9",
+        "LINE_NO": 1,
+        "WH": "PE",
+        "CUSTOMER": "CITI",
+        "STORE": "1",
+        "ORDER_NO": "194387",
+        "DIV": "AL",
+        "PRICE": 7.1429,
+        "SCALE": "v0",
+        "STATUS": "OPEN",
+        "ORDER_QTY": 576,
+        "OPEN_QTY": 576,
+        "OPEN_SZ1": 0,
+        "OPEN_SZ2": 0,
+        "OPEN_SZ3": 0,
+        "OPEN_SZ4": 96,
+        "OPEN_SZ5": 192,
+        "OPEN_SZ6": 192,
+        "OPEN_SZ7": 96,
+        "OPEN_SZ8": 0,
+        "OPEN_SZ9": 0,
+        "OPEN_SZ10": 0,
+        "OPEN_SZ11": 0,
+        "OPEN_SZ12": 0,
+        "OPEN_SZ13": 0,
+        "OPEN_SZ14": 0,
+        "OPEN_SZ15": 0,
+        "OPEN_SZ16": 0,
+        "OPEN_SZ17": 0,
+        "OPEN_SZ18": 0
+      },
+      "selected_size_bucket": 4,
+      "header_line_div_match": true
+    }
+  },
+  {
+    "test_id": "CERT-011",
+    "purpose": "Behaviorally verify Viewer projection and SORT on non-empty rows",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Requested columns are projected and source LINE_NO values are sorted.",
+    "actual": {
+      "returned_keys": [
+        "CTRL_NO",
+        "STYLE",
+        "CLR",
+        "LINE_NO",
+        "WH",
+        "CUSTOMER",
+        "STORE",
+        "ORDER_NO",
+        "DIV",
+        "PRICE",
+        "SCALE",
+        "STATUS",
+        "ORDER_QTY",
+        "OPEN_QTY",
+        "OPEN_SZ1",
+        "OPEN_SZ2",
+        "OPEN_SZ3",
+        "OPEN_SZ4",
+        "OPEN_SZ5",
+        "OPEN_SZ6",
+        "OPEN_SZ7",
+        "OPEN_SZ8",
+        "OPEN_SZ9",
+        "OPEN_SZ10",
+        "OPEN_SZ11",
+        "OPEN_SZ12",
+        "OPEN_SZ13",
+        "OPEN_SZ14",
+        "OPEN_SZ15",
+        "OPEN_SZ16",
+        "OPEN_SZ17",
+        "OPEN_SZ18"
+      ],
+      "line_nos": [
+        1.0,
+        2.0,
+        3.0,
+        4.0
+      ],
+      "projection_ok": true,
+      "sort_ok": true
+    }
+  },
+  {
+    "test_id": "CERT-012",
+    "purpose": "Read and group REST logs by UTREST_LOG_NO",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "REST log rows are grouped by repeated UTREST_LOG_NO to reconstruct an operation.",
+    "actual": {
+      "http_status": 200,
+      "rows": 123,
+      "groups": 78
+    }
+  },
+  {
+    "test_id": "CERT-020",
+    "purpose": "Controlled write certification",
+    "write_risk": "MEDIUM",
+    "result": "SKIPPED",
+    "finding": "A2000_WRITE_TESTS is not 1. Read-only certification completed.",
+    "actual": null
+  },
+  {
+    "test_id": "CERT-030",
+    "purpose": "Capture latest grouped REST log for ORDER_HD",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Latest REST operation group captured for correlation with raw API responses.",
+    "actual": {
+      "latest_log_no": 81,
+      "messages": [
+        "Downloading template"
+      ]
+    }
+  },
+  {
+    "test_id": "CERT-031",
+    "purpose": "Capture latest grouped REST log for ORDER_LI",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Latest REST operation group captured for correlation with raw API responses.",
+    "actual": {
+      "latest_log_no": 82,
+      "messages": [
+        "Downloading template"
+      ]
+    }
+  }
+]

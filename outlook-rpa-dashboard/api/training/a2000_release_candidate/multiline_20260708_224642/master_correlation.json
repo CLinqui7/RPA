@@ -1,0 +1,102 @@
+[
+  {
+    "style": "11KS306S9962",
+    "color": "0C9",
+    "source_scale": "v0",
+    "source_scale_abbr": "4..16",
+    "source_active_buckets": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "upc_master_count": 1,
+    "sku_master_count": 1,
+    "master_size_nums": [],
+    "bucket_coverage": false,
+    "upc_rows": [
+      {
+        "upc": "199347556759",
+        "size_name": "ALL",
+        "size_num": "0",
+        "scale": "v0",
+        "scale_abbr": "4..16"
+      }
+    ]
+  },
+  {
+    "style": "11KS306S9739",
+    "color": "0C2",
+    "source_scale": "v0",
+    "source_scale_abbr": "4..16",
+    "source_active_buckets": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "upc_master_count": 1,
+    "sku_master_count": 1,
+    "master_size_nums": [],
+    "bucket_coverage": false,
+    "upc_rows": [
+      {
+        "upc": "199347556766",
+        "size_name": "ALL",
+        "size_num": "0",
+        "scale": "v0",
+        "scale_abbr": "4..16"
+      }
+    ]
+  },
+  {
+    "style": "11KS306S9963",
+    "color": "0BZ",
+    "source_scale": "v0",
+    "source_scale_abbr": "4..16",
+    "source_active_buckets": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "upc_master_count": 1,
+    "sku_master_count": 1,
+    "master_size_nums": [],
+    "bucket_coverage": false,
+    "upc_rows": [
+      {
+        "upc": "199347556773",
+        "size_name": "ALL",
+        "size_num": "0",
+        "scale": "v0",
+        "scale_abbr": "4..16"
+      }
+    ]
+  },
+  {
+    "style": "11KS309S9974",
+    "color": "0BY",
+    "source_scale": "v0",
+    "source_scale_abbr": "4..16",
+    "source_active_buckets": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "upc_master_count": 1,
+    "sku_master_count": 1,
+    "master_size_nums": [],
+    "bucket_coverage": false,
+    "upc_rows": [
+      {
+        "upc": "199347556780",
+        "size_name": "ALL",
+        "size_num": "0",
+        "scale": "v0",
+        "scale_abbr": "4..16"
+      }
+    ]
+  }
+]

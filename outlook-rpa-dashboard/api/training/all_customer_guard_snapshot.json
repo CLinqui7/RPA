@@ -1,0 +1,109 @@
+{
+  "suite": "ALL_CUSTOMERS_MASTER_ONLY_HARDENED_GUARDS",
+  "customer_profiles": 23,
+  "canonical_source_pdfs": 18,
+  "passed": 25,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "master cache v8 quarantines malformed shifted Store Master CSV rows instead of trusting shifted columns",
+      "result": "PASS"
+    },
+    {
+      "name": "exactly 23 hardcopy customer profiles are registered",
+      "result": "PASS"
+    },
+    {
+      "name": "all 23 customer profiles resolve to official Customer Master rows with nonempty Terms",
+      "result": "PASS"
+    },
+    {
+      "name": "GORDONRBO explicitly aliases to official A2000 customer GORBRORET with C6 terms",
+      "result": "PASS"
+    },
+    {
+      "name": "known customer metadata with an unmatched layout blocks safely instead of falling into generic parsing",
+      "result": "PASS"
+    },
+    {
+      "name": "Gordon original XLSX source gap is explicit and never pretends to be PDF-parsed",
+      "result": "PASS"
+    },
+    {
+      "name": "runtime parsing/enrichment code has no mapping_truth or Hermanito dependency and does not read checklist/PT/packing-slip files",
+      "result": "PASS"
+    },
+    {
+      "name": "all 18 canonical source PDFs route to their expected customer-specific parser and official customer",
+      "result": "PASS"
+    },
+    {
+      "name": "every canonical source marked parsed satisfies strict header and every line satisfies strict A2000 line requirements",
+      "result": "PASS"
+    },
+    {
+      "name": "10BELOW does not invent STORE_NO or size-bucket ratio from address/range-only source data",
+      "result": "PASS"
+    },
+    {
+      "name": "Cato Corporation family does not infer CATO/ITSFASHION/VERSONA banner from legal entity alone",
+      "result": "PASS"
+    },
+    {
+      "name": "ITSFASHION multi-PO source is blocked instead of merging six purchase orders into one InternalOrder",
+      "result": "PASS"
+    },
+    {
+      "name": "MACYSBACKS leaves absent order/cancel dates unresolved instead of relabeling In DC By",
+      "result": "PASS"
+    },
+    {
+      "name": "MARSHALLS routing instructions do not invent sales price or size ratio",
+      "result": "PASS"
+    },
+    {
+      "name": "MESALVE exact ship-to and official masters produce a fully parsed order",
+      "result": "PASS"
+    },
+    {
+      "name": "OLLIES exact printed Store/DC key survives malformed Store Master text columns while shifted columns remain quarantined",
+      "result": "PASS"
+    },
+    {
+      "name": "SHOE4500, TILLYS and TJMAXX keep STORE_NO unresolved when source lacks an authoritative destination mapping",
+      "result": "PASS"
+    },
+    {
+      "name": "VARIETYWHO does not treat printed trailing 07 as COLOR_NO and keeps the ambiguous official color line unresolved",
+      "result": "PASS"
+    },
+    {
+      "name": "VERSONA uses explicit upstream banner hint but blocks material source-vs-master terms mismatch",
+      "result": "PASS"
+    },
+    {
+      "name": "ZUMIEZ, BEALLS new and CITI canonical sources are fully parsed using PDF plus official masters only",
+      "result": "PASS"
+    },
+    {
+      "name": "BEALLS old malformed/legacy printed styles stay unresolved instead of inventing missing characters or color/scale",
+      "result": "PASS"
+    },
+    {
+      "name": "COLONY keeps absent ship/cancel dates unresolved and records source contact typo without deriving order fields from it",
+      "result": "PASS"
+    },
+    {
+      "name": "GABRIELBRO keeps ambiguous printed descriptive colors and size distribution unresolved",
+      "result": "PASS"
+    },
+    {
+      "name": "IPC blocks contradictory pickup dates and material PDF-vs-Customer-Master terms policy mismatch",
+      "result": "PASS"
+    },
+    {
+      "name": "Batch01 Carnival source still resolves only source-derived CASE semantics and never auto-populates A2000 size buckets from case count",
+      "result": "PASS"
+    }
+  ]
+}

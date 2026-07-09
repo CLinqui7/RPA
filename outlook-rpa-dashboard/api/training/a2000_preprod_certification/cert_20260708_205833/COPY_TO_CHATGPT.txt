@@ -1,0 +1,41 @@
+============================================================
+COPY THIS RESULT TO CHATGPT
+============================================================
+RUN_ID=20260708_205833
+RUN_DIR=/workspaces/RPA/outlook-rpa-dashboard/api/training/a2000_preprod_certification/cert_20260708_205833
+BASE_URL=https://amextest.a2000cloud.com:8890/ords/amxtest
+WRITE_TESTS=True
+DESTRUCTIVE_PROBES=False
+FULL_ORDER_HEADER_PLUS_LINE_PASS=False
+HARD_FAILURES={"CERT-021": "FAIL"}
+RECOMMENDATION=NO_GO_FIX_BLOCKERS_BEFORE_PRODUCTION
+
+TEST MATRIX:
+CERT-000 | PASS | Environment and write safety guard | Required variables are present. Writes are blocked outside AMEXTEST.
+CERT-001 | PASS | OAuth client_credentials | Bearer token obtained successfully without printing the token.
+CERT-002 | PASS | ORDER_HD upload define | Define reachable. Field/column count=60.
+CERT-003 | PASS | ORDER_LI upload define | Define reachable. Field/column count=48.
+CERT-004 | PASS | VR_ORDER_HD viewer define | Define reachable. Field/column count=135.
+CERT-005 | PASS | VR_ORDER_LI viewer define | Define reachable. Field/column count=218.
+CERT-006 | PASS | VR_UTREST_LOG viewer define | Define reachable. Field/column count=13.
+CERT-007 | PASS | Compare csv.js columns against live Upload defines | Live REST contract compared to current csv.js. REST ORDER_LI uses STORE_NO.
+CERT-008 | PASS | Viewer request schema and exact zero-result filter | POST Viewer accepts COLUMNS, FILTER singular and SORT; nonexistent ORDER_NO returns an empty list.
+CERT-009 | PASS | Read exact source Sales Order Header context | Exact source Header context loaded for controlled Line tests.
+CERT-010 | PASS | Read source Lines and derive a real positive OPEN_SZn bucket | A real STYLE, CLR, SCALE and positive size bucket were selected from the tenant; Header DIV must match Line DIV.
+CERT-011 | PASS | Behaviorally verify Viewer projection and SORT on non-empty rows | Requested columns are projected and source LINE_NO values are sorted.
+CERT-012 | PASS | Read and group REST logs by UTREST_LOG_NO | REST log rows are grouped by repeated UTREST_LOG_NO to reconstruct an operation.
+CERT-020 | PASS | Create unique ORDER_HD and verify SEQ_ORDER_NO ↔ VR_ORDER_HD.CTRL_NO | Header creation must return SEQ_ORDER_NO and Viewer must expose the same value as CTRL_NO.
+CERT-021 | FAIL | Create one ORDER_LI from a real tenant business context and verify with VR_ORDER_LI | Single Line failed and the latest log shows multi-line contamination/staging symptoms.
+CERT-022 | SKIPPED | Duplicate ORDER_LI behavior | Requires successful single Line and A2000_DESTRUCTIVE_PROBES=1.
+CERT-023 | SKIPPED | Two valid ORDER_LI rows in one batch | Requires a successful single Line.
+CERT-024 | SKIPPED | ORDER_LI rollback characterization | Requires successful single Line and A2000_DESTRUCTIVE_PROBES=1.
+CERT-025 | SKIPPED | Duplicate ORDER_HD behavior | Requires A2000_DESTRUCTIVE_PROBES=1.
+CERT-026 | SKIPPED | ORDER_HD rollback characterization | Requires A2000_DESTRUCTIVE_PROBES=1.
+CERT-030 | PASS | Capture latest grouped REST log for ORDER_HD | Latest REST operation group captured for correlation with raw API responses.
+CERT-031 | PASS | Capture latest grouped REST log for ORDER_LI | Latest REST operation group captured for correlation with raw API responses.
+
+REPORT=/workspaces/RPA/outlook-rpa-dashboard/api/training/a2000_preprod_certification/cert_20260708_205833/CERTIFICATION_REPORT.md
+TEST_MATRIX=/workspaces/RPA/outlook-rpa-dashboard/api/training/a2000_preprod_certification/cert_20260708_205833/test_matrix.json
+FACTS=/workspaces/RPA/outlook-rpa-dashboard/api/training/a2000_preprod_certification/cert_20260708_205833/facts.json
+RAW_RESPONSE_INDEX=/workspaces/RPA/outlook-rpa-dashboard/api/training/a2000_preprod_certification/cert_20260708_205833/raw_response_index.json
+============================================================

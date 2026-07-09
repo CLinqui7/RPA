@@ -1,0 +1,35 @@
+[
+  {
+    "UTREST_LOG_NO": 131,
+    "MODULE": "UPLOADS",
+    "ENDPOINT": "ORDER_LI",
+    "PAYLOAD_SIZE": 244,
+    "MESSAGE": "Error updating records: ORA-20000: Update failed on record 1 ORA-20000: Order line order qty 3758963 1 for 11KS306S9962 0C9 is out of ratio\nORA-06512: at \"NKW.T_OL_A\", line 184\nORA-04088: error during execution of trigger 'NKW.T_OL_A' ORA-06512: at \"NKW.K_UTUPLOAD_OE\", line 392\nORA-06512: at line 1\nORA-06512: at \"NKW.K_UTUPLOAD\", line 725\nORA-06512: at \"NKW.K_UTUPLOAD\", line 649\nORA-06512: at \"NKW.K_UTREST\", line 383\n",
+    "CLIENT_NAME": "Linqui",
+    "CLIENT_OWNER": "10061",
+    "ENTRY_DATE": "2026-07-08T17:20:37Z",
+    "ENTRY_TIME": "05:20:37 PM"
+  },
+  {
+    "UTREST_LOG_NO": 131,
+    "MODULE": "UPLOADS",
+    "ENDPOINT": "ORDER_LI",
+    "PAYLOAD_SIZE": 244,
+    "MESSAGE": "Lines processed : 1 updated: 0 errors: 1",
+    "CLIENT_NAME": "Linqui",
+    "CLIENT_OWNER": "10061",
+    "ENTRY_DATE": "2026-07-08T17:20:37Z",
+    "ENTRY_TIME": "05:20:37 PM"
+  },
+  {
+    "UTREST_LOG_NO": 131,
+    "MODULE": "UPLOADS",
+    "ENDPOINT": "ORDER_LI",
+    "PAYLOAD_SIZE": 244,
+    "MESSAGE": "Process completed",
+    "CLIENT_NAME": "Linqui",
+    "CLIENT_OWNER": "10061",
+    "ENTRY_DATE": "2026-07-08T17:20:37Z",
+    "ENTRY_TIME": "05:20:37 PM"
+  }
+]

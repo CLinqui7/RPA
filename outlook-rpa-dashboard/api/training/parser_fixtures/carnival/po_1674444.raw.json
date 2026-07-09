@@ -1,0 +1,37 @@
+{
+  "source_pdf_file": "PO_127_1674444_0_US.pdf",
+  "expected": {
+    "parser": "carnival",
+    "document_family": "carnival_purchase_order",
+    "layout_version": "carnival_purchase_order_v1",
+    "document_identity": {
+      "legal_entity_raw": "Carnival Cruise Line",
+      "customer_candidate": "CARNIVAL",
+      "a2000_customer_code": null
+    },
+    "header": {
+      "order_no": "1674444",
+      "order_date": "2025-12-08",
+      "terms_raw": "NET 60",
+      "customer_code": null,
+      "division_code": null,
+      "warehouse_code": null
+    },
+    "totals": {
+      "qty": null,
+      "amount": 14399.91,
+      "raw_ordered_quantity": 401,
+      "raw_uom": "CASE",
+      "derived_each_qty_candidate": 2406
+    },
+    "lines": [
+      { "line_no": 1, "customer_sku": "33300140", "style_raw": null, "color_raw": "BLACK", "size_raw": "M6/W8", "qty_total": 68, "sales_price": 35.91, "raw": { "uom_raw": "CASE", "pack_qty_candidate_raw": 6, "derived_each_qty_candidate": 408 } },
+      { "line_no": 2, "customer_sku": "33300150", "style_raw": null, "color_raw": "BLACK", "size_raw": "M7/W9", "qty_total": 62, "sales_price": 35.91, "raw": { "uom_raw": "CASE", "pack_qty_candidate_raw": 6, "derived_each_qty_candidate": 372 } },
+      { "line_no": 3, "customer_sku": "33300160", "style_raw": null, "color_raw": "BLACK", "size_raw": "M8/W10", "qty_total": 59, "sales_price": 35.91, "raw": { "uom_raw": "CASE", "pack_qty_candidate_raw": 6, "derived_each_qty_candidate": 354 } },
+      { "line_no": 4, "customer_sku": "33300170", "style_raw": null, "color_raw": "BLACK", "size_raw": "M9/W11", "qty_total": 61, "sales_price": 35.91, "raw": { "uom_raw": "CASE", "pack_qty_candidate_raw": 6, "derived_each_qty_candidate": 366 } },
+      { "line_no": 5, "customer_sku": "33300180", "style_raw": null, "color_raw": "BLACK", "size_raw": "M10/W12", "qty_total": 54, "sales_price": 35.91, "raw": { "uom_raw": "CASE", "pack_qty_candidate_raw": 6, "derived_each_qty_candidate": 324 } },
+      { "line_no": 6, "customer_sku": "33300190", "style_raw": null, "color_raw": "BLACK", "size_raw": "M11/W13", "qty_total": 52, "sales_price": 35.91, "raw": { "uom_raw": "CASE", "pack_qty_candidate_raw": 6, "derived_each_qty_candidate": 312 } },
+      { "line_no": 7, "customer_sku": "33300200", "style_raw": null, "color_raw": "BLACK", "size_raw": "M12/W14", "qty_total": 45, "sales_price": 35.91, "raw": { "uom_raw": "CASE", "pack_qty_candidate_raw": 6, "derived_each_qty_candidate": 270 } }
+    ]
+  }
+}
