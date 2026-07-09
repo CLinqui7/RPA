@@ -1,0 +1,28 @@
+{
+  "source_pdf_file": "PO_127_1674445_0_US.pdf",
+  "expected": {
+    "parser": "carnival",
+    "document_family": "carnival_purchase_order",
+    "header": {
+      "order_no": "1674445",
+      "order_date": "2025-12-08",
+      "terms_raw": "NET 60"
+    },
+    "totals": {
+      "qty": null,
+      "amount": 14364,
+      "raw_ordered_quantity": 400,
+      "raw_uom": "CASE",
+      "derived_each_qty_candidate": 2400
+    },
+    "lines": [
+      { "line_no": 1, "customer_sku": "33300210", "style_raw": null, "color_raw": "NAVY", "size_raw": "M6/W8", "qty_total": 69, "raw": { "pack_qty_candidate_raw": 6, "derived_each_qty_candidate": 414 } },
+      { "line_no": 2, "customer_sku": "33300220", "style_raw": null, "color_raw": "NAVY", "size_raw": "M7/W9", "qty_total": 61, "raw": { "pack_qty_candidate_raw": 6, "derived_each_qty_candidate": 366 } },
+      { "line_no": 3, "customer_sku": "33300230", "style_raw": null, "color_raw": "NAVY", "size_raw": "M8/W10", "qty_total": 62, "raw": { "pack_qty_candidate_raw": 6, "derived_each_qty_candidate": 372 } },
+      { "line_no": 4, "customer_sku": "33300240", "style_raw": null, "color_raw": "NAVY", "size_raw": "M9/W11", "qty_total": 53, "raw": { "pack_qty_candidate_raw": 6, "derived_each_qty_candidate": 318 } },
+      { "line_no": 5, "customer_sku": "33300250", "style_raw": null, "color_raw": "NAVY", "size_raw": "M10/W12", "qty_total": 61, "raw": { "pack_qty_candidate_raw": 6, "derived_each_qty_candidate": 366 } },
+      { "line_no": 6, "customer_sku": "33300260", "style_raw": null, "color_raw": "NAVY", "size_raw": "M11/W13", "qty_total": 46, "raw": { "pack_qty_candidate_raw": 6, "derived_each_qty_candidate": 276 } },
+      { "line_no": 7, "customer_sku": "33300270", "style_raw": null, "color_raw": "NAVY", "size_raw": "M12/W14", "qty_total": 48, "raw": { "pack_qty_candidate_raw": 6, "derived_each_qty_candidate": 288 } }
+    ]
+  }
+}

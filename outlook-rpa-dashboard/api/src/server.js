@@ -8,8 +8,10 @@ import { runScan } from './runScan.js';
 import { listEvents, markEvent } from './runRepository.js';
 import { listDocuments } from './documentRepository.js';
 import { extractPdfTextFromBuffer } from './po/pdfText.js';
-import { parsePurchaseOrder } from './po/parsers/index.js';
+import { parsePurchaseOrders } from './po/parsers/index.js';
 import { supabase } from './supabase.js';
+import { rowsToCsv, A2000_HEADER_COLUMNS, A2000_LINE_COLUMNS } from './a2000/csv.js';
+import { applyExplicitA2000QtyBuckets, hasBlockingA2000Conflicts, isStrictA2000Header, isStrictA2000Line, strictHeaderMissing, strictLineMissing } from './a2000/strictImport.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const API_ROOT = path.resolve(__dirname, '..');
@@ -107,12 +109,20 @@ async function listTestPdfFiles() {
 }
 
 function compactLine(line = {}) {
+  const qtyBuckets = Object.fromEntries(
+    Array.from({ length: 18 }, (_, index) => {
+      const bucket = index + 1;
+      return [`qty_sz${bucket}`, line[`qty_sz${bucket}`] ?? null];
+    })
+  );
+
   return {
     line_no: line.line_no,
     customer_sku: line.customer_sku || null,
     ticket_sku: line.ticket_sku || null,
     customer_upc: line.customer_upc || null,
     master_upc: line.master_upc || null,
+    master_upcs_by_size: line.master_upcs_by_size || [],
     internal_sku: line.internal_sku || line.master_sku || null,
     style_raw: line.style_raw || null,
     style_code: line.style_code || null,
@@ -123,8 +133,16 @@ function compactLine(line = {}) {
     sales_price: line.sales_price ?? null,
     master_price: line.master_price ?? null,
     qty_total: line.qty_total ?? null,
+    ...qtyBuckets,
     warehouse_code: line.warehouse_code || null,
-    size_raw: line.size_raw || line.size_code || null,
+    size_raw: line.size_raw || null,
+    size_code: line.size_code || null,
+    a2000_size_no: line.a2000_size_no || null,
+    cust_style1: line.cust_style1 || null,
+    cust_style2: line.cust_style2 || null,
+    reference: line.reference || null,
+    scale_code: line.scale_code || null,
+    scale_abbr: line.scale_abbr || null,
     missing_fields: line.missing_fields || [],
     raw: line.raw || {},
     master_candidates: {
@@ -136,166 +154,7 @@ function compactLine(line = {}) {
 }
 
 
-function alpha3ColorCode(value = '') {
-  return /^[A-Z]{3}$/.test(String(value || '').trim().toUpperCase());
-}
-
-function normalizedColorText(value = '') {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, ' ')
-    .trim();
-}
-
-function uniqueRows(rows = []) {
-  const seen = new Set();
-  const out = [];
-  for (const row of rows || []) {
-    const key = `${row.style || ''}|${row.color || ''}|${row.sku || ''}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      out.push(row);
-    }
-  }
-  return out;
-}
-
-function pickColorCandidateForCiti(line = {}) {
-  const raw = line.raw || {};
-  const candidates = uniqueRows([
-    ...(raw.color_master_candidates || []),
-    ...(raw.style_master_candidates || [])
-  ].filter(row => row && row.color));
-  if (!candidates.length) return null;
-
-  const colorText = normalizedColorText(line.color_raw || line.description || '');
-  const byCode = new Map(candidates.map(row => [String(row.color || '').trim().toUpperCase(), row]));
-
-  const prefer = (...codes) => {
-    for (const code of codes) {
-      const found = byCode.get(String(code).toUpperCase());
-      if (found) return found;
-    }
-    return null;
-  };
-
-  // Reglas aprobadas para Citi. Primero intentamos códigos alfabéticos de 3 letras.
-  if (colorText.includes('BLACK OFF BLACK') || colorText.includes('BLACKOFFBLACK')) {
-    return prefer('BKA', 'BCB') || candidates.find(row => alpha3ColorCode(row.color)) || candidates.find(row => /BLACK/i.test(row.color_description || '')) || candidates[0];
-  }
-  if (colorText.includes('BLACK')) {
-    return prefer('BKA', 'BCB') || candidates.find(row => alpha3ColorCode(row.color)) || candidates.find(row => /BLACK/i.test(row.color_description || '')) || candidates[0];
-  }
-  if (colorText.includes('WHITE')) {
-    return prefer('WTB', 'WHA') || candidates.find(row => alpha3ColorCode(row.color)) || candidates.find(row => /WHITE/i.test(row.color_description || '')) || candidates[0];
-  }
-  if (colorText.includes('PINK')) {
-    return prefer('PKA') || candidates.find(row => alpha3ColorCode(row.color)) || candidates.find(row => /PINK/i.test(row.color_description || '')) || candidates[0];
-  }
-  if (colorText.includes('TAUPE')) {
-    return prefer('TA2', 'TUA', 'TPE') || candidates.find(row => alpha3ColorCode(row.color)) || candidates.find(row => /TAUPE/i.test(row.color_description || '')) || candidates[0];
-  }
-
-  // Regla general: si el PDF trae color en texto y hay códigos alfabéticos de 3 letras,
-  // usar uno validado por el master. Si hay varios, escoger el primero del master para no frenar el flujo.
-  return candidates.find(row => alpha3ColorCode(row.color)) || candidates[0];
-}
-
-function removeSatisfiedMissing(parsed) {
-  const header = parsed.header || {};
-  const lines = parsed.lines || [];
-  const needs = parsed.needs_mapping || { header: [], lines: [], conflicts: [] };
-
-  const headerMissing = (needs.header || []).filter(field => {
-    if (header[field]) return false;
-    return true;
-  });
-
-  const lineMissing = (needs.lines || []).map(entry => {
-    const line = lines.find(item => String(item.line_no) === String(entry.line_no)) || {};
-    const missing = (entry.missing || []).filter(field => {
-      if (field === 'master_upc' && (line.master_upc || line.customer_upc || line.ticket_sku)) return false;
-      if (field === 'upc' && (line.master_upc || line.customer_upc || line.ticket_sku)) return false;
-      if (line[field]) return false;
-      return true;
-    });
-    return { ...entry, missing };
-  }).filter(entry => (entry.missing || []).length > 0);
-
-  parsed.needs_mapping = {
-    ...needs,
-    header: headerMissing,
-    lines: lineMissing,
-    conflicts: needs.conflicts || []
-  };
-
-  for (const line of lines) {
-    const missing = lineMissing.find(entry => String(entry.line_no) === String(line.line_no));
-    line.missing_fields = missing?.missing || [];
-  }
-
-  if (!headerMissing.length && !lineMissing.length && !(parsed.needs_mapping.conflicts || []).length) {
-    parsed.status = 'parsed';
-  }
-  return parsed;
-}
-
-function finalizeLabParsed(parsed = {}) {
-  const header = parsed.header || {};
-  const isCiti = String(header.customer_code || parsed.customer_code || '').toUpperCase() === 'CITI' || parsed.parser === 'cititrends';
-  if (!isCiti) return removeSatisfiedMissing(parsed);
-
-  header.customer_code = header.customer_code || 'CITI';
-  header.store_code = header.store_code || 'SAME';
-  header.warehouse_code = header.warehouse_code || 'PE';
-  parsed.header = header;
-
-  for (const line of parsed.lines || []) {
-    line.warehouse_code = line.warehouse_code || header.warehouse_code || 'PE';
-
-    if (!line.style_code) {
-      const styleCandidates = line.raw?.style_master_candidates || [];
-      if (styleCandidates[0]?.style) {
-        line.style_code = styleCandidates[0].style;
-        line.raw = { ...(line.raw || {}), style_match_rule: 'citi_first_master_candidate' };
-      }
-    }
-
-    if (!line.color_code) {
-      const chosen = pickColorCandidateForCiti(line);
-      if (chosen?.color) {
-        line.color_code = String(chosen.color).trim();
-        line.internal_sku = line.internal_sku || chosen.sku || (line.style_code ? `${line.style_code}${line.color_code}` : null);
-        line.master_price = line.master_price ?? chosen.price ?? null;
-        line.raw = {
-          ...(line.raw || {}),
-          color_match_rule: alpha3ColorCode(chosen.color) ? 'citi_alpha3_or_customer_preference' : 'citi_first_valid_master_candidate',
-          color_match_family: normalizedColorText(line.color_raw || line.description || ''),
-          color_match_confidence: alpha3ColorCode(chosen.color) ? 0.95 : 0.80,
-          color_chosen_candidate: chosen
-        };
-      }
-    }
-
-    // Citi trae UPC de factura. Si el UPC master no se puede decidir por talla, no bloqueamos la orden.
-    // Guardamos el UPC del PDF como fallback operativo, con trazabilidad.
-    if (!line.master_upc && (line.customer_upc || line.ticket_sku)) {
-      line.master_upc = line.customer_upc || line.ticket_sku;
-      line.raw = {
-        ...(line.raw || {}),
-        upc_match_rule: 'citi_invoice_upc_used_when_master_upc_ambiguous',
-        upc_source: 'invoice_customer_upc'
-      };
-    }
-  }
-
-  return removeSatisfiedMissing(parsed);
-}
-
 function compactParsed(file, parsed, elapsedMs = null) {
-  parsed = finalizeLabParsed(parsed);
   return {
     file,
     file_name: path.basename(file),
@@ -314,28 +173,6 @@ function compactParsed(file, parsed, elapsedMs = null) {
   };
 }
 
-
-const A2000_HEADER_COLUMNS = [
-  'SEQ_ORDER_NO','CUST_NO','STORE_NO','ORDER_NO','ORDER_DATE','START_DATE','CANCEL_DATE','BOOK_DATE','CUST_DEPT','REGION','DC_NO','DIV_NO','BOOK_SEASON','SHIP_VIA_NO','PRIORITY','TERM_NO','DISC_CODE','FACTOR_NO','FACTOR_APPR_NO','SMAN1_NO','SMAN2_NO','SMAN3_NO','SMAN1_COMM','SMAN2_COMM','SMAN3_COMM','USER_REF1','USER_REF2','BACK_ORDER','MASTER_INVOICE','REORDER','TAG','ORDER_ALIAS','CURRENCY','EXCHANGE_RATE','USER_REF3','USER_REF4','USER_REF5','DEF_WHOUSE','SH_RULE','FIRST_COST_RULE','PRICE_LIST_ID','PROMO_CODE','ORDER_TYPE','ORDER_HOLD','EVENT_DATE','SALES_TAX1','SALES_TAX2','SALES_TAX1L','TAX_AUTH'
-];
-
-const A2000_LINE_COLUMNS = [
-  'SEQ_ORDER_NO','LINE_NO','CUST_NO','_NO','ORDER_NO','STYLE','COLOR_NO','SALES_PRICE','WHOUSE','QTY_SZ1','QTY_SZ2','QTY_SZ3','QTY_SZ4','QTY_SZ5','QTY_SZ6','QTY_SZ7','QTY_SZ8','QTY_SZ9','QTY_SZ10','QTY_SZ11','QTY_SZ12','QTY_SZ13','QTY_SZ14','QTY_SZ15','QTY_SZ16','QTY_SZ17','QTY_SZ18','SIZE_NO','CUST_STYLE1','CUST_STYLE2','SUB_STYLE','SUB_COLOR_NO','REF','ORDER_ALIAS','LIST_PRICE','SMAN1_NO','SMAN2_NO','SMAN3_NO','SMAN1_COMM','SMAN2_COMM','SMAN3_COMM'
-];
-
-function csvEscape(value) {
-  if (value === null || value === undefined) return '';
-  const text = String(value);
-  if (/[",\n\r]/.test(text)) return `"${text.replaceAll('"', '""')}"`;
-  return text;
-}
-
-function rowsToCsv(columns, rows) {
-  return [
-    columns.map(csvEscape).join(','),
-    ...rows.map(row => columns.map(column => csvEscape(row[column] ?? '')).join(','))
-  ].join('\n');
-}
 
 function cleanExportValue(value) {
   if (value === null || value === undefined) return '';
@@ -370,16 +207,16 @@ function a2000HeaderRowFromParsed(item) {
   row.ORDER_DATE = formatA2000Date(h.order_date);
   row.START_DATE = formatA2000Date(h.start_date);
   row.CANCEL_DATE = formatA2000Date(h.cancel_date);
-  row.BOOK_DATE = formatA2000Date(h.book_date || h.order_date);
-  row.CUST_DEPT = cleanExportValue(h.dept_code || h.dept_raw);
+  row.BOOK_DATE = formatA2000Date(h.book_date);
+  row.CUST_DEPT = cleanExportValue(h.dept_code);
   row.DIV_NO = cleanExportValue(h.division_code);
   row.SHIP_VIA_NO = cleanExportValue(h.ship_via_code);
   row.TERM_NO = cleanExportValue(h.terms_code);
   row.USER_REF1 = trimExport(h.order_no || item.file_name, 20);
   row.USER_REF2 = trimExport(item.subject || h.terms_raw || '', 20);
   row.USER_REF3 = trimExport(item.status, 20);
-  row.MASTER_INVOICE = 'Y';
-  row.DEF_WHOUSE = cleanExportValue(h.warehouse_code || 'PE');
+  row.MASTER_INVOICE = cleanExportValue(h.master_invoice);
+  row.DEF_WHOUSE = cleanExportValue(h.warehouse_code);
   return row;
 }
 
@@ -393,23 +230,34 @@ function a2000LineRowFromParsed(item, line) {
   row.STYLE = cleanExportValue(line.style_code);
   row.COLOR_NO = cleanExportValue(line.color_code);
   row.SALES_PRICE = cleanExportValue(line.sales_price);
-  row.WHOUSE = cleanExportValue(line.warehouse_code || h.warehouse_code || 'PE');
-  row.QTY_SZ1 = cleanExportValue(line.qty_sz1 ?? line.quantity ?? line.qty_total);
-  row.SIZE_NO = cleanExportValue(line.size_raw || line.size_code);
-  row.CUST_STYLE1 = trimExport(line.customer_sku, 20);
-  row.CUST_STYLE2 = trimExport(line.customer_upc || line.ticket_sku || line.master_upc, 20);
-  row.REF = trimExport(line.customer_upc || line.ticket_sku || item.file_name, 15);
+  row.WHOUSE = cleanExportValue(line.warehouse_code || h.warehouse_code);
+  applyExplicitA2000QtyBuckets(row, line);
+  // Optional A2000 fields must be explicitly resolved for their exact target
+  // semantics. Do not repurpose raw customer SKU/UPC/size text as SIZE_NO,
+  // CUST_STYLE1, CUST_STYLE2 or REF.
+  row.SIZE_NO = cleanExportValue(line.a2000_size_no);
+  row.CUST_STYLE1 = trimExport(line.cust_style1, 6);
+  row.CUST_STYLE2 = trimExport(line.cust_style2, 20);
+  row.REF = trimExport(line.reference, 15);
   row.LIST_PRICE = cleanExportValue(line.list_price);
   return row;
 }
 
 function buildA2000ExportRows(results = []) {
-  const importable = (results || []).filter(item => item.status === 'parsed' && item.header?.customer_code && item.header?.order_no);
+  const importable = (results || []).filter(item => {
+    const header = item.header || {};
+    const lines = item.lines || [];
+    return item.status === 'parsed'
+      && !hasBlockingA2000Conflicts(item)
+      && isStrictA2000Header(header)
+      && lines.some(line => isStrictA2000Line(header, line));
+  });
   const headerRows = importable.map(a2000HeaderRowFromParsed);
   const lineRows = [];
   for (const item of importable) {
+    const header = item.header || {};
     for (const line of item.lines || []) {
-      if (!line.style_code || !line.color_code) continue;
+      if (!isStrictA2000Line(header, line)) continue;
       lineRows.push(a2000LineRowFromParsed(item, line));
     }
   }
@@ -438,8 +286,14 @@ async function parseDocumentsForExport(req, source) {
       try {
         const buffer = await fs.readFile(file);
         const text = await extractPdfTextFromBuffer(buffer);
-        const parsed = parsePurchaseOrder({ text, fileName: path.basename(file), document: { file_name: path.basename(file), file_path: file }});
-        results.push(compactParsed(file, parsed, Date.now() - started));
+        const parsedOrders = parsePurchaseOrders({ text, fileName: path.basename(file), document: { file_name: path.basename(file), file_path: file }});
+        parsedOrders.forEach((parsed, orderIndex) => {
+          results.push({
+            ...compactParsed(file, parsed, Date.now() - started),
+            source_document_order_index: parsed.header?.raw?.source_order_index || orderIndex + 1,
+            source_document_order_count: parsed.header?.raw?.source_order_count || parsedOrders.length
+          });
+        });
       } catch (error) {
         results.push({ file, file_name: path.basename(file), status: 'error', error: error.message, elapsed_ms: Date.now() - started });
       }
@@ -455,23 +309,27 @@ async function parseDocumentsForExport(req, source) {
     try {
       const loaded = await readBufferForStoredDocument(doc);
       const text = await extractPdfTextFromBuffer(loaded.buffer);
-      const parsed = parsePurchaseOrder({
+      const parsedOrders = parsePurchaseOrders({
         text,
         fileName: doc.file_name,
         document: { id: doc.id, file_name: doc.file_name, file_path: loaded.path, storage_bucket: doc.storage_bucket, storage_path: doc.storage_path, subject: doc.subject, sender_email: doc.sender_email, source: doc.source }
       });
-      results.push({
-        ...compactParsed(loaded.path, parsed, Date.now() - started),
-        source: 'email_document',
-        document_id: doc.id,
-        subject: doc.subject,
-        sender_name: doc.sender_name,
-        sender_email: doc.sender_email,
-        created_at: doc.created_at,
-        storage_bucket: doc.storage_bucket,
-        storage_path: doc.storage_path,
-        local_path: doc.raw?.localPath || null,
-        file_load_source: loaded.source
+      parsedOrders.forEach((parsed, orderIndex) => {
+        results.push({
+          ...compactParsed(loaded.path, parsed, Date.now() - started),
+          source: 'email_document',
+          document_id: doc.id,
+          subject: doc.subject,
+          sender_name: doc.sender_name,
+          sender_email: doc.sender_email,
+          created_at: doc.created_at,
+          storage_bucket: doc.storage_bucket,
+          storage_path: doc.storage_path,
+          local_path: doc.raw?.localPath || null,
+          file_load_source: loaded.source,
+          source_document_order_index: parsed.header?.raw?.source_order_index || orderIndex + 1,
+          source_document_order_count: parsed.header?.raw?.source_order_count || parsedOrders.length
+        });
       });
     } catch (error) {
       results.push({ source: 'email_document', document_id: doc.id, file_name: doc.file_name, subject: doc.subject, sender_email: doc.sender_email, status: 'error', error: error.message, elapsed_ms: Date.now() - started });
@@ -537,7 +395,14 @@ app.post('/po/export-a2000-import', async (req, res) => {
       lines_url: exportUrlFor(linesPath),
       columns: { headers: A2000_HEADER_COLUMNS, lines: A2000_LINE_COLUMNS },
       preview: { headers: headerRows.slice(0, 5), lines: lineRows.slice(0, 10) },
-      skipped: results.filter(item => !importable.includes(item)).map(item => ({ file_name: item.file_name, status: item.status, missing: item.missing, error: item.error || null }))
+      skipped: results.filter(item => !importable.includes(item)).map(item => ({
+        file_name: item.file_name,
+        status: item.status,
+        missing: item.missing,
+        strict_header_missing: strictHeaderMissing(item.header || {}),
+        strict_line_missing: (item.lines || []).map(line => ({ line_no: line.line_no, missing: strictLineMissing(item.header || {}, line) })).filter(entry => entry.missing.length),
+        error: item.error || null
+      }))
     });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
@@ -574,12 +439,18 @@ app.post('/po/parse-test-pdfs', async (req, res) => {
       try {
         const buffer = await fs.readFile(file);
         const text = await extractPdfTextFromBuffer(buffer);
-        const parsed = parsePurchaseOrder({
+        const parsedOrders = parsePurchaseOrders({
           text,
           fileName: path.basename(file),
           document: { file_name: path.basename(file), file_path: file }
         });
-        results.push(compactParsed(file, parsed, Date.now() - started));
+        parsedOrders.forEach((parsed, orderIndex) => {
+          results.push({
+            ...compactParsed(file, parsed, Date.now() - started),
+            source_document_order_index: parsed.header?.raw?.source_order_index || orderIndex + 1,
+            source_document_order_count: parsed.header?.raw?.source_order_count || parsedOrders.length
+          });
+        });
       } catch (error) {
         results.push({ file, file_name: path.basename(file), status: 'error', error: error.message, elapsed_ms: Date.now() - started });
       }
@@ -675,7 +546,7 @@ app.post('/po/parse-email-documents', async (req, res) => {
       try {
         const loaded = await readBufferForStoredDocument(doc);
         const text = await extractPdfTextFromBuffer(loaded.buffer);
-        const parsed = parsePurchaseOrder({
+        const parsedOrders = parsePurchaseOrders({
           text,
           fileName: doc.file_name,
           document: {
@@ -689,18 +560,22 @@ app.post('/po/parse-email-documents', async (req, res) => {
             source: doc.source
           }
         });
-        results.push({
-          ...compactParsed(loaded.path, parsed, Date.now() - started),
-          source: 'email_document',
-          document_id: doc.id,
-          subject: doc.subject,
-          sender_name: doc.sender_name,
-          sender_email: doc.sender_email,
-          created_at: doc.created_at,
-          storage_bucket: doc.storage_bucket,
-          storage_path: doc.storage_path,
-          local_path: doc.raw?.localPath || null,
-          file_load_source: loaded.source
+        parsedOrders.forEach((parsed, orderIndex) => {
+          results.push({
+            ...compactParsed(loaded.path, parsed, Date.now() - started),
+            source: 'email_document',
+            document_id: doc.id,
+            subject: doc.subject,
+            sender_name: doc.sender_name,
+            sender_email: doc.sender_email,
+            created_at: doc.created_at,
+            storage_bucket: doc.storage_bucket,
+            storage_path: doc.storage_path,
+            local_path: doc.raw?.localPath || null,
+            file_load_source: loaded.source,
+            source_document_order_index: parsed.header?.raw?.source_order_index || orderIndex + 1,
+            source_document_order_count: parsed.header?.raw?.source_order_count || parsedOrders.length
+          });
         });
       } catch (error) {
         results.push({

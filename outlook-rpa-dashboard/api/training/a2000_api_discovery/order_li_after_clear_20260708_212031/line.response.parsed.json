@@ -1,0 +1,12 @@
+{
+  "status": "Fail",
+  "message": "Lines processed : 1",
+  "updated": 0,
+  "errors": [
+    {
+      "line": 0,
+      "message": "ORA-20000: Update failed on record 1 ORA-20000: Order line order qty 3758963 1 for 11KS306S9962 0C9 is out of ratio\nORA-06512: at \"NKW.T_OL_A\", line 184\nORA-04088: error during execution of trigger 'NKW.T_OL_A'ORA-06512: at \"NKW.K_UTUPLOAD_OE\", line 392\nORA-06512: at line 1\nORA-06512: at \"NKW.K_UTUPLOAD\", line 725\nORA-06512: at \"NKW.K_UTUPLOAD\", line 649\nORA-06512: at \"NKW.K_UTREST\", line 383\n"
+    }
+  ],
+  "data": []
+}

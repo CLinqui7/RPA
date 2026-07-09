@@ -84,69 +84,6 @@ function normalizeStyleRaw(raw) {
   return String(raw || '').replace(/\s+/g, '').replace(/--+/g, '-').toUpperCase();
 }
 
-function splitLastHyphen(styleRaw) {
-  const raw = normalizeStyleRaw(styleRaw);
-  const m = raw.match(/^(.+)-([A-Z0-9]{2,8})$/i);
-  if (!m) return null;
-  return { style_code: m[1], color_code: m[2].toUpperCase() };
-}
-
-const BEALLS_STYLE_MAP = {
-  // E GLUCK smart eyewear, confirmed by packing slip.
-  'TSG1R01-G02': { style_code: 'TSG1R01', color_code: 'G02', list_price: 65, upc: '199347426533' },
-  'TSG1R01-G65': { style_code: 'TSG1R01', color_code: 'G65', list_price: 65, upc: '199347426526' },
-  'TSG1R01-Z16': { style_code: 'TSG1R01', color_code: 'Z16', list_price: 65, upc: '199347426540' },
-
-  // Bealls Outlet EH 1858440, confirmed by PS/PT.
-  'EHH400-42-003': { style_code: 'EHH400-42', color_code: '003', list_price: null, upc: '199347349559' },
-  'EHH400-42|BLACK': { style_code: 'EHH400-42', color_code: '003', list_price: null, upc: '199347349559' },
-
-  // Bealls Outlet 1817648 / 1817649, confirmed by pick ticket.
-  'EHW432|BLACK': { style_code: 'EHW432-42', color_code: '003', list_price: null, upc: '199347366990' },
-  'EHW436B|PINK/BLACK': { style_code: 'EHW436A/B-42', color_code: '89K', list_price: null, upc: '199347367119' },
-  'EHW436A|PINK/BLACK': { style_code: 'EHW436A/B-42', color_code: '89K', list_price: null, upc: '199347367119' },
-  'EHW452A|RED/BLACK': { style_code: 'EHW452A/B-42', color_code: '410', list_price: null, upc: '199347367201' },
-  'EHW452B|RED/BLACK': { style_code: 'EHW452A/B-42', color_code: '410', list_price: null, upc: '199347367201' },
-  'EHW537|RED/BLACK': { style_code: 'EHW537-42', color_code: '410', list_price: null, upc: '199347366624' },
-  'EHW549|BLACK': { style_code: 'EHW549-42', color_code: '003', list_price: null, upc: '199347367317' },
-
-  // Previous Bealls examples.
-  'EHH108-26-EVP': { style_code: 'EHH108-26', color_code: 'EVP' },
-  'EHH108-26-LPT': { style_code: 'EHH108-26', color_code: 'LPT' },
-  'EHH108-26-TLP': { style_code: 'EHH108-26', color_code: 'TLP' },
-  '03STORMY13KP|BLACK': { style_code: '03STORMY13KP', color_code: 'BKA' }
-};
-
-const VISUAL_COLOR_FALLBACK = {
-  BLACK: '003',
-  'BROWN MULTI': '009',
-  BROWN: '009',
-  'PINK/BLACK': '89K',
-  'RED/BLACK': '410',
-  PINK: '009',
-  RED: '410'
-};
-
-function mapStyleColor(styleRaw, colorRaw) {
-  const style = normalizeStyleRaw(styleRaw);
-  const visual = tokenClean(colorRaw).toUpperCase();
-  const fullKey = style;
-  const visualKey = `${style}|${visual}`;
-
-  if (BEALLS_STYLE_MAP[fullKey]) return BEALLS_STYLE_MAP[fullKey];
-  if (BEALLS_STYLE_MAP[visualKey]) return BEALLS_STYLE_MAP[visualKey];
-
-  const split = splitLastHyphen(style);
-  if (split) return split;
-
-  return {
-    style_code: style || null,
-    color_code: VISUAL_COLOR_FALLBACK[visual] || (/^[A-Z0-9]{2,8}$/.test(visual) ? visual : null),
-    list_price: null,
-    upc: null
-  };
-}
-
 function extractDeptAndOrder(text, fileName = '') {
   const one = compactText(text);
   const deptFromFilename = normalizeFileNameValue(fileName, 'Dept');
@@ -301,15 +238,35 @@ function parseSkuWindow(rawLines, startIndex) {
   };
 }
 
+function isLikelyBeallsTableRow(row) {
+  if (!row) return false;
+  if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(String(row.style_raw || ''))) return false;
+  const color = tokenClean(row.color_raw).toUpperCase();
+  if (/\bSKU\b|MFG STYLE|MFG COLOR|TOTAL UNITS|FREIGHT ALLOWANCE/.test(color)) return false;
+  if (!row.description || row.sales_price === null || row.qty_total === null) return false;
+  return true;
+}
+
 function parseRowsFromLines(text) {
   const rawLines = linesOf(text);
   const rows = [];
   const seen = new Set();
 
   for (let i = 0; i < rawLines.length; i += 1) {
-    if (!/^\d{5,12}\b/.test(rawLines[i])) continue;
-    const row = parseSkuWindow(rawLines, i);
-    if (!row) continue;
+    let row = null;
+    let packRaw = null;
+    if (/^\d{5,12}\b/.test(rawLines[i])) {
+      row = parseSkuWindow(rawLines, i);
+    } else {
+      const packMatch = rawLines[i].match(/^([A-Z0-9]{1,3})\s+(\d{5,12})\b\s*(.*)$/i);
+      if (packMatch) {
+        packRaw = packMatch[1];
+        const synthetic = [`${packMatch[2]} ${packMatch[3]}`, ...rawLines.slice(i + 1, i + 6)];
+        row = parseSkuWindow(synthetic, 0);
+      }
+    }
+    if (!isLikelyBeallsTableRow(row)) continue;
+    if (packRaw) row.pack_raw = packRaw;
     const key = [row.customer_sku, row.style_raw, row.color_raw, row.size_raw, row.sales_price, row.qty_total, row.description].join('|');
     if (seen.has(key)) continue;
     seen.add(key);
@@ -356,28 +313,26 @@ function rowsToLines(rows) {
   const groups = new Map();
 
   for (const row of rows) {
-    const mapped = mapStyleColor(row.style_raw, row.color_raw);
-    const styleCode = mapped.style_code;
-    const colorCode = mapped.color_code;
-    if (!styleCode || !colorCode) continue;
+    const styleRaw = normalizeStyleRaw(row.style_raw);
+    const colorRaw = tokenClean(row.color_raw) || null;
+    const sizeRaw = tokenClean(row.size_raw) || null;
+    if (!styleRaw) continue;
 
-    const key = [styleCode, colorCode, row.sales_price].join('|');
+    // RAW parser grouping preserves every printed dimension. No historical/PT
+    // mapping, visual-color fallback, or final A2000 style/color decision occurs here.
+    const key = [styleRaw, colorRaw, sizeRaw, row.sales_price].join('|');
     if (!groups.has(key)) {
       groups.set(key, {
-        style_raw: normalizeStyleRaw(row.style_raw),
-        style_code: styleCode,
-        color_raw: row.color_raw,
-        color_code: colorCode,
+        style_raw: styleRaw,
+        color_raw: colorRaw,
+        size_raw: sizeRaw,
         description: row.description,
         sales_price: row.sales_price,
-        list_price: mapped.list_price || null,
-        ticket_sku: mapped.upc || null,
         qty_total: 0,
         customer_sku: row.customer_sku || null,
         sourceRows: []
       });
     }
-
     const group = groups.get(key);
     group.qty_total += Number(row.qty_total || 0);
     group.sourceRows.push(row);
@@ -387,22 +342,27 @@ function rowsToLines(rows) {
   return [...groups.values()].map((group) => ({
     line_no: lineNo++,
     customer_sku: group.customer_sku,
-    ticket_sku: group.ticket_sku,
+    ticket_sku: null,
+    upc: null,
     style_raw: group.style_raw,
-    style_code: group.style_code,
+    style_code: null,
     color_raw: group.color_raw,
-    color_code: group.color_code,
-    size_raw: '.',
-    size_code: 'PC',
+    color_code: null,
+    size_raw: group.size_raw,
+    size_code: null,
     description: group.description,
     sales_price: group.sales_price,
-    list_price: group.list_price,
+    list_price: null,
     qty_total: group.qty_total,
-    qty_sz1: group.qty_total,
-    warehouse_code: 'PE',
+    warehouse_code: null,
     raw: {
-      source: 'bealls_v20_universal_token_parser',
-      upc: group.ticket_sku,
+      source: 'bealls_v21_raw_master_only',
+      vendor_style_raw: group.style_raw,
+      style_resolution_hint: 'EXACT_MASTER_SKU_NORMALIZED',
+      style_similarity_semantics: 'NEAREST_OFFICIAL_STYLE_CODE',
+      quantity_raw: group.qty_total,
+      quantity_semantics: 'EACH',
+      quantity_uom_raw: 'TOTAL UNITS',
       source_rows: group.sourceRows
     }
   }));
@@ -434,6 +394,7 @@ export function parseBealls({ text, fileName }) {
   const totalQty = oneLine.match(/Total Qty\.\s*(\d[\d,]*)/i)?.[1] || null;
   const totalAmount = oneLine.match(/Total Cost\s*\$\s*([\d,]+\.\d{2})/i)?.[1] || null;
   const lines = extractBeallsLines(rawText);
+  const customerRaw = tokenClean(oneLine.match(/\b(Bealls(?: Outlet)?(?: Stores)?)\b/i)?.[1]) || null;
 
   const warnings = [];
   if (deptFromFilename && deptFromPdf && deptFromFilename !== deptFromPdf) {
@@ -444,33 +405,54 @@ export function parseBealls({ text, fileName }) {
     warnings.push({ field: 'order_no', pdf: orderFromPdf, filename: poFromFilename, message: 'Using PDF ORDER NUMBER because it is printed in the document.' });
   }
 
+  const conflicts = [];
+  const calculatedQty = lines.reduce((acc, line) => acc + Number(line.qty_total || 0), 0);
+  const calculatedAmount = lines.reduce((acc, line) => acc + (Number(line.sales_price || 0) * Number(line.qty_total || 0)), 0);
+  const printedQty = int(totalQty);
+  const printedAmount = normalizeMoney(totalAmount);
+  if (printedQty !== null && calculatedQty && printedQty !== calculatedQty) {
+    conflicts.push({ field: 'totals.qty', code: 'printed_total_mismatch', severity: 'high', blocking: true, message: 'Printed Bealls total quantity does not match extracted line quantities.', printed: printedQty, calculated: calculatedQty });
+  }
+  if (printedAmount !== null && calculatedAmount && Math.abs(printedAmount - calculatedAmount) > 0.01) {
+    conflicts.push({ field: 'totals.amount', code: 'printed_total_mismatch', severity: 'high', blocking: true, message: 'Printed Bealls total cost does not match extracted line amounts.', printed: printedAmount, calculated: Number(calculatedAmount.toFixed(2)) });
+  }
+
   return {
     parser: 'bealls',
+    document_family: 'bealls_purchase_order',
+    layout_version: 'bealls_v21_raw_master_only',
+    document_identity: {
+      legal_entity_raw: customerRaw,
+      brand_raw: customerRaw,
+      customer_candidate: 'BEALLSOUTL',
+      customer_candidate_source: 'document_family',
+      a2000_customer_code: null
+    },
     confidence: lines.length ? 0.99 : 0.6,
     header: {
-      customer_raw: 'Bealls',
-      customer_code: 'BEALLSOUTL',
+      customer_raw: customerRaw,
+      customer_code: null,
       order_no: orderNo,
       order_date: dates.order_date || null,
       start_date: dates.start_date || null,
       cancel_date: dates.cancel_date || null,
       book_date: null,
       dept_raw: deptNo,
-      dept_code: deptNo,
-      division_code: 'H',
+      dept_code: null,
+      division_code: null,
       store_raw: storeRaw,
-      store_code: storeRaw,
+      store_code: null,
       terms_raw: termsRaw,
-      terms_code: termsRaw === 'ROG NET 60' ? 'X6' : null,
+      terms_code: null,
       ship_via_code: null,
-      warehouse_code: 'PE',
+      warehouse_code: null,
       raw: { deptFromFilename, deptFromPdf, orderFromPdf, totalQty, totalAmount, warnings }
     },
     lines,
     totals: {
-      qty: int(totalQty) || lines.reduce((acc, line) => acc + Number(line.qty_total || 0), 0),
-      amount: normalizeMoney(totalAmount)
+      qty: printedQty ?? calculatedQty ?? null,
+      amount: printedAmount ?? (calculatedAmount ? Number(calculatedAmount.toFixed(2)) : null)
     },
-    conflicts: []
+    conflicts
   };
 }

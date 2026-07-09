@@ -1,0 +1,42 @@
+PATCH: BATCH01_V3_MASTER_ONLY_HARDENED
+CUSTOMERS: OLLIES, CARNIVAL, 10BELOW
+SOURCE_POLICY: PDF + OFFICIAL A2000 MASTERS ONLY
+CACHE_REQUIRED: V5 / official_masters_only
+
+FILES INCLUDED
+api/src/a2000/strictImport.js
+api/src/a2000/exportBatch.js
+api/src/server.js
+api/src/po/pdfText.js
+api/src/po/parsers/index.js
+api/src/po/parsers/ollies.js
+api/src/po/parsers/carnival.js
+api/src/po/parsers/tenbelow.js
+api/src/po/enrichment/masterData.js
+api/src/po/enrichment/enrichOrder.js
+api/src/po/mappers/styleColorRules.js
+api/scripts/build-master-cache.py
+api/src/debug-parse-raw-pdf-batch.js
+api/src/debug-verify-parser-fixtures.js
+api/src/debug-verify-enrichment-batch01.js
+api/src/debug-inspect-enriched-pdf.js
+api/src/debug-verify-batch01-v3-guards.js
+api/training/parser_fixtures/**
+api/training/enrichment_fixtures/batch01/**
+api/training/parser_fixture_pdfs/**
+README_BATCH01_V3_MASTER_ONLY_HARDENED.md
+PATCH_MANIFEST_BATCH01_V3.txt
+
+PATH TO REMOVE BEFORE TESTING
+api/training/mapping_truth
+
+NOT INCLUDED
+api/masters/**
+checklists
+Pick Tickets
+Packing Slips
+historical exports
+Hermanito
+runtime mapping truth
+secrets
+Outlook auth cache

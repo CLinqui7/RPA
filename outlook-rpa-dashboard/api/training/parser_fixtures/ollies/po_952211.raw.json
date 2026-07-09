@@ -1,0 +1,26 @@
+{
+  "source_pdf_file": "PO #952211.pdf",
+  "expected": {
+    "parser": "ollies",
+    "document_family": "ollies_purchase_order",
+    "header": {
+      "order_no": "952211",
+      "order_date": "2026-05-28",
+      "start_date": "2026-06-12",
+      "cancel_date": "2026-06-27",
+      "terms_raw": "NET 30 DAYS ROG ACH"
+    },
+    "totals": {
+      "qty": 29376,
+      "amount": 47001.6
+    },
+    "lines": [
+      { "line_no": 1, "customer_sku": "782511", "style_raw": "PL1975NL-42", "color_raw": null, "qty_total": 4896, "sales_price": 1.6 },
+      { "line_no": 2, "customer_sku": "782512", "style_raw": "PL1976NL-42", "color_raw": null, "qty_total": 4896, "sales_price": 1.6 },
+      { "line_no": 3, "customer_sku": "782513", "style_raw": "PL17977NL-42", "color_raw": null, "qty_total": 4896, "sales_price": 1.6 },
+      { "line_no": 4, "customer_sku": "782514", "style_raw": "PL1978NL-42", "color_raw": null, "qty_total": 4896, "sales_price": 1.6 },
+      { "line_no": 5, "customer_sku": "782515", "style_raw": "PL1979NL-42", "color_raw": null, "qty_total": 4896, "sales_price": 1.6 },
+      { "line_no": 6, "customer_sku": "782516", "style_raw": "PL1980NL-42", "color_raw": null, "qty_total": 4896, "sales_price": 1.6 }
+    ]
+  }
+}

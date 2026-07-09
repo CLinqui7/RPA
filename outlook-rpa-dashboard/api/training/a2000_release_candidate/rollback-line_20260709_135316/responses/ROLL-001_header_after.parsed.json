@@ -1,0 +1,22 @@
+{
+  "VR_ORDER_HD": [
+    {
+      "CTRL_NO": 3758965,
+      "CUSTOMER": "CITI",
+      "CUST_NAME": "CITI TRENDS INC",
+      "ORDER_NO": "RCRB260709135326",
+      "STORE": "1",
+      "ORDER_DATE": "2026-07-09T00:00:00Z",
+      "START_DATE": "2026-07-16T00:00:00Z",
+      "CANCEL_DATE": "2026-07-23T00:00:00Z",
+      "DIV": "AL",
+      "TERMS": "X6",
+      "TERMS_DESCR": "CIT ROG NET 60",
+      "DEF_WH": "PE",
+      "SHIP_VIA": "ROUTING",
+      "STATUS": "OPEN",
+      "ENTRY_DATE": "2026-07-09T09:53:29Z",
+      "ENTERED_BY": "NKW"
+    }
+  ]
+}

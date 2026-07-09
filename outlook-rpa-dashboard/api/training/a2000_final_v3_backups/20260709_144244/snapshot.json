@@ -1,0 +1,82 @@
+{
+  "api/scripts/build-master-cache.py": {
+    "existed": true,
+    "backup": "/workspaces/RPA/outlook-rpa-dashboard/api/training/a2000_final_v3_backups/20260709_144244/api/scripts/build-master-cache.py"
+  },
+  "api/src/po/enrichment/masterData.js": {
+    "existed": true,
+    "backup": "/workspaces/RPA/outlook-rpa-dashboard/api/training/a2000_final_v3_backups/20260709_144244/api/src/po/enrichment/masterData.js"
+  },
+  "api/src/po/enrichment/enrichOrder.js": {
+    "existed": true,
+    "backup": "/workspaces/RPA/outlook-rpa-dashboard/api/training/a2000_final_v3_backups/20260709_144244/api/src/po/enrichment/enrichOrder.js"
+  },
+  "api/src/po/enrichment/sizeDistribution.js": {
+    "existed": false
+  },
+  "api/src/po/enrichment/sizeScaleMapping.js": {
+    "existed": false
+  },
+  "api/src/po/parsers/cititrends.js": {
+    "existed": true,
+    "backup": "/workspaces/RPA/outlook-rpa-dashboard/api/training/a2000_final_v3_backups/20260709_144244/api/src/po/parsers/cititrends.js"
+  },
+  "api/src/po/parsers/index.js": {
+    "existed": true,
+    "backup": "/workspaces/RPA/outlook-rpa-dashboard/api/training/a2000_final_v3_backups/20260709_144244/api/src/po/parsers/index.js"
+  },
+  "api/src/a2000/csv.js": {
+    "existed": true,
+    "backup": "/workspaces/RPA/outlook-rpa-dashboard/api/training/a2000_final_v3_backups/20260709_144244/api/src/a2000/csv.js"
+  },
+  "api/src/a2000/exportBatch.js": {
+    "existed": true,
+    "backup": "/workspaces/RPA/outlook-rpa-dashboard/api/training/a2000_final_v3_backups/20260709_144244/api/src/a2000/exportBatch.js"
+  },
+  "api/src/a2000/restMapper.js": {
+    "existed": false
+  },
+  "api/src/a2000/restClient.js": {
+    "existed": false
+  },
+  "api/src/a2000/scaleResolver.js": {
+    "existed": false
+  },
+  "api/src/a2000/orderJobRepository.js": {
+    "existed": false
+  },
+  "api/src/a2000/restAdapter.js": {
+    "existed": false
+  },
+  "api/src/run-a2000-rest-upload-cli.js": {
+    "existed": false
+  },
+  "api/src/server.js": {
+    "existed": true,
+    "backup": "/workspaces/RPA/outlook-rpa-dashboard/api/training/a2000_final_v3_backups/20260709_144244/api/src/server.js"
+  },
+  "api/test/a2000/sizeScaleMapping.test.js": {
+    "existed": false
+  },
+  "api/test/a2000/restMapper.test.js": {
+    "existed": false
+  },
+  "api/sql/a2000_rest_jobs.sql": {
+    "existed": false
+  },
+  "api/training/POST_PATCH_RUNBOOK.txt": {
+    "existed": false
+  },
+  "api/training/A2000_SUPPORT_TICKET_DEDICATED_UPLOAD_IDS.txt": {
+    "existed": true,
+    "backup": "/workspaces/RPA/outlook-rpa-dashboard/api/training/a2000_final_v3_backups/20260709_144244/api/training/A2000_SUPPORT_TICKET_DEDICATED_UPLOAD_IDS.txt"
+  },
+  "api/.env.example": {
+    "existed": true,
+    "backup": "/workspaces/RPA/outlook-rpa-dashboard/api/training/a2000_final_v3_backups/20260709_144244/api/.env.example"
+  },
+  "api/package.json": {
+    "existed": true,
+    "backup": "/workspaces/RPA/outlook-rpa-dashboard/api/training/a2000_final_v3_backups/20260709_144244/api/package.json"
+  }
+}

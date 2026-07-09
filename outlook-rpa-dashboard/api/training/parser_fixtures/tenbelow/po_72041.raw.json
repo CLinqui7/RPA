@@ -1,0 +1,32 @@
+{
+  "source_pdf_file": "72041 American Exchange PO.pdf",
+  "expected": {
+    "parser": "tenbelow",
+    "document_family": "tenbelow_purchase_order",
+    "layout_version": "tenbelow_wide_po_v1",
+    "document_identity": {
+      "legal_entity_raw": "10 Below LLC.",
+      "brand_raw": "Simply 10",
+      "customer_candidate": "10BELOW",
+      "a2000_customer_code": null
+    },
+    "header": {
+      "order_no": "72041",
+      "order_date": "2026-03-12",
+      "start_date": "2026-03-15",
+      "cancel_date": "2026-03-20",
+      "terms_raw": "3% / 60 DAYS",
+      "customer_code": null,
+      "division_code": null,
+      "warehouse_code": null
+    },
+    "totals": {
+      "qty": 540,
+      "amount": 1755
+    },
+    "lines": [
+      { "line_no": 1, "style_raw": "WILLA01L-SGA", "style_code": null, "color_raw": null, "color_code": null, "size_raw": "6 to 11", "description": "sage green two braided strap open toe block heel", "qty_total": 240, "sales_price": 3.25, "raw": { "style_base_candidate_raw": "WILLA01L", "style_suffix_candidate_raw": "SGA", "reorder_raw": "YES", "dept_raw": "6210 - Shoes / 10 - Shoes" } },
+      { "line_no": 2, "style_raw": "RYNN05L-WHA", "style_code": null, "color_raw": null, "color_code": null, "size_raw": "6 to 11", "description": "white rampage two strap large gems open toe hee", "qty_total": 300, "sales_price": 3.25, "raw": { "style_base_candidate_raw": "RYNN05L", "style_suffix_candidate_raw": "WHA", "reorder_raw": "YES", "dept_raw": "6210 - Shoes / 10 - Shoes" } }
+    ]
+  }
+}

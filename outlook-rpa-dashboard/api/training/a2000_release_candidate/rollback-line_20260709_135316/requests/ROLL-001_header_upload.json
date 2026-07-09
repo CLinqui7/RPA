@@ -1,0 +1,17 @@
+{
+  "IGNORE_ERRORS": "N",
+  "ORDER_HD": [
+    {
+      "CUST_NO": "CITI",
+      "STORE_NO": "1",
+      "ORDER_NO": "RCRB260709135326",
+      "ORDER_DATE": "07/09/26",
+      "START_DATE": "07/16/26",
+      "CANCEL_DATE": "07/23/26",
+      "DIV_NO": "AL",
+      "TERM_NO": "X6",
+      "SHIP_VIA_NO": "ROUTING",
+      "DEF_WHOUSE": "PE"
+    }
+  ]
+}

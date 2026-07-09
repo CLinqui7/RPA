@@ -38,7 +38,7 @@ export function normalizeForA2000(parsed) {
     lines,
     raw_normalization: {
       applied: true,
-      note: 'Applied deterministic style/color splitting. Citi uses strict PDF-only mode: no store/division/warehouse defaults are invented.'
+      note: 'Applied meaning-preserving shape normalization only. Known customer parsers keep printed style/color raw until exact or uniquely supported official-master enrichment resolves final A2000 codes.'
     }
   };
 }

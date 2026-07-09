@@ -3,50 +3,17 @@ function clean(value) {
   return String(value).trim();
 }
 
-function key(customerRaw = '', parser = '') {
-  const value = `${customerRaw} ${parser}`.toLowerCase();
-  if (value.includes('bealls')) return 'bealls';
-  if (value.includes('gabe')) return 'gabes';
-  if (value.includes('spencer')) return 'spencers';
-  if (value.includes('citi')) return 'cititrends';
-  if (value.includes('shoe')) return 'shoeshow';
-  if (value.includes('variety')) return 'variety';
-  return 'generic';
-}
-
-// Conservative A2000 defaults. Do not invent A2000-only style/color/store mappings.
-// Strict PDF-only customers should stay null until PT/export/checklist/master mapping supplies them.
-const DEFAULTS = {
-  bealls: {
-    customer_code: 'BEALLSOUTL',
-    warehouse_code: 'PE',
-    division_code: 'X',
-    store_raw_as_code: true
-  },
-  shoeshow: {
-    // PDF prints Shoe Show as a business name, but not A2000 customer/store/division/warehouse codes.
-  },
-  cititrends: {
-    // Citi PO prints customer and terms, but not store/division/warehouse.
-    customer_code: 'CITI',
-    terms_code: 'X6'
-  },
-  variety: {
-    division_code: 'MJ'
-  }
-};
-
-export function applyA2000HeaderDefaults(header = {}, parser = '') {
-  const customerKey = key(header.customer_raw, parser);
-  const defaults = DEFAULTS[customerKey] || {};
-  const storeRaw = clean(header.store_raw);
-
+// MASTER-ONLY POLICY:
+// This layer performs shape cleanup only. It must not inject customer, store,
+// terms, division, or warehouse codes. Those values are resolved later from
+// official masters by enrichOrderWithMasters().
+export function applyA2000HeaderDefaults(header = {}) {
   return {
     ...header,
-    customer_code: clean(header.customer_code) || defaults.customer_code || null,
-    store_code: clean(header.store_code) || (defaults.store_raw_as_code ? storeRaw : '') || null,
-    warehouse_code: clean(header.warehouse_code) || defaults.warehouse_code || null,
-    division_code: clean(header.division_code) || defaults.division_code || null,
-    terms_code: clean(header.terms_code) || defaults.terms_code || null
+    customer_code: clean(header.customer_code) || null,
+    store_code: clean(header.store_code) || null,
+    warehouse_code: clean(header.warehouse_code) || null,
+    division_code: clean(header.division_code) || null,
+    terms_code: clean(header.terms_code) || null
   };
 }

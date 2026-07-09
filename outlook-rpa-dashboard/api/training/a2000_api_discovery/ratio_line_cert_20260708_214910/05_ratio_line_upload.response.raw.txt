@@ -1,0 +1,2 @@
+
+{ "status": "Success", "message": "Lines processed : 1", "updated": 1, "errors": 0, "data": [{"SEQ_ORDER_NO": 3758963,"LINE_NO": 1,"CUST_NO": "CITI","STORE_NO": "1","ORDER_NO": "CERTSL260708205837","STYLE": "11KS306S9962","COLOR_NO": "0C9","SALES_PRICE": 7.1429,"WHOUSE": "PE","QTY_SZ1": 0,"QTY_SZ2": 0,"QTY_SZ3": 0,"QTY_SZ4": 1,"QTY_SZ5": 2,"QTY_SZ6": 2,"QTY_SZ7": 1,"QTY_SZ8": 0,"QTY_SZ9": 0,"QTY_SZ10": 0,"QTY_SZ11": 0,"QTY_SZ12": 0,"QTY_SZ13": 0,"QTY_SZ14": 0,"QTY_SZ15": 0,"QTY_SZ16": 0,"QTY_SZ17": 0,"QTY_SZ18": 0,"SIZE_NO": "v0","LIST_PRICE": 7.1429}], "errors": []}

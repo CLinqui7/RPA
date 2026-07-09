@@ -1,0 +1,580 @@
+{
+  "suite": "ALL_CUSTOMER_SOURCE_HARDCOPY_AUDIT",
+  "source_pdf_count": 18,
+  "passed_identity_checks": 18,
+  "failed_identity_checks": 0,
+  "results": [
+    {
+      "source": "10 below/72041 American Exchange PO.pdf",
+      "expected_parser": "tenbelow",
+      "actual_parser": "tenbelow",
+      "expected_customer": "10BELOW",
+      "actual_customer": "10BELOW",
+      "parser_ok": true,
+      "customer_ok": true,
+      "order_no": "72041",
+      "status": "needs_mapping",
+      "header_missing": [
+        "store_code"
+      ],
+      "line_count": 2,
+      "line_missing": [
+        {
+          "line_no": 1,
+          "missing": [
+            "qty_szn"
+          ]
+        },
+        {
+          "line_no": 2,
+          "missing": [
+            "qty_szn"
+          ]
+        }
+      ],
+      "conflict_codes": [],
+      "warning_codes": [],
+      "totals": {
+        "qty": 540,
+        "amount": 1755,
+        "printed_qty_raw": 540,
+        "printed_amount_raw": 1755
+      }
+    },
+    {
+      "source": "ITSFASHION/stainless steel AMEX PO.pdf",
+      "expected_parser": "catocorp",
+      "actual_parser": "catocorp",
+      "expected_customer": "ITSFASHION",
+      "actual_customer": "ITSFASHION",
+      "parser_ok": true,
+      "customer_ok": true,
+      "order_no": null,
+      "status": "needs_mapping",
+      "header_missing": [
+        "store_code",
+        "order_no",
+        "order_date",
+        "start_date",
+        "cancel_date",
+        "division_code",
+        "warehouse_code"
+      ],
+      "line_count": 0,
+      "line_missing": [
+        {
+          "line_no": null,
+          "missing": [
+            "no_lines_extracted"
+          ]
+        }
+      ],
+      "conflict_codes": [
+        "multi_order_document_requires_split"
+      ],
+      "warning_codes": [],
+      "totals": {
+        "order_count": 6
+      }
+    },
+    {
+      "source": "MACYSBACKS/PO 4931768.pdf",
+      "expected_parser": "macysbacks",
+      "actual_parser": "macysbacks",
+      "expected_customer": "MACYSBACKS",
+      "actual_customer": "MACYSBACKS",
+      "parser_ok": true,
+      "customer_ok": true,
+      "order_no": "4931768",
+      "status": "needs_mapping",
+      "header_missing": [
+        "order_date",
+        "cancel_date"
+      ],
+      "line_count": 10,
+      "line_missing": [],
+      "conflict_codes": [],
+      "warning_codes": [],
+      "totals": {
+        "qty": 1815,
+        "amount": 17242.5,
+        "printed_qty_raw": 1815,
+        "printed_amount_raw": 17242.5
+      }
+    },
+    {
+      "source": "MARSHALLS/hardcopie.PDF",
+      "expected_parser": "marshalls",
+      "actual_parser": "marshalls",
+      "expected_customer": "MARSHALLS",
+      "actual_customer": "MARSHALLS",
+      "parser_ok": true,
+      "customer_ok": true,
+      "order_no": "314654",
+      "status": "needs_mapping",
+      "header_missing": [],
+      "line_count": 5,
+      "line_missing": [
+        {
+          "line_no": 1,
+          "missing": [
+            "sales_price",
+            "qty_szn"
+          ]
+        },
+        {
+          "line_no": 2,
+          "missing": [
+            "sales_price",
+            "qty_szn"
+          ]
+        },
+        {
+          "line_no": 3,
+          "missing": [
+            "sales_price",
+            "qty_szn"
+          ]
+        },
+        {
+          "line_no": 4,
+          "missing": [
+            "sales_price",
+            "qty_szn"
+          ]
+        },
+        {
+          "line_no": 5,
+          "missing": [
+            "sales_price",
+            "qty_szn"
+          ]
+        }
+      ],
+      "conflict_codes": [],
+      "warning_codes": [
+        "routing_document_missing_sales_order_fields"
+      ],
+      "totals": {
+        "qty": 960
+      }
+    },
+    {
+      "source": "MESALVEINC/reportPO-24027385.pdf",
+      "expected_parser": "mesalve",
+      "actual_parser": "mesalve",
+      "expected_customer": "MESALVEINC",
+      "actual_customer": "MESALVEINC",
+      "parser_ok": true,
+      "customer_ok": true,
+      "order_no": "24027385",
+      "status": "parsed",
+      "header_missing": [],
+      "line_count": 4,
+      "line_missing": [],
+      "conflict_codes": [],
+      "warning_codes": [
+        "printed_color_not_master_color_but_style_has_one_official_color",
+        "printed_color_not_master_color_but_style_has_one_official_color",
+        "printed_color_not_master_color_but_style_has_one_official_color",
+        "printed_color_not_master_color_but_style_has_one_official_color"
+      ],
+      "totals": {
+        "qty": 1440,
+        "amount": 4626,
+        "printed_qty_raw": 1440,
+        "printed_amount_raw": 4626
+      }
+    },
+    {
+      "source": "OLLIES/POLINK 1.pdf",
+      "expected_parser": "ollies",
+      "actual_parser": "ollies",
+      "expected_customer": "OLLIES",
+      "actual_customer": "OLLIES",
+      "parser_ok": true,
+      "customer_ok": true,
+      "order_no": "933912",
+      "status": "parsed",
+      "header_missing": [],
+      "line_count": 4,
+      "line_missing": [],
+      "conflict_codes": [],
+      "warning_codes": [
+        "printed_store_master_activity_unknown"
+      ],
+      "totals": {
+        "qty": 10164,
+        "amount": 33873.6,
+        "printed_qty_raw": 10164,
+        "printed_amount_raw": 33873.6
+      }
+    },
+    {
+      "source": "SHOE4500/hardcopie.PDF",
+      "expected_parser": "shoeshow",
+      "actual_parser": "shoeshow",
+      "expected_customer": "SHOE4500",
+      "actual_customer": "SHOE4500",
+      "parser_ok": true,
+      "customer_ok": true,
+      "order_no": "35731",
+      "status": "needs_mapping",
+      "header_missing": [
+        "store_code"
+      ],
+      "line_count": 1,
+      "line_missing": [],
+      "conflict_codes": [],
+      "warning_codes": [
+        "printed_color_token_not_on_resolved_style"
+      ],
+      "totals": {
+        "qty": 2808,
+        "amount": 36504
+      }
+    },
+    {
+      "source": "TILLYS/hardcopie.pdf",
+      "expected_parser": "tillys",
+      "actual_parser": "tillys",
+      "expected_customer": "TILLYS",
+      "actual_customer": "TILLYS",
+      "parser_ok": true,
+      "customer_ok": true,
+      "order_no": "1253037A",
+      "status": "needs_mapping",
+      "header_missing": [
+        "store_code"
+      ],
+      "line_count": 1,
+      "line_missing": [],
+      "conflict_codes": [],
+      "warning_codes": [
+        "terms_soft_day_difference"
+      ],
+      "totals": {
+        "qty": 100,
+        "amount": 1200,
+        "printed_qty_raw": 100,
+        "printed_amount_raw": 1200
+      }
+    },
+    {
+      "source": "TJMAXX/60 089114.pdf",
+      "expected_parser": "tjmaxx",
+      "actual_parser": "tjmaxx",
+      "expected_customer": "TJMAXX",
+      "actual_customer": "TJMAXX",
+      "parser_ok": true,
+      "customer_ok": true,
+      "order_no": "089114",
+      "status": "needs_mapping",
+      "header_missing": [
+        "store_code"
+      ],
+      "line_count": 2,
+      "line_missing": [],
+      "conflict_codes": [],
+      "warning_codes": [
+        "routing_instructions_required_for_destination"
+      ],
+      "totals": {
+        "qty": 595,
+        "printed_qty_raw": 595
+      }
+    },
+    {
+      "source": "VARIETYWHO/1885387.pdf",
+      "expected_parser": "variety",
+      "actual_parser": "variety",
+      "expected_customer": "VARIETYWHO",
+      "actual_customer": "VARIETYWHO",
+      "parser_ok": true,
+      "customer_ok": true,
+      "order_no": "1885387",
+      "status": "needs_mapping",
+      "header_missing": [],
+      "line_count": 9,
+      "line_missing": [
+        {
+          "line_no": 2,
+          "missing": [
+            "color_code",
+            "qty_szn"
+          ]
+        }
+      ],
+      "conflict_codes": [
+        "terms_policy_mismatch"
+      ],
+      "warning_codes": [],
+      "totals": {
+        "qty": 576
+      }
+    },
+    {
+      "source": "Versona/615628 earlier ship.pdf",
+      "expected_parser": "catocorp",
+      "actual_parser": "catocorp",
+      "expected_customer": "VERSONA",
+      "actual_customer": "VERSONA",
+      "parser_ok": true,
+      "customer_ok": true,
+      "order_no": "615628",
+      "status": "needs_mapping",
+      "header_missing": [],
+      "line_count": 2,
+      "line_missing": [],
+      "conflict_codes": [
+        "terms_policy_mismatch"
+      ],
+      "warning_codes": [],
+      "totals": {
+        "qty": 318,
+        "amount": 2046
+      }
+    },
+    {
+      "source": "ZUMIEZ/4587_476085_20260204134804 LINKIN PARK 1.pdf",
+      "expected_parser": "zumiez",
+      "actual_parser": "zumiez",
+      "expected_customer": "ZUMIEZ",
+      "actual_customer": "ZUMIEZ",
+      "parser_ok": true,
+      "customer_ok": true,
+      "order_no": "476085",
+      "status": "parsed",
+      "header_missing": [],
+      "line_count": 4,
+      "line_missing": [],
+      "conflict_codes": [],
+      "warning_codes": [],
+      "totals": {
+        "qty": 2400,
+        "amount": 36000,
+        "printed_qty_raw": 2400,
+        "printed_amount_raw": 36000
+      }
+    },
+    {
+      "source": "beallsoutl/hardcopie nueva.pdf",
+      "expected_parser": "bealls",
+      "actual_parser": "bealls",
+      "expected_customer": "BEALLSOUTL",
+      "actual_customer": "BEALLSOUTL",
+      "parser_ok": true,
+      "customer_ok": true,
+      "order_no": "1857601",
+      "status": "parsed",
+      "header_missing": [],
+      "line_count": 3,
+      "line_missing": [],
+      "conflict_codes": [],
+      "warning_codes": [],
+      "totals": {
+        "qty": 258,
+        "amount": 3354
+      }
+    },
+    {
+      "source": "beallsoutl/hardcopie vieja.PDF",
+      "expected_parser": "bealls",
+      "actual_parser": "bealls",
+      "expected_customer": "BEALLSOUTL",
+      "actual_customer": "BEALLSOUTL",
+      "parser_ok": true,
+      "customer_ok": true,
+      "order_no": "1711061",
+      "status": "needs_mapping",
+      "header_missing": [
+        "division_code",
+        "warehouse_code"
+      ],
+      "line_count": 6,
+      "line_missing": [
+        {
+          "line_no": 1,
+          "missing": [
+            "style_code",
+            "color_code",
+            "warehouse_code",
+            "qty_szn"
+          ]
+        },
+        {
+          "line_no": 2,
+          "missing": [
+            "style_code",
+            "color_code",
+            "warehouse_code",
+            "qty_szn"
+          ]
+        },
+        {
+          "line_no": 3,
+          "missing": [
+            "style_code",
+            "color_code",
+            "warehouse_code",
+            "qty_szn"
+          ]
+        },
+        {
+          "line_no": 4,
+          "missing": [
+            "style_code",
+            "color_code",
+            "warehouse_code",
+            "qty_szn"
+          ]
+        },
+        {
+          "line_no": 5,
+          "missing": [
+            "style_code",
+            "color_code",
+            "warehouse_code",
+            "qty_szn"
+          ]
+        },
+        {
+          "line_no": 6,
+          "missing": [
+            "style_code",
+            "color_code",
+            "warehouse_code",
+            "qty_szn"
+          ]
+        }
+      ],
+      "conflict_codes": [],
+      "warning_codes": [],
+      "totals": {
+        "qty": 414,
+        "amount": 2049.3
+      }
+    },
+    {
+      "source": "citi/PurchaseOrder-0000199431-00-009721.pdf",
+      "expected_parser": "cititrends",
+      "actual_parser": "cititrends",
+      "expected_customer": "CITI",
+      "actual_customer": "CITI",
+      "parser_ok": true,
+      "customer_ok": true,
+      "order_no": "0000199431",
+      "status": "parsed",
+      "header_missing": [],
+      "line_count": 22,
+      "line_missing": [],
+      "conflict_codes": [],
+      "warning_codes": [],
+      "totals": {
+        "qty": 6304,
+        "amount": 12608,
+        "pdf_qty": 6304,
+        "pdf_amount": 12608
+      }
+    },
+    {
+      "source": "colony/COLONY LINKEDIN.pdf",
+      "expected_parser": "colony",
+      "actual_parser": "colony",
+      "expected_customer": "COLONY",
+      "actual_customer": "COLONY",
+      "parser_ok": true,
+      "customer_ok": true,
+      "order_no": "7SU484053",
+      "status": "needs_mapping",
+      "header_missing": [
+        "start_date",
+        "cancel_date"
+      ],
+      "line_count": 1,
+      "line_missing": [],
+      "conflict_codes": [],
+      "warning_codes": [
+        "source_email_typo"
+      ],
+      "totals": {
+        "qty": 97,
+        "amount": 1455
+      }
+    },
+    {
+      "source": "gabrielbro/VendorCopy_13003334.pdf",
+      "expected_parser": "gabes",
+      "actual_parser": "gabes",
+      "expected_customer": "GABRIELBRO",
+      "actual_customer": "GABRIELBRO",
+      "parser_ok": true,
+      "customer_ok": true,
+      "order_no": "100-0013003334 JR",
+      "status": "needs_mapping",
+      "header_missing": [
+        "warehouse_code"
+      ],
+      "line_count": 2,
+      "line_missing": [
+        {
+          "line_no": 1,
+          "missing": [
+            "color_code",
+            "warehouse_code",
+            "qty_szn"
+          ]
+        },
+        {
+          "line_no": 2,
+          "missing": [
+            "color_code",
+            "warehouse_code",
+            "qty_szn"
+          ]
+        }
+      ],
+      "conflict_codes": [],
+      "warning_codes": [],
+      "totals": {
+        "qty": 1164,
+        "amount": 5238,
+        "calculated_qty": 1164,
+        "calculated_amount": 5238
+      }
+    },
+    {
+      "source": "ipc/IPC PO-GG-6026.pdf",
+      "expected_parser": "ipc",
+      "actual_parser": "ipc",
+      "expected_customer": "IPC",
+      "actual_customer": "IPC",
+      "parser_ok": true,
+      "customer_ok": true,
+      "order_no": "PO-GG-6026",
+      "status": "needs_mapping",
+      "header_missing": [
+        "cancel_date"
+      ],
+      "line_count": 1,
+      "line_missing": [
+        {
+          "line_no": 1,
+          "missing": [
+            "qty_szn"
+          ]
+        }
+      ],
+      "conflict_codes": [
+        "source_date_conflict",
+        "terms_policy_mismatch"
+      ],
+      "warning_codes": [],
+      "totals": {
+        "qty": 2000,
+        "amount": 22000,
+        "printed_amount_raw": 22000
+      }
+    }
+  ]
+}

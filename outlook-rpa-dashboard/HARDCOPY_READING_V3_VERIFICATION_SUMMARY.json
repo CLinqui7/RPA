@@ -1,0 +1,40 @@
+{
+  "patch": "HARDCOPY_READING_V3_MASTER_MATCH_MULTIORDER_HARDENED",
+  "base_expected": "HARDCOPY_READING_V2_FIELD_CERTIFICATION_PATCH",
+  "source_policy": "official_masters_only",
+  "verified_locally_against_current_v8_project_copy": true,
+  "tests": {
+    "parser_fixtures": { "passed": 5, "failed": 0 },
+    "batch01_enrichment": { "passed": 3, "failed": 0 },
+    "batch01_v3_guards": { "passed": 20, "failed": 0 },
+    "all_customer_guards": { "passed": 27, "failed": 0 },
+    "source_hardcopy_audit": { "physical_pdfs": 19, "parsed_orders": 24, "passed_identity_checks": 19, "failed_identity_checks": 0 },
+    "v3_master_match_multiorder_guards": { "passed": 13, "failed": 0 },
+    "master_style_color_upc_audit": {
+      "physical_source_documents": 22,
+      "parsed_orders": 27,
+      "lines": 106,
+      "resolved_official_styles": 106,
+      "resolved_official_colors": 106,
+      "unique_master_upc_lines": 99,
+      "multi_size_lines_with_all_master_upcs_by_size": 1,
+      "official_master_upc_coverage_lines": 100,
+      "lines_with_any_upc_evidence": 101,
+      "lines_without_upc_evidence": 5
+    }
+  },
+  "remaining_no_upc_evidence": {
+    "customer": "MARSHALLS",
+    "order_no": "314654",
+    "line_count": 5,
+    "reason": "Routing document has no printed size distribution. Each resolved style/color has six size-specific official UPC candidates, so a single UPC cannot be chosen safely."
+  },
+  "citi_master_upc_exception": {
+    "order_no": "0000199431",
+    "line_no": 7,
+    "customer_upc": "400433439468",
+    "resolved_style": "AX4376H-94",
+    "resolved_color": "979",
+    "reason": "Exact resolved style/color exists in VR_SKU but has no exact VR_UPC_STYLE row. Sibling AX4376H-42 has an UPC but is not borrowed because AX4376H-94 is itself an exact official style."
+  }
+}

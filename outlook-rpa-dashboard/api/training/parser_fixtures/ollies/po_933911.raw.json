@@ -1,0 +1,34 @@
+{
+  "source_pdf_file": "PO #933911.pdf",
+  "expected": {
+    "parser": "ollies",
+    "document_family": "ollies_purchase_order",
+    "layout_version": "ollies_legacy_table_v1",
+    "document_identity": {
+      "legal_entity_raw": "OLLIE'S BARGAIN OUTLET, INC.",
+      "customer_candidate": "OLLIES",
+      "a2000_customer_code": null
+    },
+    "header": {
+      "order_no": "933911",
+      "order_date": "2026-03-18",
+      "start_date": "2026-07-24",
+      "cancel_date": "2026-08-08",
+      "terms_raw": "NET 30 DAYS ROG ACH",
+      "customer_code": null,
+      "division_code": null,
+      "terms_code": null,
+      "warehouse_code": null
+    },
+    "totals": {
+      "qty": 10212,
+      "amount": 34036.8
+    },
+    "lines": [
+      { "line_no": 1, "customer_sku": "733897", "upc": "199347168174", "style_raw": "PM0425WM-42", "color_raw": null, "qty_total": 2040, "sales_price": 4 },
+      { "line_no": 2, "customer_sku": "733901", "upc": "199347168181", "style_raw": "PM0426WM-42", "color_raw": null, "qty_total": 2724, "sales_price": 4 },
+      { "line_no": 3, "customer_sku": "733904", "upc": "196540804885", "style_raw": "PL0438AS", "color_raw": null, "qty_total": 3408, "sales_price": 2.6 },
+      { "line_no": 4, "customer_sku": "766131", "upc": "199347079289", "style_raw": "PL-1644AS", "color_raw": null, "qty_total": 2040, "sales_price": 3 }
+    ]
+  }
+}

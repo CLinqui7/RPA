@@ -1,0 +1,24 @@
+[
+  {
+    "UTREST_LOG_NO": 146,
+    "MODULE": "UPLOADS",
+    "ENDPOINT": "ORDER_LI",
+    "PAYLOAD_SIZE": 286,
+    "MESSAGE": "Lines processed : 1 updated: 1 errors: 0",
+    "CLIENT_NAME": "Linqui",
+    "CLIENT_OWNER": "10061",
+    "ENTRY_DATE": "2026-07-08T17:49:19Z",
+    "ENTRY_TIME": "05:49:19 PM"
+  },
+  {
+    "UTREST_LOG_NO": 146,
+    "MODULE": "UPLOADS",
+    "ENDPOINT": "ORDER_LI",
+    "PAYLOAD_SIZE": 286,
+    "MESSAGE": "Process completed",
+    "CLIENT_NAME": "Linqui",
+    "CLIENT_OWNER": "10061",
+    "ENTRY_DATE": "2026-07-08T17:49:19Z",
+    "ENTRY_TIME": "05:49:19 PM"
+  }
+]

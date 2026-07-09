@@ -1,0 +1,445 @@
+[
+  {
+    "test_id": "CERT-000",
+    "purpose": "Environment and write safety guard",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Required variables are present. Writes are blocked outside AMEXTEST.",
+    "actual": {
+      "base_url": "https://amextest.a2000cloud.com:8890/ords/amxtest",
+      "write_tests": true
+    }
+  },
+  {
+    "test_id": "CERT-001",
+    "purpose": "OAuth client_credentials",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Bearer token obtained successfully without printing the token.",
+    "actual": {
+      "http_status": 200,
+      "token_type": "bearer",
+      "expires_in": 3600,
+      "token_length": 22
+    }
+  },
+  {
+    "test_id": "CERT-002",
+    "purpose": "ORDER_HD upload define",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Define reachable. Field/column count=60.",
+    "actual": {
+      "http_status": 200,
+      "root_keys": [
+        "IGNORE_ERRORS",
+        "ORDER_HD"
+      ],
+      "duplicate_keys": []
+    }
+  },
+  {
+    "test_id": "CERT-003",
+    "purpose": "ORDER_LI upload define",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Define reachable. Field/column count=48.",
+    "actual": {
+      "http_status": 200,
+      "root_keys": [
+        "IGNORE_ERRORS",
+        "ORDER_LI"
+      ],
+      "duplicate_keys": []
+    }
+  },
+  {
+    "test_id": "CERT-004",
+    "purpose": "VR_ORDER_HD viewer define",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Define reachable. Field/column count=135.",
+    "actual": {
+      "http_status": 200,
+      "root_keys": [
+        "COLUMNS",
+        "FILTER",
+        "SORT"
+      ],
+      "duplicate_keys": []
+    }
+  },
+  {
+    "test_id": "CERT-005",
+    "purpose": "VR_ORDER_LI viewer define",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Define reachable. Field/column count=218.",
+    "actual": {
+      "http_status": 200,
+      "root_keys": [
+        "COLUMNS",
+        "FILTER",
+        "SORT"
+      ],
+      "duplicate_keys": []
+    }
+  },
+  {
+    "test_id": "CERT-006",
+    "purpose": "VR_UTREST_LOG viewer define",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Define reachable. Field/column count=13.",
+    "actual": {
+      "http_status": 200,
+      "root_keys": [
+        "COLUMNS",
+        "FILTER",
+        "SORT"
+      ],
+      "duplicate_keys": []
+    }
+  },
+  {
+    "test_id": "CERT-007",
+    "purpose": "Compare csv.js columns against live Upload defines",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Live REST contract compared to current csv.js. REST ORDER_LI uses STORE_NO.",
+    "actual": {
+      "ORDER_HD": {
+        "csv_fields": 59,
+        "define_fields": 60,
+        "match": 59,
+        "csv_only": [],
+        "define_only": [
+          "SHIP_ACT_NO"
+        ]
+      },
+      "ORDER_LI": {
+        "csv_fields": 41,
+        "define_fields": 48,
+        "match": 40,
+        "csv_only": [
+          "_NO"
+        ],
+        "define_only": [
+          "STORE_NO",
+          "USER_REF1",
+          "USER_REF2",
+          "USER_REF3",
+          "USER_REF4",
+          "USER_REF5",
+          "USER_DT_REF1",
+          "USER_DT_REF2"
+        ]
+      }
+    }
+  },
+  {
+    "test_id": "CERT-008",
+    "purpose": "Viewer request schema and exact zero-result filter",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "POST Viewer accepts COLUMNS, FILTER singular and SORT; nonexistent ORDER_NO returns an empty list.",
+    "actual": {
+      "http_status": 200,
+      "row_count": 0
+    }
+  },
+  {
+    "test_id": "CERT-009",
+    "purpose": "Read exact source Sales Order Header context",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Exact source Header context loaded for controlled Line tests.",
+    "actual": {
+      "CTRL_NO": 3757166,
+      "CUSTOMER": "CITI",
+      "CUST_NAME": "CITI TRENDS INC",
+      "ORDER_NO": "194387",
+      "STORE": "1",
+      "ORDER_DATE": "2026-03-04T00:00:00Z",
+      "START_DATE": "2026-07-27T00:00:00Z",
+      "CANCEL_DATE": "2026-07-31T00:00:00Z",
+      "DIV": "AL",
+      "TERMS": "X6",
+      "TERMS_DESCR": "CIT ROG NET 60",
+      "DEF_WH": "PE",
+      "SHIP_VIA": "ROUTING",
+      "STATUS": "OPEN"
+    }
+  },
+  {
+    "test_id": "CERT-010",
+    "purpose": "Read source Lines and derive a real positive OPEN_SZn bucket",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "A real STYLE, CLR, SCALE and positive size bucket were selected from the tenant; Header DIV must match Line DIV.",
+    "actual": {
+      "line_count": 4,
+      "selected_line": {
+        "CTRL_NO": 3757166,
+        "STYLE": "11KS306S9962",
+        "CLR": "0C9",
+        "LINE_NO": 1,
+        "WH": "PE",
+        "CUSTOMER": "CITI",
+        "STORE": "1",
+        "ORDER_NO": "194387",
+        "DIV": "AL",
+        "PRICE": 7.1429,
+        "SCALE": "v0",
+        "STATUS": "OPEN",
+        "ORDER_QTY": 576,
+        "OPEN_QTY": 576,
+        "OPEN_SZ1": 0,
+        "OPEN_SZ2": 0,
+        "OPEN_SZ3": 0,
+        "OPEN_SZ4": 96,
+        "OPEN_SZ5": 192,
+        "OPEN_SZ6": 192,
+        "OPEN_SZ7": 96,
+        "OPEN_SZ8": 0,
+        "OPEN_SZ9": 0,
+        "OPEN_SZ10": 0,
+        "OPEN_SZ11": 0,
+        "OPEN_SZ12": 0,
+        "OPEN_SZ13": 0,
+        "OPEN_SZ14": 0,
+        "OPEN_SZ15": 0,
+        "OPEN_SZ16": 0,
+        "OPEN_SZ17": 0,
+        "OPEN_SZ18": 0
+      },
+      "selected_size_bucket": 4,
+      "header_line_div_match": true
+    }
+  },
+  {
+    "test_id": "CERT-011",
+    "purpose": "Behaviorally verify Viewer projection and SORT on non-empty rows",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Requested columns are projected and source LINE_NO values are sorted.",
+    "actual": {
+      "returned_keys": [
+        "CTRL_NO",
+        "STYLE",
+        "CLR",
+        "LINE_NO",
+        "WH",
+        "CUSTOMER",
+        "STORE",
+        "ORDER_NO",
+        "DIV",
+        "PRICE",
+        "SCALE",
+        "STATUS",
+        "ORDER_QTY",
+        "OPEN_QTY",
+        "OPEN_SZ1",
+        "OPEN_SZ2",
+        "OPEN_SZ3",
+        "OPEN_SZ4",
+        "OPEN_SZ5",
+        "OPEN_SZ6",
+        "OPEN_SZ7",
+        "OPEN_SZ8",
+        "OPEN_SZ9",
+        "OPEN_SZ10",
+        "OPEN_SZ11",
+        "OPEN_SZ12",
+        "OPEN_SZ13",
+        "OPEN_SZ14",
+        "OPEN_SZ15",
+        "OPEN_SZ16",
+        "OPEN_SZ17",
+        "OPEN_SZ18"
+      ],
+      "line_nos": [
+        1.0,
+        2.0,
+        3.0,
+        4.0
+      ],
+      "projection_ok": true,
+      "sort_ok": true
+    }
+  },
+  {
+    "test_id": "CERT-012",
+    "purpose": "Read and group REST logs by UTREST_LOG_NO",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "REST log rows are grouped by repeated UTREST_LOG_NO to reconstruct an operation.",
+    "actual": {
+      "http_status": 200,
+      "rows": 140,
+      "groups": 95
+    }
+  },
+  {
+    "test_id": "CERT-020",
+    "purpose": "Create unique ORDER_HD and verify SEQ_ORDER_NO ↔ VR_ORDER_HD.CTRL_NO",
+    "write_risk": "MEDIUM",
+    "result": "PASS",
+    "finding": "Header creation must return SEQ_ORDER_NO and Viewer must expose the same value as CTRL_NO.",
+    "actual": {
+      "order_no": "CERTSL260708205837",
+      "seq_order_no": 3758963,
+      "viewer_rows": [
+        {
+          "CTRL_NO": 3758963,
+          "CUSTOMER": "CITI",
+          "ORDER_NO": "CERTSL260708205837",
+          "STORE": "1",
+          "DIV": "AL",
+          "TERMS": "X6",
+          "DEF_WH": "PE",
+          "SHIP_VIA": "ROUTING",
+          "STATUS": "OPEN"
+        }
+      ],
+      "body_status": "Success",
+      "body_updated": 1
+    }
+  },
+  {
+    "test_id": "CERT-021",
+    "purpose": "Create one ORDER_LI from a real tenant business context and verify with VR_ORDER_LI",
+    "write_risk": "MEDIUM",
+    "result": "FAIL",
+    "finding": "Single Line failed and the latest log shows multi-line contamination/staging symptoms.",
+    "actual": {
+      "order_no": "CERTSL260708205837",
+      "seq_order_no": 3758963,
+      "source_style": "11KS306S9962",
+      "source_color": "0C9",
+      "source_scale": "v0",
+      "size_bucket": 4,
+      "http_status": 200,
+      "body": {
+        "status": "Fail",
+        "message": "Lines processed : 1",
+        "updated": 0,
+        "errors": [
+          {
+            "line": 0,
+            "message": "ORA-20001: Validation failed - 14 error(s) foundORA-06512: at \"NKW.K_UTUPLOAD\", line 676\nORA-06512: at \"NKW.K_UTUPLOAD\", line 649\nORA-06512: at \"NKW.K_UTREST\", line 383\n"
+          }
+        ],
+        "data": []
+      },
+      "duplicate_keys": [
+        "errors"
+      ],
+      "viewer_line_count": 0,
+      "latest_log_no": 116,
+      "latest_log_messages": [
+        "Line: 5 Column:  Value: N/A - Too many order headers match this line",
+        "Line: 4 Column:  Value: N/A - Too many order headers match this line",
+        "Line: 3 Column:  Value: N/A - Too many order headers match this line",
+        "Line: 11 Column:  Value: N/A - Too many order headers match this line",
+        "Process completed",
+        "Line: 12 Column:  Value: N/A - Too many order headers match this line",
+        "Line: 13 Column:  Value: N/A - Too many order headers match this line",
+        "Line: 14 Column:  Value: N/A - Too many order headers match this line",
+        "Line: 6 Column: 2 Value: 1 - Already on file",
+        "Line: 7 Column: 2 Value: 2 - Already on file",
+        "Line: 8 Column: 2 Value: 3 - Already on file",
+        "Line: 9 Column: 2 Value: 4 - Already on file",
+        "Line: 1 Column:  Value: N/A - Too many order headers match this line",
+        "Line: 2 Column:  Value: N/A - Too many order headers match this line",
+        "Line: 10 Column: 2 Value: 5 - Already on file",
+        "Error updating records: ORA-20001: Validation failed - 14 error(s) found ORA-06512: at \"NKW.K_UTUPLOAD\", line 676\nORA-06512: at \"NKW.K_UTUPLOAD\", line 649\nORA-06512: at \"NKW.K_UTREST\", line 383\n",
+        "Lines processed : 1 updated: 0 errors: 1"
+      ],
+      "staging_contamination_suspected": true
+    }
+  },
+  {
+    "test_id": "CERT-022",
+    "purpose": "Duplicate ORDER_LI behavior",
+    "write_risk": "MEDIUM",
+    "result": "SKIPPED",
+    "finding": "Requires successful single Line and A2000_DESTRUCTIVE_PROBES=1.",
+    "actual": null
+  },
+  {
+    "test_id": "CERT-023",
+    "purpose": "Two valid ORDER_LI rows in one batch",
+    "write_risk": "MEDIUM",
+    "result": "SKIPPED",
+    "finding": "Requires a successful single Line.",
+    "actual": null
+  },
+  {
+    "test_id": "CERT-024",
+    "purpose": "ORDER_LI rollback characterization",
+    "write_risk": "MEDIUM",
+    "result": "SKIPPED",
+    "finding": "Requires successful single Line and A2000_DESTRUCTIVE_PROBES=1.",
+    "actual": null
+  },
+  {
+    "test_id": "CERT-025",
+    "purpose": "Duplicate ORDER_HD behavior",
+    "write_risk": "MEDIUM",
+    "result": "SKIPPED",
+    "finding": "Requires A2000_DESTRUCTIVE_PROBES=1.",
+    "actual": null
+  },
+  {
+    "test_id": "CERT-026",
+    "purpose": "ORDER_HD rollback characterization",
+    "write_risk": "MEDIUM",
+    "result": "SKIPPED",
+    "finding": "Requires A2000_DESTRUCTIVE_PROBES=1.",
+    "actual": null
+  },
+  {
+    "test_id": "CERT-030",
+    "purpose": "Capture latest grouped REST log for ORDER_HD",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Latest REST operation group captured for correlation with raw API responses.",
+    "actual": {
+      "latest_log_no": 113,
+      "messages": [
+        "Lines processed : 1 updated: 1 errors: 0",
+        "Process completed"
+      ]
+    }
+  },
+  {
+    "test_id": "CERT-031",
+    "purpose": "Capture latest grouped REST log for ORDER_LI",
+    "write_risk": "NONE",
+    "result": "PASS",
+    "finding": "Latest REST operation group captured for correlation with raw API responses.",
+    "actual": {
+      "latest_log_no": 116,
+      "messages": [
+        "Line: 11 Column:  Value: N/A - Too many order headers match this line",
+        "Line: 5 Column:  Value: N/A - Too many order headers match this line",
+        "Line: 4 Column:  Value: N/A - Too many order headers match this line",
+        "Line: 3 Column:  Value: N/A - Too many order headers match this line",
+        "Line: 12 Column:  Value: N/A - Too many order headers match this line",
+        "Process completed",
+        "Lines processed : 1 updated: 0 errors: 1",
+        "Error updating records: ORA-20001: Validation failed - 14 error(s) found ORA-06512: at \"NKW.K_UTUPLOAD\", line 676\nORA-06512: at \"NKW.K_UTUPLOAD\", line 649\nORA-06512: at \"NKW.K_UTREST\", line 383\n",
+        "Line: 13 Column:  Value: N/A - Too many order headers match this line",
+        "Line: 14 Column:  Value: N/A - Too many order headers match this line",
+        "Line: 6 Column: 2 Value: 1 - Already on file",
+        "Line: 7 Column: 2 Value: 2 - Already on file",
+        "Line: 8 Column: 2 Value: 3 - Already on file",
+        "Line: 9 Column: 2 Value: 4 - Already on file",
+        "Line: 1 Column:  Value: N/A - Too many order headers match this line",
+        "Line: 2 Column:  Value: N/A - Too many order headers match this line",
+        "Line: 10 Column: 2 Value: 5 - Already on file"
+      ]
+    }
+  }
+]
