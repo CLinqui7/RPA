@@ -91,6 +91,7 @@ async function insertDocumentRow(row, { allowDuplicates, runId, index, sha256 })
   return retryData;
 }
 
+// A2000_V4_6_8_1_CONTENT_SHA_STORAGE_REUSE
 export async function saveDownloadedDocuments(documents = [], logs = [], options = {}) {
   if (!documents.length) return [];
 
@@ -104,6 +105,60 @@ export async function saveDownloadedDocuments(documents = [], logs = [], options
     const buffer = await fs.readFile(document.localPath);
     const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
     const fileName = normalizePathPart(document.fileName || path.basename(document.localPath));
+    const originalExternalKey = document.externalKey || `${document.emailExternalKey || 'email'}|${sha256}`;
+
+    if (!allowDuplicates) {
+      const { data: existingRows, error: existingError } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('sha256', sha256)
+        .limit(1);
+
+      if (existingError) throw existingError;
+
+      const existing = Array.isArray(existingRows) ? existingRows[0] : null;
+
+      if (existing) {
+        // Preserve one document identity per email + attachment while reusing the
+        // already stored PDF bytes. This lets attachment recovery become complete
+        // for the new Outlook message without duplicating Storage objects.
+        const aliasRow = {
+          external_key: originalExternalKey,
+          source: 'outlook_rpa',
+          email_external_key: document.emailExternalKey || null,
+          subject: document.subject || null,
+          sender_name: document.senderName || null,
+          sender_email: document.senderEmail || null,
+          file_name: document.fileName || fileName,
+          storage_bucket: existing.storage_bucket,
+          storage_path: existing.storage_path,
+          file_size: existing.file_size || buffer.length,
+          sha256,
+          status: 'downloaded',
+          raw: {
+            ...(document.raw || {}),
+            original_external_key: originalExternalKey,
+            scan_run_id: runId,
+            duplicate_mode: 'content_sha256_storage_reuse_with_email_attachment_alias',
+            reused_content_document_id: existing.id,
+            localPath: document.localPath,
+            downloadedAt: document.downloadedAt || new Date().toISOString()
+          }
+        };
+
+        const alias = await insertDocumentRow(aliasRow, {
+          allowDuplicates: false,
+          runId,
+          index,
+          sha256
+        });
+
+        saved.push(alias);
+        logs.push(`PDF bytes already in Supabase Storage. Reused content and linked attachment to current email: ${document.fileName || fileName}`);
+        continue;
+      }
+    }
+
     const emailKey = normalizePathPart(document.emailExternalKey || document.subject || 'email');
     const runSegment = allowDuplicates ? normalizePathPart(`run-${String(runId).slice(0, 24)}-${Date.now()}-${index}`) : '';
     const storagePath = [
@@ -123,7 +178,6 @@ export async function saveDownloadedDocuments(documents = [], logs = [], options
 
     if (uploadError) throw uploadError;
 
-    const originalExternalKey = document.externalKey || `${document.emailExternalKey || 'email'}|${sha256}`;
     const row = {
       external_key: allowDuplicates ? uniqueExternalKey(originalExternalKey, runId, index, sha256) : originalExternalKey,
       source: 'outlook_rpa',
@@ -141,7 +195,7 @@ export async function saveDownloadedDocuments(documents = [], logs = [], options
         ...(document.raw || {}),
         original_external_key: originalExternalKey,
         scan_run_id: runId,
-        duplicate_mode: allowDuplicates ? 'accepted_new_row_per_scan' : 'upsert_by_original_external_key',
+        duplicate_mode: allowDuplicates ? 'accepted_new_row_per_scan' : 'content_sha256_storage_reuse_then_upsert_external_key',
         localPath: document.localPath,
         downloadedAt: document.downloadedAt || new Date().toISOString()
       }
@@ -153,6 +207,27 @@ export async function saveDownloadedDocuments(documents = [], logs = [], options
   }
 
   return saved;
+}
+
+
+export async function downloadedDocumentFileNamesForEmail(emailExternalKey) {
+  if (!emailExternalKey) return [];
+
+  const { data, error } = await supabase
+    .from('documents')
+    .select('file_name')
+    .eq('email_external_key', emailExternalKey)
+    .limit(500);
+
+  if (error) throw error;
+
+  return [
+    ...new Set(
+      (data || [])
+        .map(row => row.file_name)
+        .filter(Boolean)
+    )
+  ];
 }
 
 export async function listDocuments({ limit = 200 } = {}) {

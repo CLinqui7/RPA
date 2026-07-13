@@ -1,37 +1,176 @@
 import { scanOutlook } from './rpa/outlookScanner.js';
 import { createRun, finishRun, upsertEmails } from './runRepository.js';
 import { saveDownloadedDocuments } from './documentRepository.js';
+import { processScannedDocuments } from './po/productionWorkflow.js';
 import { config } from './config.js';
+import {
+  buildUnreadSearchAttempts,
+  subjectFilterAlternatives
+} from './rpa/outlookUnreadQueue.js';
 
 export async function runScan() {
   const run = await createRun();
+
   try {
-    const result = await scanOutlook({
-      // If OUTLOOK_SCAN_MODE=search, use the invoice subject as search query by default.
-      searchQuery: config.outlookSearchQuery || config.invoiceSubjectFilter || 'factura american'
+    const subjects = subjectFilterAlternatives(
+      config.invoiceSubjectFilter || 'factura american'
+    );
+    const attempts = buildUnreadSearchAttempts({
+      configuredQuery: config.outlookSearchQuery,
+      subjectFilter: config.invoiceSubjectFilter || 'factura american'
+    });
+    const maxEmails = Math.max(Number(config.outlookMaxEmails || 0), 500);
+    const mergedEmails = new Map();
+    const mergedDocuments = new Map();
+    const mergedLogs = [
+      `OUTLOOK_EFFECTIVE_SUBJECT_FILTER=${config.invoiceSubjectFilter}`,
+      `OUTLOOK_SUBJECT_ALIASES=${subjects.join(' | ')}`
+    ];
+
+    const mergeResult = (result, label) => {
+      for (const line of result.logs || []) {
+        mergedLogs.push(`[${label}] ${line}`);
+      }
+
+      for (const email of result.emails || []) {
+        const key = email.externalKey
+          || `${email.subject}|${email.senderEmail}|${email.receivedAt}|${email.poNumber}`;
+        if (!mergedEmails.has(key)) mergedEmails.set(key, email);
+      }
+
+      for (const document of result.documents || []) {
+        const key = document.raw?.sha256
+          || document.externalKey
+          || `${document.emailExternalKey}|${document.fileName}|${document.localPath}`;
+        if (!mergedDocuments.has(key)) mergedDocuments.set(key, document);
+      }
+    };
+
+    for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
+      const query = attempts[attemptIndex];
+
+      mergedLogs.push(
+        `OUTLOOK_UNREAD_ATTEMPT=${attemptIndex + 1}/${attempts.length}`
+        + `|QUERY=${query}`
+      );
+
+      const result = await scanOutlook({
+        maxEmails,
+        searchQuery: query,
+        forceInbox: false
+      });
+
+      mergeResult(result, `SEARCH_${attemptIndex + 1}`);
+
+      mergedLogs.push(
+        `OUTLOOK_UNREAD_ATTEMPT_RESULT=${attemptIndex + 1}`
+        + `|EMAILS=${result.emails?.length || 0}`
+        + `|PDFS=${result.documents?.length || 0}`
+        + `|MERGED_EMAILS=${mergedEmails.size}`
+        + `|MERGED_PDFS=${mergedDocuments.size}`
+      );
+
+      if (
+        (result.emails?.length || 0) > 0
+        || (result.documents?.length || 0) > 0
+      ) {
+        break;
+      }
+    }
+
+    if (mergedEmails.size === 0) {
+      mergedLogs.push(
+        'OUTLOOK_SEARCH_ATTEMPTS_EMPTY=YES'
+        + '|NEXT=RAW_INBOX_DOM_FALLBACK'
+      );
+
+      const fallback = await scanOutlook({
+        maxEmails,
+        searchQuery: '',
+        forceInbox: true
+      });
+
+      mergeResult(fallback, 'INBOX_FALLBACK');
+
+      mergedLogs.push(
+        `OUTLOOK_INBOX_FALLBACK_RESULT`
+        + `|EMAILS=${fallback.emails?.length || 0}`
+        + `|PDFS=${fallback.documents?.length || 0}`
+        + `|MERGED_EMAILS=${mergedEmails.size}`
+        + `|MERGED_PDFS=${mergedDocuments.size}`
+      );
+    }
+
+    const result = {
+      emails: [...mergedEmails.values()],
+      documents: [...mergedDocuments.values()],
+      logs: mergedLogs
+    };
+
+    const inserted = await upsertEmails(result.emails, {
+      runId: run.id,
+      allowDuplicates: false
     });
 
-    const inserted = await upsertEmails(result.emails || [], { runId: run.id, allowDuplicates: true });
-    const savedDocuments = await saveDownloadedDocuments(result.documents || [], result.logs || [], { runId: run.id, allowDuplicates: true });
+    const savedDocuments = await saveDownloadedDocuments(
+      result.documents,
+      result.logs,
+      {
+        runId: run.id,
+        allowDuplicates: false
+      }
+    );
+
+    // Reading Outlook never creates A2000 Sales Orders.
+    const processing = await processScannedDocuments(savedDocuments, {
+      uploadToA2000: false
+    });
+
+    const attachmentOccurrences = result.emails.reduce((sum, email) => (
+      sum + Number(
+        email.raw?.attachment_occurrence_coverage?.expected_count
+        || email.raw?.attachment_coverage?.occurrence_coverage?.expected_count
+        || email.attachments?.length
+        || 0
+      )
+    ), 0);
 
     const finished = await finishRun(run.id, {
       status: 'success',
-      scanned_count: result.emails?.length || 0,
+      scanned_count: result.emails.length,
       inserted_count: inserted.length,
       log: [
-        ...(result.logs || []),
-        `Accepted duplicate email rows: yes. Inserted ${inserted.length} email event row(s) for this run.`,
-        `Saved ${savedDocuments.length} downloaded PDF document(s) in Supabase.`,
-        `Subject filter used: ${config.invoiceSubjectFilter || 'factura american'}.`
+        ...result.logs,
+        `UNREAD_ONLY=true. Matching emails processed: ${result.emails.length}.`,
+        `Attachment occurrences recovered: ${attachmentOccurrences}.`,
+        `Unique PDF documents saved: ${savedDocuments.length}.`,
+        `Documents parsed: ${processing.processed_document_count}.`,
+        'A2000 auto-upload requested: no.',
+        `Unread search attempts: ${attempts.join(' || ')}.`,
+        `Inbox DOM fallback used: ${mergedLogs.some(line => line.includes('RAW_INBOX_DOM_FALLBACK')) ? 'yes' : 'no'}.`
       ]
     });
-    return { run: finished, emails: inserted, documents: savedDocuments, logs: finished.log || result.logs };
+
+    return {
+      run: finished,
+      emails: inserted,
+      documents: savedDocuments,
+      processing,
+      logs: finished.log || result.logs
+    };
   } catch (error) {
     const finished = await finishRun(run.id, {
       status: 'error',
       error_message: error.message,
       log: [{ error: error.message, stack: error.stack }]
     });
-    return { run: finished, emails: [], documents: [], logs: [error.message] };
+
+    return {
+      run: finished,
+      emails: [],
+      documents: [],
+      processing: null,
+      logs: [error.message]
+    };
   }
 }

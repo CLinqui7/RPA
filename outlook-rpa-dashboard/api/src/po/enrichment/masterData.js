@@ -1,8 +1,37 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const MASTER_DIR = process.env.A2000_MASTER_DIR || path.resolve(process.cwd(), 'api/masters');
-const CACHE_DIR = process.env.A2000_MASTER_CACHE_DIR || path.join(MASTER_DIR, 'cache');
+// A2000_V4_6_1_MASTER_PATH_RUNTIME_REPAIR
+// Anchor master paths to the API source tree instead of process.cwd().
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const API_ROOT = path.resolve(__dirname, '..', '..', '..');
+const PROJECT_ROOT = path.resolve(API_ROOT, '..');
+
+function resolveConfiguredPath(value, fallbackPath) {
+  const raw = String(value || '').trim();
+  if (!raw) return path.resolve(fallbackPath);
+  if (path.isAbsolute(raw)) return path.resolve(raw);
+
+  const candidates = [
+    path.resolve(PROJECT_ROOT, raw),
+    path.resolve(API_ROOT, raw),
+    path.resolve(process.cwd(), raw)
+  ];
+
+  return candidates.find((candidate) => fs.existsSync(candidate))
+    || candidates[0];
+}
+
+const MASTER_DIR = resolveConfiguredPath(
+  process.env.A2000_MASTER_DIR,
+  path.join(API_ROOT, 'masters')
+);
+
+const CACHE_DIR = resolveConfiguredPath(
+  process.env.A2000_MASTER_CACHE_DIR,
+  path.join(MASTER_DIR, 'cache')
+);
 let cache = null;
 
 function clean(value) {
@@ -113,6 +142,8 @@ function emptyCache(error = null) {
     skuByStyleColor: new Map(),
     skuByStyle: new Map(),
     skuByNormalizedSku: new Map(),
+    skuZByStyleColor: new Map(),
+    skuZByStyleColorSize: new Map(),
     styleByCustomerNorm: new Map(),
     upcByStyleColor: new Map(),
     upcByStyleColorSize: new Map(),
@@ -137,12 +168,19 @@ function buildFromCompactCsv() {
 
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   const cacheVersion = Number(manifest.version || 0);
-  if (cacheVersion < 8 || manifest.source_policy !== 'official_masters_only' || manifest.customer_profile_policy !== 'master_only_all_customers_v1' || manifest.store_csv_policy !== 'reject_shifted_columns_preserve_customer_store_keys_v1') {
-    return emptyCache(`Compact master cache v8 official_masters_only + hardened store CSV policy is required. Rebuild with: python3 api/scripts/build-master-cache.py ${MASTER_DIR}`);
+  if (
+    cacheVersion < 9
+    || manifest.source_policy !== 'official_masters_only'
+    || manifest.customer_profile_policy !== 'master_only_all_customers_v1'
+    || manifest.store_csv_policy !== 'reject_shifted_columns_preserve_customer_store_keys_v1'
+    || manifest.size_bucket_policy !== 'vr_sku_z_size_num_to_qty_szn_v1'
+  ) {
+    return emptyCache(`Compact master cache v9 with official_masters_only + hardened store CSV + VR_SKU_Z SIZE_NUM bucket policy is required. Rebuild with: python3 api/scripts/build-master-cache.py ${MASTER_DIR}`);
   }
   const customers = readCompactCsv('customers.csv');
   const stores = readCompactCsv('stores.csv');
   const skuRows = readCompactCsv('sku.csv');
+  const skuZRows = readCompactCsv('sku_z.csv');
   const upcRows = readCompactCsv('upc.csv');
   const colorRows = readCompactCsv('colors.csv');
   const warehouseRows = readCompactCsv('warehouses.csv');
@@ -265,6 +303,39 @@ function buildFromCompactCsv() {
   }
   const styleByCustomerNorm = new Map([...styleByCustomerNormSets.entries()].map(([key, set]) => [key, [...set]]));
 
+  const skuZByStyleColor = new Map();
+  const skuZByStyleColorSize = new Map();
+  for (const row of skuZRows) {
+    const style = clean(row.style).toUpperCase();
+    const clr = clean(row.clr).toUpperCase();
+    if (!style || !clr) continue;
+
+    const rec = {
+      Style: style,
+      Clr: clr,
+      Sku: row.sku,
+      'Size Name': row.size_name,
+      'Size Num': row.size_num,
+      'Scale Qty': row.scale_qty,
+      'Scale Pack Qty': row.scale_pack_qty,
+      'Pack Qty': row.pack_qty,
+      Div: row.div,
+      Scale: row.scale,
+      'Scale Abbr': row.scale_abbr,
+      Active: row.active
+    };
+
+    const key = `${style}|${clr}`;
+    if (!skuZByStyleColor.has(key)) skuZByStyleColor.set(key, []);
+    skuZByStyleColor.get(key).push(rec);
+
+    if (row.size_norm) {
+      const sizeKey = `${style}|${clr}|${row.size_norm}`;
+      if (!skuZByStyleColorSize.has(sizeKey)) skuZByStyleColorSize.set(sizeKey, []);
+      skuZByStyleColorSize.get(sizeKey).push(rec);
+    }
+  }
+
   const upcByStyleColor = new Map();
   const upcByStyleColorSize = new Map();
   const upcByValue = new Map();
@@ -337,6 +408,8 @@ function buildFromCompactCsv() {
     skuByStyleColor,
     skuByStyle,
     skuByNormalizedSku,
+    skuZByStyleColor,
+    skuZByStyleColorSize,
     styleByCustomerNorm,
     upcByStyleColor,
     upcByStyleColorSize,

@@ -87,6 +87,7 @@ def main():
     customer_iter,_=iter_table(master_dir,'customer_master.csv.xlsx','customer_master.xlsx','customer_master.csv')
     store_iter,_=iter_table(master_dir,'stores_master.csv','stores_master.csv.xlsx','stores_master.xlsx')
     sku_iter,_=iter_table(master_dir,'VR_SKU.xlsx')
+    sku_z_iter,_=iter_table(master_dir,'VR_SKU_Z.xlsx','VR_SKU_Z.csv.xlsx','VR_SKU_Z.csv')
     upc_iter,_=iter_table(master_dir,'VR_UPC_STYLE.xlsx')
     color_iter,_=iter_table(master_dir,'VR_COLOR.xlsx')
     whse_iter,_=iter_table(master_dir,'whse_master.csv','warehouse_master.csv','whse_master.xlsx','whse_master.csv.xlsx')
@@ -125,6 +126,34 @@ def main():
             row={'style':style,'clr':clr,'style_descr':clean(r.get('Style Descr')),'clr_desc':clean(r.get('Clr Desc')),'clr_abbr':clean(r.get('Clr Abbr')),'sku':clean(r.get('Sku')),'sku_descr':clean(r.get('Sku Descr')),'scale':clean(r.get('Scale')),'scale_abbr':clean(r.get('Scale Abbr')),'div':clean(r.get('Div')),'customer':clean(r.get('Customer')).upper() or 'STOCK','master_style':clean(r.get('Master Style')),'style_alias':clean(r.get('Style Alias')),'invoice_descr':clean(r.get('Invoice Descr')),'price':clean(r.get('Price')),'pack_qty':clean(r.get('Pack Qty')),'wh':clean(r.get('Wh')),'style_norm':norm(style),'master_style_norm':norm(r.get('Master Style')),'style_alias_norm':norm(r.get('Style Alias'))}
             w.writerow(row)
 
+    print('Writing SKU Z compact...', flush=True)
+    sku_z_headers=['style','clr','sku','size_name','size_num','scale_qty','scale_pack_qty','pack_qty','div','scale','scale_abbr','active','size_norm']
+    sku_z_count=0
+    with (out_dir/'sku_z.csv').open('w', newline='', encoding='utf-8') as f:
+        w=csv.DictWriter(f, fieldnames=sku_z_headers); w.writeheader()
+        for r in sku_z_iter:
+            sku_z_count += 1
+            style=clean(r.get('Style') or r.get('STYLE')).upper()
+            clr=clean(r.get('Clr') or r.get('CLR')).upper()
+            if not style or not clr or style not in known_styles: continue
+            size_name=clean(r.get('Size Name') or r.get('SIZE_NAME'))
+            size_num=clean(r.get('Size Num') or r.get('SIZE_NUM'))
+            w.writerow({
+                'style':style,
+                'clr':clr,
+                'sku':clean(r.get('Sku') or r.get('SKU')),
+                'size_name':size_name,
+                'size_num':size_num,
+                'scale_qty':clean(r.get('Scale Qty') or r.get('SCALE_QTY')),
+                'scale_pack_qty':clean(r.get('Scale Pack Qty') or r.get('SCALE_PACK_QTY')),
+                'pack_qty':clean(r.get('Pack Qty') or r.get('PACK_QTY')),
+                'div':clean(r.get('Div') or r.get('DIV')),
+                'scale':clean(r.get('Scale') or r.get('SCALE')),
+                'scale_abbr':clean(r.get('Scale Abbr') or r.get('SCALE_ABBR')),
+                'active':clean(r.get('Sku Active') or r.get('SKU_ACTIVE') or r.get('Active') or r.get('ACTIVE')),
+                'size_norm':norm(size_name or size_num)
+            })
+
     print('Writing UPC compact...', flush=True)
     upc_headers=['style','clr','clr_desc','clr_abbr','upc','size_name','size_num','sku','div','scale','scale_abbr','price','pack_qty','size_norm']
     upc_count=0
@@ -154,7 +183,7 @@ def main():
         warehouses.append({'wh':code,'name':clean(r.get('Wh Name')),'type':clean(r.get('Wh Type')),'addr1':clean(r.get('Wh Addr 1')),'addr2':clean(r.get('Wh Addr 2')),'city':clean(r.get('Wh City')),'state':clean(r.get('Wh State')),'postal':clean(r.get('Wh Postal')),'country':clean(r.get('Wh Country')),'active':clean(r.get('Wh Active'))})
     write_csv(out_dir/'warehouses.csv', ['wh','name','type','addr1','addr2','city','state','postal','country','active'], warehouses)
 
-    manifest={'version':8,'source_policy':'official_masters_only','customer_profile_policy':'master_only_all_customers_v1','store_csv_policy':'reject_shifted_columns_preserve_customer_store_keys_v1','counts':{'customers':c_count,'stores':s_count,'malformed_store_rows':malformed_store_rows,'sku_rows':sku_count,'upc_rows':upc_count,'colors':color_count,'warehouses':whse_count}}
+    manifest={'version':9,'source_policy':'official_masters_only','customer_profile_policy':'master_only_all_customers_v1','store_csv_policy':'reject_shifted_columns_preserve_customer_store_keys_v1','size_bucket_policy':'vr_sku_z_size_num_to_qty_szn_v1','counts':{'customers':c_count,'stores':s_count,'malformed_store_rows':malformed_store_rows,'sku_rows':sku_count,'sku_z_rows':sku_z_count,'upc_rows':upc_count,'colors':color_count,'warehouses':whse_count}}
     (out_dir/'manifest.json').write_text(__import__('json').dumps(manifest, indent=2), encoding='utf-8')
     print(f'Wrote compact cache to: {out_dir}', flush=True)
     print('Counts:', manifest['counts'], flush=True)

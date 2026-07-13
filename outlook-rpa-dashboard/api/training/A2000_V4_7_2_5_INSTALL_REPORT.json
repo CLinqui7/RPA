@@ -1,0 +1,40 @@
+{
+  "patch": "A2000_V4_7_2_5_CHECKLIST_GENERATE_BRANCH_EXACT_HOTFIX",
+  "run_id": "20260713_023332",
+  "project": "/workspaces/RPA/outlook-rpa-dashboard",
+  "backup": "/workspaces/RPA/BACKUP_A2000_V4_7_2_5_20260713_023332",
+  "root_cause": "The previous installer replaced the first identical template_count print, which belongs to the catalog branch. The generate branch contained a second identical print and remained broken.",
+  "fix": "Patch only the print statement structurally located after result = generate(...).",
+  "catalog_branch_preserved": true,
+  "generate_branch_returns_actual_result": true,
+  "smoke_tests": [
+    {
+      "customer_code": "GABRIELBRO",
+      "order_no": "100-0013003334-JR",
+      "template": "/workspaces/RPA/outlook-rpa-dashboard/api/training/historical/Customers_Master_Checklists/Customers/Hermanito parche 2.0/Customers/Gabriel Brothers/PT 1744448 - 1744449/GABRIELBRO CHECK LIST PT.xlsx",
+      "output_size_bytes": 24680,
+      "sheet": "Sheet1",
+      "line_count": 1,
+      "source_images": 0,
+      "output_images": 0,
+      "stdout_json_valid": true,
+      "format_preserved": true,
+      "print_layout_preserved": true
+    },
+    {
+      "customer_code": "ZUMIEZ",
+      "order_no": "476085",
+      "template": "/workspaces/RPA/outlook-rpa-dashboard/api/training/historical/Customers_Master_Checklists/Customers/Hardcopies de ejemplo/ZUMIEZ/CHECKLIST PT 1735902.xlsx",
+      "output_size_bytes": 140507,
+      "sheet": "Sheet1",
+      "line_count": 1,
+      "source_images": 6,
+      "output_images": 6,
+      "stdout_json_valid": true,
+      "format_preserved": true,
+      "print_layout_preserved": true
+    }
+  ],
+  "a2000_writes_performed": false,
+  "supabase_writes_performed": false
+}

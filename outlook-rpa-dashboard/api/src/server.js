@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,10 +7,22 @@ import cors from 'cors';
 import { config } from './config.js';
 import { runScan } from './runScan.js';
 import { listEvents, markEvent } from './runRepository.js';
-import { listDocuments } from './documentRepository.js';
+import { listDocuments, saveDownloadedDocuments } from './documentRepository.js';
 import { extractPdfTextFromBuffer } from './po/pdfText.js';
 import { parsePurchaseOrders } from './po/parsers/index.js';
 import { supabase } from './supabase.js';
+import {
+  launchStatus,
+  listOperationalOrders,
+  listOperationsLog,
+  processDocumentWorkflow,
+  processPendingDocuments,
+  uploadAllValidatedOrders,
+  uploadOrderWorkflow,
+  preflightOrderWorkflow,
+  preflightOperationalOrders
+} from './po/productionWorkflow.js';
+import { checklistCatalog, checklistDownloadPath, generateChecklistForOrder, rebuildChecklistCatalog } from './checklists/checklistService.js';
 import { rowsToCsv, A2000_HEADER_COLUMNS, A2000_LINE_COLUMNS } from './a2000/csv.js';
 import { applyExplicitA2000QtyBuckets, hasBlockingA2000Conflicts, isStrictA2000Header, isStrictA2000Line, strictHeaderMissing, strictLineMissing } from './a2000/strictImport.js';
 
@@ -599,6 +612,395 @@ app.post('/po/parse-email-documents', async (req, res) => {
       generated_at: new Date().toISOString(),
       results
     });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// A2000_V4_6_STAGE1_SERVER
+
+const manualPdfUpload = express.raw({
+  type: ['application/pdf', 'application/octet-stream'],
+  limit: '50mb'
+});
+
+function safeUploadFileName(value = 'manual.pdf') {
+  const cleanName = path.basename(String(value || 'manual.pdf'))
+    .replace(/[^a-zA-Z0-9._ -]+/g, '-')
+    .trim();
+  return cleanName || 'manual.pdf';
+}
+
+app.get('/po/launch-status', (_req, res) => {
+  res.json({
+    ok: true,
+    ...launchStatus()
+  });
+});
+
+app.get('/po/operational-orders', async (req, res) => {
+  try {
+    const orders = await listOperationalOrders({
+      limit: Number(req.query.limit || 500),
+      q: String(req.query.q || ''),
+      customer: String(req.query.customer || ''),
+      status: String(req.query.status || '')
+    });
+
+    res.json({
+      ok: true,
+      count: orders.length,
+      orders
+    });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: error.message
+    });
+  }
+});
+
+app.get('/po/logs', async (req, res) => {
+  try {
+    const logs = await listOperationsLog({
+      limit: Number(req.query.limit || 500),
+      q: String(req.query.q || '')
+    });
+
+    res.json({
+      ok: true,
+      count: logs.length,
+      logs
+    });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: error.message
+    });
+  }
+});
+
+app.post('/po/upload-pdf', manualPdfUpload, async (req, res) => {
+  try {
+    const fileName = safeUploadFileName(
+      req.headers['x-file-name'] || 'manual.pdf'
+    );
+
+    if (!/\.pdf$/i.test(fileName)) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Solo se permiten archivos PDF.'
+      });
+    }
+
+    const buffer = Buffer.isBuffer(req.body)
+      ? req.body
+      : Buffer.from(req.body || []);
+
+    if (!buffer.length) {
+      return res.status(400).json({
+        ok: false,
+        error: 'El PDF está vacío.'
+      });
+    }
+
+    const sha256 = crypto
+      .createHash('sha256')
+      .update(buffer)
+      .digest('hex');
+
+    const uploadDir = path.join(
+      API_ROOT,
+      'downloads',
+      'manual'
+    );
+
+    await fs.mkdir(uploadDir, { recursive: true });
+
+    const localPath = path.join(
+      uploadDir,
+      `${sha256.slice(0, 12)}-${fileName}`
+    );
+
+    await fs.writeFile(localPath, buffer);
+
+    const logs = [];
+
+    const saved = await saveDownloadedDocuments(
+      [{
+        localPath,
+        fileName,
+        externalKey: `manual|${sha256}`,
+        emailExternalKey: `manual|${sha256}`,
+        subject: String(
+          req.headers['x-email-subject']
+          || 'Manual upload - Factura American'
+        ),
+        senderName: 'Manual upload',
+        senderEmail: null,
+        downloadedAt: new Date().toISOString(),
+        source: 'manual_upload',
+        raw: {
+          manual_upload: true,
+          original_file_name: fileName,
+          sha256
+        }
+      }],
+      logs,
+      {
+        runId: `manual-${sha256.slice(0, 12)}`,
+        allowDuplicates: false
+      }
+    );
+
+    const document = saved[0];
+
+    const workflow = await processDocumentWorkflow(
+      document.id,
+      {
+        uploadToA2000: false,
+        confirmOrderLiCleared: false
+      }
+    );
+
+    res.json({
+      ok: true,
+      document,
+      workflow,
+      logs
+    });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: error.message
+    });
+  }
+});
+
+app.post('/po/process-document/:id', async (req, res) => {
+  try {
+    const workflow = await processDocumentWorkflow(
+      req.params.id,
+      {
+        uploadToA2000: req.body?.upload_to_a2000 === true,
+        confirmOrderLiCleared: (
+          req.body?.confirm_order_li_cleared === true
+        )
+      }
+    );
+
+    res.json({
+      ok: true,
+      workflow
+    });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: error.message
+    });
+  }
+});
+
+app.post('/po/process-pending', async (req, res) => {
+  try {
+    const workflow = await processPendingDocuments({
+      limit: Number(req.body?.limit || 50),
+      uploadToA2000: req.body?.upload_to_a2000 === true,
+      confirmOrderLiCleared: (
+        req.body?.confirm_order_li_cleared === true
+      )
+    });
+
+    res.json({
+      ok: true,
+      workflow
+    });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: error.message
+    });
+  }
+});
+
+app.post('/po/orders/:id/a2000', async (req, res) => {
+  try {
+    const workflow = await uploadOrderWorkflow(
+      req.params.id,
+      {
+        confirmOrderLiCleared: (
+          req.body?.confirm_order_li_cleared === true
+        )
+      }
+    );
+
+    res.status(workflow.ok ? 200 : 409).json({
+      ok: workflow.ok,
+      workflow
+    });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: error.message
+    });
+  }
+});
+
+
+
+// A2000_V4_7_1_ORDER_PREVIEW_REPROCESS_PREFLIGHT
+async function sourcePdfForOrder(orderId) {
+  const { data: order, error } = await supabase
+    .from('purchase_orders')
+    .select('*')
+    .eq('id', orderId)
+    .single();
+
+  if (error) throw error;
+
+  if (order.document_id) {
+    const docs = await listDocuments({ limit: 1000 });
+    const document = docs.find(item => String(item.id) === String(order.document_id));
+    if (document) {
+      const loaded = await readBufferForStoredDocument(document);
+      return {
+        ...loaded,
+        fileName: document.file_name || order.source_file_name || 'purchase-order.pdf'
+      };
+    }
+  }
+
+  const fileName = path.basename(String(order.source_file_name || '').trim());
+  if (fileName) {
+    for (const dir of candidateTestPdfDirs()) {
+      const candidate = path.join(dir, fileName);
+      try {
+        const stat = await fs.stat(candidate);
+        if (stat.isFile()) {
+          return {
+            buffer: await fs.readFile(candidate),
+            source: 'test_pdf_source',
+            path: candidate,
+            fileName
+          };
+        }
+      } catch {}
+    }
+  }
+
+  throw new Error('No se encontró el PDF fuente de esta orden.');
+}
+
+app.get('/po/orders/:id/pdf', async (req, res) => {
+  try {
+    const loaded = await sourcePdfForOrder(req.params.id);
+    const fileName = String(loaded.fileName || 'purchase-order.pdf').replaceAll('"', '');
+    const disposition = String(req.query.download || '') === '1' ? 'attachment' : 'inline';
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `${disposition}; filename="${fileName}"`);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.send(loaded.buffer);
+  } catch (error) {
+    res.status(404).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/po/orders/:id/reprocess', async (req, res) => {
+  try {
+    const { data: order, error } = await supabase
+      .from('purchase_orders')
+      .select('id, document_id, order_no, source_file_name')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error) throw error;
+    if (!order.document_id) {
+      return res.status(409).json({
+        ok: false,
+        code: 'SOURCE_DOCUMENT_NOT_PERSISTED',
+        error: 'Esta orden proviene de un histórico o test-pdfs. Puede abrirse y revisarse, pero no tiene document_id para reprocesarla en Supabase.'
+      });
+    }
+
+    const workflow = await processDocumentWorkflow(order.document_id, {
+      uploadToA2000: false,
+      confirmOrderLiCleared: false
+    });
+    res.status(workflow.ok ? 200 : 409).json({ ok: workflow.ok, workflow });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/po/orders/:id/preflight', async (req, res) => {
+  try {
+    const workflow = await preflightOrderWorkflow(req.params.id);
+    res.status(workflow.ok ? 200 : 409).json({
+      ok: workflow.ok,
+      workflow,
+      a2000_write_performed: false
+    });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: error.message,
+      a2000_write_performed: false
+    });
+  }
+});
+
+
+// A2000_V4_7_0_CHECKLIST_BULK_ENDPOINTS
+app.get('/po/checklists/status', async (_req, res) => {
+  try {
+    const catalog = await checklistCatalog();
+    res.json({ ok: true, ...catalog });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/po/checklists/rebuild', async (_req, res) => {
+  try {
+    const catalog = await rebuildChecklistCatalog();
+    res.json({ ok: true, ...catalog });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/po/orders/:id/checklist', async (req, res) => {
+  try {
+    const result = await generateChecklistForOrder(req.params.id, {
+      rebuildCatalog: req.body?.rebuild_catalog === true
+    });
+    res.status(result.ok ? 200 : 409).json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.get('/po/orders/:id/checklist/download', async (req, res) => {
+  try {
+    let filePath = await checklistDownloadPath(req.params.id);
+    if (!filePath) {
+      const generated = await generateChecklistForOrder(req.params.id);
+      if (!generated.ok) return res.status(404).json(generated);
+      filePath = generated.file_path;
+    }
+    res.download(filePath, path.basename(filePath));
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/po/upload-all-validated', async (req, res) => {
+  try {
+    const result = await uploadAllValidatedOrders({
+      limit: Number(req.body?.limit || 50),
+      confirmOrderLiCleared: req.body?.confirm_order_li_cleared === true
+    });
+    res.status(result.ok ? 200 : 409).json({ ok: result.ok, workflow: result });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
   }

@@ -1,0 +1,17 @@
+{
+  "patch": "A2000_V4_7_0_3_EXACT_ZIP_MEMBER_ALL_PDFS_HOTFIX",
+  "run_id": "20260712_224954",
+  "project": "/workspaces/RPA/outlook-rpa-dashboard",
+  "backup": "/workspaces/RPA/BACKUP_A2000_V4_7_0_3_20260712_224954",
+  "root_cause": "Info-ZIP unzip interprets square brackets in member names as wildcard patterns; one failed member aborted extraction before later PDFs.",
+  "fixes": [
+    "Use Python zipfile.read(member_name) for exact member extraction",
+    "Isolate each ZIP member in its own try/catch",
+    "Use neutral temporary .bin filename instead of .zip.pdf"
+  ],
+  "exact_zip_member_self_test": "PASS",
+  "node_syntax": "PASS",
+  "targeted_outlook_tests": "PASS",
+  "a2000_writes_performed": false,
+  "supabase_writes_performed": false
+}

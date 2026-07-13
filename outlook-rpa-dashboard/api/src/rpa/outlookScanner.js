@@ -3,8 +3,25 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { attachmentOccurrenceCoverage, classifyOutlookReadState } from './outlookConversationGuards.js';
+import { completeAttachmentCoverage, rowUnreadDecision, stableRowFingerprint, subjectFilterAlternatives } from './outlookUnreadQueue.js';
 import { config } from '../config.js';
-import { hasDownloadedDocumentsForEmail } from '../documentRepository.js';
+import {
+  downloadedDocumentFileNamesForEmail
+} from '../documentRepository.js';
+import {
+  attachmentCoverage,
+  isAttachmentExpanderLabel,
+  isBulkAttachmentDownloadAction,
+  isPdfFileName,
+  isPdfMagic,
+  isZipMagic,
+  mergePdfAttachmentNames,
+  pdfArchiveEntries,
+  normalizedAttachmentName
+} from './outlookAttachmentRecovery.js';
+
+// A2000_V4_6_7_OUTLOOK_ATTACHMENT_RECOVERY
 import { analyzeEmail, cleanSubject, extractPoNumber, extractPtNumber, stableKey } from '../parser.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -101,12 +118,14 @@ function normalizeForMatch(value = '') {
 }
 
 function subjectMatchesInvoiceFilter(subject = '') {
-  const filter = normalizeForMatch(config.invoiceSubjectFilter || 'factura american');
-  if (!filter) return true;
-
   const normalizedSubject = normalizeForMatch(subject);
-  const alternatives = filter.split('|').map(part => part.trim()).filter(Boolean);
-  return alternatives.some(part => normalizedSubject.includes(part));
+  const alternatives = subjectFilterAlternatives(
+    config.invoiceSubjectFilter || 'factura american'
+  );
+
+  return alternatives.some(value => (
+    normalizedSubject.includes(normalizeForMatch(value))
+  ));
 }
 
 function isProbablySystemRow(text = '') {
@@ -134,26 +153,79 @@ function isSentFolderRow(text = '') {
 }
 
 async function getRowMeta(row) {
-  return row.evaluate(element => {
-    const text = (element.innerText || element.textContent || '').replace(/\s+/g, ' ').trim();
-    const attrs = [
-      element.getAttribute('aria-label') || '',
-      element.getAttribute('title') || '',
-      element.getAttribute('class') || '',
-      element.getAttribute('data-isread') || '',
-      element.getAttribute('data-is-read') || '',
-      element.getAttribute('data-testid') || ''
-    ].join(' ');
-    const combined = `${text} ${attrs}`.replace(/\s+/g, ' ').trim();
-    const unreadNode = element.querySelector('[aria-label*="Unread" i], [title*="Unread" i], [aria-label*="No leído" i], [title*="No leído" i], [aria-label*="Sin leer" i], [title*="Sin leer" i]');
-    const readNode = element.querySelector('[aria-label*="Read" i], [title*="Read" i], [aria-label*="Leído" i], [title*="Leído" i]');
+  const raw = await row.evaluate(element => {
+    const text = (element.innerText || element.textContent || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const nodes = [
+      element,
+      ...element.querySelectorAll(
+        '[aria-label], [title], [data-isread], [data-is-read], [class]'
+      )
+    ];
+
+    const labels = [];
+    const classes = [];
+    let dataIsRead = null;
+    let maxFontWeight = 0;
+
+    for (const node of nodes.slice(0, 500)) {
+      const aria = node.getAttribute?.('aria-label');
+      const title = node.getAttribute?.('title');
+      const dataA = node.getAttribute?.('data-isread');
+      const dataB = node.getAttribute?.('data-is-read');
+      const className = typeof node.className === 'string'
+        ? node.className
+        : node.getAttribute?.('class');
+
+      if (aria) labels.push(aria);
+      if (title) labels.push(title);
+      if (className) classes.push(className);
+      if (dataIsRead === null && dataA !== null) dataIsRead = dataA;
+      if (dataIsRead === null && dataB !== null) dataIsRead = dataB;
+
+      try {
+        const style = window.getComputedStyle(node);
+        const weight = Number.parseInt(style.fontWeight, 10);
+        if (Number.isFinite(weight)) {
+          maxFontWeight = Math.max(maxFontWeight, weight);
+        }
+      } catch {}
+    }
+
     return {
       text,
-      combined,
-      isUnread: Boolean(unreadNode) || /\bunread\b|no leído|sin leer|isread:false|data-isread=false/i.test(combined),
-      isRead: Boolean(readNode) || /\bread\b|leído|isread:true|data-isread=true/i.test(combined)
+      combined: `${text} ${labels.join(' ')} ${classes.join(' ')}`
+        .replace(/\s+/g, ' ')
+        .trim(),
+      labels,
+      classText: classes.join(' '),
+      dataIsRead,
+      maxFontWeight
     };
-  }).catch(() => ({ text: '', combined: '', isUnread: false, isRead: false }));
+  }).catch(() => ({
+    text: '',
+    combined: '',
+    labels: [],
+    classText: '',
+    dataIsRead: null,
+    maxFontWeight: 0
+  }));
+
+  const state = classifyOutlookReadState({
+    dataIsRead: raw.dataIsRead,
+    labels: raw.labels,
+    classText: raw.classText,
+    maxFontWeight: raw.maxFontWeight
+  });
+
+  return {
+    ...raw,
+    isUnread: state.isUnread,
+    isRead: state.isRead,
+    readStateSource: state.source
+  };
 }
 
 async function clickFirstVisibleEnabled(locator, logs, label, timeout = 1800) {
@@ -176,23 +248,15 @@ async function clickFirstVisibleEnabled(locator, logs, label, timeout = 1800) {
 }
 
 async function tryMarkAsReadFromVisibleMenu(page, logs) {
-  const markAsReadSelectors = [
-    '[role="menuitem"]:has-text("Mark as read")',
-    '[role="menuitem"]:has-text("Mark read")',
-    '[role="menuitem"]:has-text("Read")',
-    '[role="menuitem"]:has-text("Marcar como leído")',
-    '[role="menuitem"]:has-text("Marcar como leido")',
-    '[role="menuitem"]:has-text("Leído")',
-    '[role="menuitem"]:has-text("Leido")',
-    'button:has-text("Mark as read")',
-    'button:has-text("Marcar como leído")',
-    'button:has-text("Marcar como leido")'
-  ];
+  const exactName = /^(Mark as read|Read|Marcar como leído|Marcar como leido)$/i;
+  const menuItem = page.getByRole('menuitem', { name: exactName }).first();
 
-  for (const selector of markAsReadSelectors) {
-    const clicked = await clickFirstVisibleEnabled(page.locator(selector), logs, `mark-as-read menu item ${selector}`, 1200);
-    if (clicked) return true;
+  if (await menuItem.isVisible({ timeout: 900 }).catch(() => false)) {
+    await menuItem.click({ timeout: 1800 });
+    logs.push('OUTLOOK_MARK_READ_ACTION=exact_menu_item');
+    return true;
   }
+
   return false;
 }
 
@@ -205,126 +269,89 @@ async function rowStillLooksUnread(row) {
 }
 
 async function markCurrentMessageAsRead(page, logs, row = null) {
-  if (!config.invoiceMarkAsRead) return;
+  if (!config.invoiceMarkAsRead) return true;
 
-  // Give Outlook a moment; sometimes it marks an opened message as read automatically,
-  // but not instantly. This also helps the selected-row state settle.
-  await page.waitForTimeout(900).catch(() => null);
+  const query = String(page.__a2000CurrentSearchQuery || '').toLowerCase();
+  const unreadSearch = query.includes('isread:no');
 
-  const before = await rowStillLooksUnread(row);
-  if (before === false) {
-    logs.push('Message already appears read. Mark-as-read step skipped.');
-    return;
-  }
+  const verify = async label => {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await page.waitForTimeout(attempt === 0 ? 600 : 850);
 
-  // Strategy 1: focus the selected row/reading pane and use keyboard shortcuts.
-  // Ctrl+Q works in Outlook desktop and in some OWA builds. Plain Q/Shift+I work in
-  // other Outlook Web shortcut modes. We try them, then verify when possible.
-  try {
-    if (row) {
-      await row.scrollIntoViewIfNeeded({ timeout: 1500 }).catch(() => null);
-      const box = await row.boundingBox().catch(() => null);
-      if (box) await page.mouse.click(box.x + Math.min(35, box.width / 2), box.y + box.height / 2);
-    } else {
-      await page.locator('[role="main"]').last().click({ timeout: 1500 }).catch(() => null);
-    }
+      if (row) {
+        const visible = await row.isVisible({ timeout: 350 }).catch(() => false);
+        if (!visible && unreadSearch) {
+          logs.push(`OUTLOOK_MARK_READ_VERIFIED=${label}|SOURCE=row_left_unread_results`);
+          return true;
+        }
 
-    for (const shortcut of ['Control+Q', 'Shift+I', 'q']) {
-      await page.keyboard.press(shortcut).catch(() => null);
-      await page.waitForTimeout(900);
-      const afterShortcut = await rowStillLooksUnread(row);
-      logs.push(`Sent Outlook mark-as-read shortcut: ${shortcut}`);
-      if (afterShortcut === false) {
-        logs.push(`Message verified as read after shortcut: ${shortcut}`);
-        return;
-      }
-      if (afterShortcut === null && shortcut === 'Control+Q') {
-        // Keep trying other strategies if we cannot verify.
-        continue;
-      }
-    }
-  } catch (error) {
-    logs.push(`Could not use keyboard mark-as-read strategy: ${error.message}`);
-  }
-
-  // Strategy 2: click the visible toolbar command. In your current Outlook UI it appears
-  // as "Read / Unread". Since this function is called only for processed unread invoices,
-  // clicking it should mark the selected message as read.
-  const directToolbarSelectors = [
-    'button[aria-label*="Read / Unread" i]',
-    'button[title*="Read / Unread" i]',
-    'button:has-text("Read / Unread")',
-    '[role="button"]:has-text("Read / Unread")',
-    'button[aria-label*="Mark as read" i]',
-    'button[title*="Mark as read" i]',
-    'button[aria-label*="Marcar como leído" i]',
-    'button[title*="Marcar como leído" i]',
-    'button[aria-label*="Marcar como leido" i]',
-    'button[title*="Marcar como leido" i]'
-  ];
-
-  for (const selector of directToolbarSelectors) {
-    const clicked = await clickFirstVisibleEnabled(page.locator(selector), logs, `mark-as-read toolbar ${selector}`, 1500);
-    if (!clicked) continue;
-    await page.waitForTimeout(900);
-    const afterToolbar = await rowStillLooksUnread(row);
-    if (afterToolbar === false || afterToolbar === null) {
-      logs.push(`Mark-as-read toolbar strategy completed: ${selector}`);
-      return;
-    }
-  }
-
-  // Strategy 3: open the message-row context menu and select Mark as read.
-  if (row) {
-    try {
-      const box = await row.boundingBox().catch(() => null);
-      if (box) {
-        await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
-        await page.waitForTimeout(800);
-        if (await tryMarkAsReadFromVisibleMenu(page, logs)) {
-          await page.waitForTimeout(800);
-          const afterContext = await rowStillLooksUnread(row);
-          if (afterContext === false || afterContext === null) {
-            logs.push('Mark-as-read context-menu strategy completed.');
-            return;
-          }
+        const meta = await getRowMeta(row);
+        if (meta.isRead && !meta.isUnread) {
+          logs.push(`OUTLOOK_MARK_READ_VERIFIED=${label}|SOURCE=${meta.readStateSource}`);
+          return true;
         }
       }
-    } catch (error) {
-      logs.push(`Could not use row context menu mark-as-read strategy: ${error.message}`);
-    } finally {
-      await page.keyboard.press('Escape').catch(() => null);
+    }
+    return false;
+  };
+
+  if (await verify('already_read')) return true;
+
+  if (row) {
+    const rowAction = row.getByRole('button', {
+      name: /^(Mark as read|Marcar como leído|Marcar como leido)$/i
+    }).first();
+
+    if (await rowAction.isVisible({ timeout: 800 }).catch(() => false)) {
+      try {
+        await rowAction.click({ timeout: 1800, force: true });
+        logs.push('OUTLOOK_MARK_READ_ACTION=row_exact_button');
+        if (await verify('row_exact_button')) return true;
+      } catch (error) {
+        logs.push(`OUTLOOK_MARK_READ_ACTION_ERROR=row_exact_button|MESSAGE=${error.message}`);
+      }
     }
   }
 
-  // Strategy 4: open top "More actions" and look for Mark as read.
-  const moreSelectors = [
-    'button[aria-label*="More actions" i]',
-    'button[title*="More actions" i]',
-    'button[aria-label*="Más acciones" i]',
-    'button[title*="Más acciones" i]',
-    'button[aria-label*="Mas acciones" i]',
-    'button[title*="Mas acciones" i]',
-    'button:has-text("...")'
-  ];
+  const toolbarAction = page.getByRole('button', {
+    name: /^(Mark as read|Marcar como leído|Marcar como leido)$/i
+  }).first();
 
-  for (const selector of moreSelectors) {
+  if (await toolbarAction.isVisible({ timeout: 800 }).catch(() => false)) {
     try {
-      const opened = await clickFirstVisibleEnabled(page.locator(selector), logs, `more-actions ${selector}`, 1200);
-      if (!opened) continue;
-      await page.waitForTimeout(700);
+      await toolbarAction.click({ timeout: 1800, force: true });
+      logs.push('OUTLOOK_MARK_READ_ACTION=toolbar_exact_button');
+      if (await verify('toolbar_exact_button')) return true;
+    } catch (error) {
+      logs.push(`OUTLOOK_MARK_READ_ACTION_ERROR=toolbar_exact_button|MESSAGE=${error.message}`);
+    }
+  }
+
+  if (row) {
+    try {
+      await row.click({ button: 'right', timeout: 1800, force: true });
+      await page.waitForTimeout(600);
       if (await tryMarkAsReadFromVisibleMenu(page, logs)) {
-        logs.push('Mark-as-read more-actions strategy completed.');
-        return;
+        if (await verify('context_exact_menu')) return true;
       }
     } catch (error) {
-      logs.push(`Could not use more-actions mark-as-read strategy: ${error.message}`);
+      logs.push(`OUTLOOK_MARK_READ_ACTION_ERROR=context_menu|MESSAGE=${error.message}`);
     } finally {
       await page.keyboard.press('Escape').catch(() => null);
     }
   }
 
-  logs.push('Could not explicitly mark message as read. It will still be skipped later if it already exists in Supabase.');
+  try {
+    if (row) await row.click({ timeout: 1200, force: true }).catch(() => null);
+    await page.keyboard.press('Control+Q');
+    logs.push('OUTLOOK_MARK_READ_ACTION=keyboard_control_q');
+    if (await verify('keyboard_control_q')) return true;
+  } catch (error) {
+    logs.push(`OUTLOOK_MARK_READ_ACTION_ERROR=keyboard_control_q|MESSAGE=${error.message}`);
+  }
+
+  logs.push('OUTLOOK_MARK_READ_FAILED=verification_never_reached_read_state');
+  return false;
 }
 
 async function getRows(page, logs) {
@@ -448,7 +475,22 @@ function documentExternalKey(email, fileName = '') {
 
 async function saveDownload(download, email, fallbackName, logs) {
   const suggestedName = download.suggestedFilename();
-  const fileName = safeFileName(suggestedName || fallbackName || `outlook-${Date.now()}.pdf`);
+  const suggested = clean(suggestedName);
+
+  if (suggested && !isPdfFileName(suggested)) {
+    logs.push(`REJECTED_NON_PDF_DOWNLOAD|SUGGESTED=${suggested}|REASON=filename_not_pdf`);
+    return null;
+  }
+
+  const fileName = safeFileName(
+    suggested || fallbackName || `outlook-${Date.now()}.pdf`
+  );
+
+  if (!isPdfFileName(fileName)) {
+    logs.push(`REJECTED_NON_PDF_DOWNLOAD|FILE=${fileName}|REASON=target_not_pdf`);
+    return null;
+  }
+
   const dayFolder = new Date().toISOString().slice(0, 10);
   const folder = path.join(invoiceDownloadsPath, dayFolder);
   await fs.mkdir(folder, { recursive: true });
@@ -456,8 +498,16 @@ async function saveDownload(download, email, fallbackName, logs) {
   const targetPath = path.join(folder, `${Date.now()}-${fileName}`);
   await download.saveAs(targetPath);
 
+  const buffer = await fs.readFile(targetPath);
+
+  if (!isPdfMagic(buffer)) {
+    await fs.unlink(targetPath).catch(() => null);
+    logs.push(`REJECTED_NON_PDF_DOWNLOAD|FILE=${fileName}|REASON=pdf_magic_missing`);
+    return null;
+  }
+
   const record = {
-    externalKey: documentExternalKey(email, fileName, targetPath),
+    externalKey: documentExternalKey(email, fileName),
     emailExternalKey: email.externalKey,
     subject: email.subject,
     senderName: email.senderName,
@@ -469,11 +519,12 @@ async function saveDownload(download, email, fallbackName, logs) {
       suggestedName,
       fallbackName,
       currentUrl: email.raw?.currentUrl || null,
-      filter: config.invoiceSubjectFilter
+      filter: config.invoiceSubjectFilter,
+      pdf_magic_verified: true
     }
   };
 
-  logs.push(`Downloaded PDF locally: ${targetPath}`);
+  logs.push(`Downloaded verified PDF locally: ${targetPath}`);
   return record;
 }
 
@@ -567,15 +618,37 @@ async function clickDownloadMenuItem(page, logs) {
   ];
 
   for (const selector of selectors) {
-    const item = page.locator(selector).first();
-    if ((await item.count().catch(() => 0)) === 0) continue;
-    try {
-      const download = await clickAndWaitForDownload(page, () => item.click({ timeout: 2500 }), 10000);
-      if (download) return download;
-    } catch (error) {
-      logs.push(`Menu download click failed for ${selector}: ${error.message}`);
+    const locator = page.locator(selector);
+    const count = await locator.count().catch(() => 0);
+
+    for (let index = 0; index < count; index += 1) {
+      const item = locator.nth(index);
+
+      const label = await item.evaluate(element => [
+        element.textContent || '',
+        element.getAttribute('aria-label') || '',
+        element.getAttribute('title') || ''
+      ].join(' ').replace(/\s+/g, ' ').trim()).catch(() => '');
+
+      if (isBulkAttachmentDownloadAction(label)) {
+        logs.push(`Skipped Outlook bulk attachment action: ${label}`);
+        continue;
+      }
+
+      try {
+        const download = await clickAndWaitForDownload(
+          page,
+          () => item.click({ timeout: 2500 }),
+          10000
+        );
+
+        if (download) return download;
+      } catch (error) {
+        logs.push(`Menu download click failed for ${selector} index ${index}: ${error.message}`);
+      }
     }
   }
+
   return null;
 }
 
@@ -598,6 +671,11 @@ async function tryVisibleDownloadButton(page, logs) {
   }).filter(item => item.visible && !item.disabled && /(download|descargar)/i.test(item.text))).catch(() => []);
 
   for (const option of options) {
+    if (isBulkAttachmentDownloadAction(option.text)) {
+      logs.push(`Skipped Outlook bulk attachment action: ${option.text}`);
+      continue;
+    }
+
     const button = locator.nth(option.index);
     try {
       logs.push(`Trying visible download action: ${option.text}`);
@@ -861,65 +939,452 @@ async function downloadPdfAttachmentByName(page, email, fileName, logs) {
   return saveDownload(download, email, fileName, logs);
 }
 
-async function downloadMatchingPdfAttachments(page, email, logs) {
-  if (!subjectMatchesInvoiceFilter(email.subject)) {
-    logs.push(`Skipped non-matching subject: ${email.subject || '(no subject)'}`);
-    return [];
+// A2000_V4_6_8_1_EXPAND_COLLAPSED_ATTACHMENT_GROUP
+// A2000_V4_6_8_2_BULK_ZIP_ATTACHMENT_RECOVERY
+// A2000_V4_7_0_ALL_MESSAGE_GROUPS_ALL_PDFS
+// A2000_V4_7_0_ALL_MESSAGE_GROUPS_ALL_PDFS
+async function downloadMatchingPdfAttachments(
+  page,
+  email,
+  logs,
+  {
+    skipFileNames = []
+  } = {}
+) {
+  if (!subjectMatchesInvoiceFilter(email.subject)) return [];
+
+  const records = [];
+  const existingNames = new Set(
+    mergePdfAttachmentNames(skipFileNames).map(normalizedAttachmentName)
+  );
+  const savedHashes = new Set();
+  const expectedNames = new Set(
+    mergePdfAttachmentNames(email.attachments || []).map(value => safeFileName(value))
+  );
+  const expectedOccurrences = new Set();
+  const recoveredOccurrences = new Set();
+  const bulkActionKeys = new Set();
+  let messageGroupCount = 0;
+
+  const execute = async (command, args, binary = false, maxBuffer = 128 * 1024 * 1024) => {
+    const { execFile } = await import('node:child_process');
+    return await new Promise((resolve, reject) => {
+      execFile(command, args, {
+        encoding: binary ? null : 'utf8',
+        maxBuffer
+      }, (error, stdout, stderr) => {
+        if (error) {
+          error.stdout = stdout;
+          error.stderr = stderr;
+          reject(error);
+          return;
+        }
+        resolve({ stdout, stderr });
+      });
+    });
+  };
+
+  const savePdfBuffer = async (buffer, fileName, meta = {}) => {
+    if (!isPdfMagic(buffer)) {
+      logs.push(`PDF_REJECTED|FILE=${fileName}|REASON=pdf_magic_missing`);
+      return null;
+    }
+
+    const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
+    const safeName = safeFileName(fileName);
+    const normalizedName = normalizedAttachmentName(safeName);
+
+    expectedNames.add(safeName);
+
+    if (existingNames.has(normalizedName)) {
+      logs.push(`PDF_ALREADY_LINKED_TO_EMAIL=${safeName}`);
+      return null;
+    }
+
+    if (savedHashes.has(sha256)) {
+      logs.push(`PDF_DUPLICATE_CONTENT_SKIPPED|FILE=${safeName}|SHA256=${sha256}`);
+      return null;
+    }
+
+    savedHashes.add(sha256);
+
+    const dayFolder = new Date().toISOString().slice(0, 10);
+    const folder = path.join(invoiceDownloadsPath, dayFolder);
+    await fs.mkdir(folder, { recursive: true });
+    const targetPath = path.join(
+      folder,
+      `${Date.now()}-${sha256.slice(0, 10)}-${safeName}`
+    );
+    await fs.writeFile(targetPath, buffer);
+
+    const record = {
+      externalKey: documentExternalKey(email, `${sha256}|${safeName}`),
+      emailExternalKey: email.externalKey,
+      subject: email.subject,
+      senderName: email.senderName,
+      senderEmail: email.senderEmail,
+      fileName: safeName,
+      localPath: targetPath,
+      downloadedAt: new Date().toISOString(),
+      raw: {
+        currentUrl: email.raw?.currentUrl || null,
+        filter: config.invoiceSubjectFilter,
+        pdf_magic_verified: true,
+        sha256,
+        recovery_mode: meta.recovery_mode || 'outlook_attachment',
+        message_group: meta.message_group ?? null,
+        archive_name: meta.archive_name || null,
+        archive_entry: meta.archive_entry || null,
+        attachment_occurrence_key: meta.occurrence_key || null
+      }
+    };
+
+    records.push(record);
+    logs.push(
+      `OUTLOOK_PDF_SAVED=${safeName}|SHA256=${sha256}`
+      + `|GROUP=${meta.message_group ?? 'unknown'}`
+      + `|MODE=${record.raw.recovery_mode}`
+    );
+    return record;
+  };
+
+  const scrollConversation = async position => {
+    const data = await page.evaluate(target => {
+      const viewportWidth = window.innerWidth || 1440;
+      const minX = Math.max(440, viewportWidth * 0.27);
+      const candidates = Array.from(document.querySelectorAll('main, section, div, [role="main"]'))
+        .map(element => {
+          const rect = element.getBoundingClientRect();
+          const max = Math.max(0, element.scrollHeight - element.clientHeight);
+          return { element, rect, max };
+        })
+        .filter(item => (
+          item.rect.width > 260
+          && item.rect.height > 180
+          && item.rect.left >= minX
+          && item.max > 80
+        ))
+        .sort((left, right) => right.max - left.max)
+        .slice(0, 10);
+
+      for (const item of candidates) {
+        item.element.scrollTop = Math.round(item.max * target);
+      }
+
+      const documentMax = Math.max(
+        0,
+        document.documentElement.scrollHeight - window.innerHeight
+      );
+      window.scrollTo(0, Math.round(documentMax * target));
+
+      return {
+        candidate_count: candidates.length,
+        max_scroll: candidates[0]?.max || documentMax,
+        tops: candidates.map(item => item.element.scrollTop)
+      };
+    }, position).catch(() => ({ candidate_count: 0, max_scroll: 0, tops: [] }));
+
+    await page.waitForTimeout(900);
+    logs.push(
+      `OUTLOOK_CONVERSATION_SCROLL|POSITION=${position}`
+      + `|CONTAINERS=${data.candidate_count}`
+      + `|MAX=${data.max_scroll}`
+    );
+  };
+
+  const expandMessageAndAttachmentGroups = async () => {
+    let total = 0;
+
+    for (let pass = 0; pass < 12; pass += 1) {
+      const candidates = page.locator(
+        'body button, body a, body [role="button"], body [role="link"], body [aria-label], body [title]'
+      );
+      const count = Math.min(await candidates.count().catch(() => 0), 2400);
+      let clicked = false;
+
+      for (let index = 0; index < count; index += 1) {
+        const candidate = candidates.nth(index);
+        const meta = await candidate.evaluate(element => {
+          const rect = element.getBoundingClientRect();
+          const label = [
+            element.textContent || '',
+            element.getAttribute('aria-label') || '',
+            element.getAttribute('title') || ''
+          ].join(' ').replace(/\s+/g, ' ').trim();
+          return {
+            label,
+            x: rect.left,
+            y: rect.top,
+            width: rect.width,
+            height: rect.height,
+            expanded: element.getAttribute('data-a2000-expanded') === '1'
+          };
+        }).catch(() => null);
+
+        if (!meta || meta.expanded) continue;
+        if (meta.x < Math.max(440, 0.27 * 1440)) continue;
+        if (meta.y < 100 || meta.y > 940 || meta.width < 1 || meta.height < 1) continue;
+
+        const matches = (
+          isAttachmentExpanderLabel(meta.label)
+          || /show message|expand message|expand conversation|mostrar mensaje|expandir mensaje/i.test(meta.label)
+        );
+        if (!matches) continue;
+
+        try {
+          await candidate.evaluate(element => element.setAttribute('data-a2000-expanded', '1'));
+          await candidate.click({ timeout: 2200, force: true });
+          await page.waitForTimeout(850);
+          logs.push(`OUTLOOK_MESSAGE_OR_ATTACHMENT_GROUP_EXPANDED=${meta.label}`);
+          total += 1;
+          clicked = true;
+          break;
+        } catch (error) {
+          logs.push(`OUTLOOK_GROUP_EXPAND_ERROR=${meta.label}|MESSAGE=${error.message}`);
+        }
+      }
+
+      if (!clicked) break;
+    }
+
+    return total;
+  };
+
+  const inventoryVisiblePdfNames = async () => {
+    const candidates = await findPdfAttachmentCandidates(page, logs);
+    const cards = await findVisiblePdfAttachmentCards(page, logs);
+    for (const item of [...candidates, ...cards]) {
+      if (item?.fileName) expectedNames.add(safeFileName(item.fileName));
+    }
+  };
+
+  const recoverVisibleDownloadAll = async () => {
+    const actions = page.locator(
+      'body button, body a, body [role="button"], body [role="menuitem"], body [aria-label], body [title]'
+    );
+    const count = Math.min(await actions.count().catch(() => 0), 2400);
+
+    for (let index = 0; index < count; index += 1) {
+      const action = actions.nth(index);
+      const meta = await action.evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        const label = [
+          element.textContent || '',
+          element.getAttribute('aria-label') || '',
+          element.getAttribute('title') || ''
+        ].join(' ').replace(/\s+/g, ' ').trim();
+
+        let current = element;
+        let groupText = '';
+        for (let depth = 0; depth < 12 && current; depth += 1) {
+          const text = (current.innerText || current.textContent || '')
+            .replace(/\s+/g, ' ')
+            .trim();
+          if (/attachments?|adjuntos?/i.test(text) && text.length < 6000) {
+            groupText = text;
+          }
+          current = current.parentElement;
+        }
+
+        return {
+          label,
+          groupText: groupText.slice(0, 1200),
+          x: rect.left,
+          y: rect.top,
+          width: rect.width,
+          height: rect.height
+        };
+      }).catch(() => null);
+
+      if (!meta || !isBulkAttachmentDownloadAction(meta.label)) continue;
+      if (meta.x < Math.max(440, 0.27 * 1440)) continue;
+      if (meta.y < 100 || meta.y > 940 || meta.width < 1 || meta.height < 1) continue;
+
+      const actionKey = crypto
+        .createHash('sha256')
+        .update(`${meta.label}|${meta.groupText}`)
+        .digest('hex')
+        .slice(0, 20);
+
+      if (bulkActionKeys.has(actionKey)) continue;
+      bulkActionKeys.add(actionKey);
+      messageGroupCount += 1;
+      const messageGroup = messageGroupCount;
+
+      let tempDir = null;
+      try {
+        await action.scrollIntoViewIfNeeded({ timeout: 1200 }).catch(() => null);
+        const download = await clickAndWaitForDownload(
+          page,
+          () => action.click({ timeout: 3500, force: true }),
+          26000
+        );
+
+        if (!download) {
+          logs.push(`OUTLOOK_DOWNLOAD_ALL_NO_EVENT=${meta.label}|GROUP=${messageGroup}`);
+          continue;
+        }
+
+        tempDir = await fs.mkdtemp(path.join(downloadsPath, 'outlook-all-'));
+        const suggested = download.suggestedFilename() || `attachments-${Date.now()}.zip`;
+        const archivePath = path.join(tempDir, `${Date.now()}-outlook-download.bin`);
+        await download.saveAs(archivePath);
+        const archiveBuffer = await fs.readFile(archivePath);
+
+        if (!isZipMagic(archiveBuffer)) {
+          const occurrenceKey = `${actionKey}|single|${suggested}`;
+          expectedOccurrences.add(occurrenceKey);
+
+          if (isPdfMagic(archiveBuffer)) {
+            recoveredOccurrences.add(occurrenceKey);
+            await savePdfBuffer(archiveBuffer, suggested, {
+              recovery_mode: 'download_all_single_pdf',
+              message_group: messageGroup,
+              occurrence_key: occurrenceKey
+            });
+          } else {
+            logs.push(`OUTLOOK_DOWNLOAD_ALL_REJECTED=${suggested}|REASON=not_zip_or_pdf`);
+          }
+          continue;
+        }
+
+        const listScript = [
+          'import json, sys, zipfile',
+          'with zipfile.ZipFile(sys.argv[1], "r") as archive:',
+          '    print(json.dumps(archive.namelist()))'
+        ].join('\n');
+        const listing = await execute('python3', ['-c', listScript, archivePath]);
+        const names = JSON.parse(String(listing.stdout || '[]'));
+        const entries = pdfArchiveEntries(names);
+
+        logs.push(
+          `OUTLOOK_DOWNLOAD_ALL_ARCHIVE=${suggested}|GROUP=${messageGroup}`
+          + `|PDF_COUNT=${entries.length}`
+          + `|FILES=${entries.map(item => item.fileName).join(' | ')}`
+        );
+
+        const exactReader = [
+          'import sys, zipfile',
+          'archive_path, member_name = sys.argv[1], sys.argv[2]',
+          'with zipfile.ZipFile(archive_path, "r") as archive:',
+          '    sys.stdout.buffer.write(archive.read(member_name))'
+        ].join('\n');
+
+        for (let entryIndex = 0; entryIndex < entries.length; entryIndex += 1) {
+          const entry = entries[entryIndex];
+          const occurrenceKey = `${actionKey}|${entryIndex}|${entry.entry}`;
+          expectedOccurrences.add(occurrenceKey);
+          expectedNames.add(safeFileName(entry.fileName));
+
+          try {
+            const extracted = await execute(
+              'python3',
+              ['-c', exactReader, archivePath, entry.entry],
+              true
+            );
+            const buffer = Buffer.isBuffer(extracted.stdout)
+              ? extracted.stdout
+              : Buffer.from(extracted.stdout || []);
+
+            if (!isPdfMagic(buffer)) {
+              logs.push(
+                `OUTLOOK_ZIP_MEMBER_ERROR|GROUP=${messageGroup}`
+                + `|ENTRY=${entry.entry}|MESSAGE=pdf_magic_missing`
+              );
+              continue;
+            }
+
+            recoveredOccurrences.add(occurrenceKey);
+            await savePdfBuffer(buffer, entry.fileName, {
+              recovery_mode: 'download_all_zip_exact_member',
+              message_group: messageGroup,
+              archive_name: suggested,
+              archive_entry: entry.entry,
+              occurrence_key: occurrenceKey
+            });
+          } catch (entryError) {
+            logs.push(
+              `OUTLOOK_ZIP_MEMBER_ERROR|GROUP=${messageGroup}`
+              + `|ENTRY=${entry.entry}`
+              + `|NAME=${entryError.name || 'Error'}`
+              + `|MESSAGE=${entryError.message}`
+            );
+          }
+        }
+      } catch (error) {
+        logs.push(
+          `OUTLOOK_DOWNLOAD_ALL_ERROR|GROUP=${messageGroup}`
+          + `|NAME=${error.name || 'Error'}|MESSAGE=${error.message}`
+        );
+      } finally {
+        if (tempDir) {
+          await fs.rm(tempDir, { recursive: true, force: true }).catch(() => null);
+        }
+        await page.keyboard.press('Escape').catch(() => null);
+      }
+    }
+  };
+
+  const positions = [0, 0.08, 0.16, 0.25, 0.34, 0.43, 0.52, 0.61, 0.7, 0.79, 0.88, 0.96, 1];
+
+  for (const position of positions) {
+    await scrollConversation(position);
+    await expandMessageAndAttachmentGroups();
+    await inventoryVisiblePdfNames();
+    await recoverVisibleDownloadAll();
   }
 
-  logs.push(`Subject matched invoice filter '${config.invoiceSubjectFilter}': ${email.subject}`);
-  const downloadedDocuments = [];
+  await scrollConversation(0);
+  await expandMessageAndAttachmentGroups();
+  await inventoryVisiblePdfNames();
 
-  // Keep reading pane near the top of the opened message so visible-card detection
-  // prefers the actual target email attachment, not attachments from conversation history.
-  try {
-    await page.mouse.wheel(0, -2400);
-    await page.waitForTimeout(500);
-  } catch {}
-  const downloadedKeys = new Set();
+  for (const expectedName of [...expectedNames]) {
+    const normalizedName = normalizedAttachmentName(expectedName);
+    if (existingNames.has(normalizedName)) continue;
+    if (records.some(record => normalizedAttachmentName(record.fileName) === normalizedName)) continue;
 
-  // First use the live visual attachment cards in the reading pane. This avoids stale PDF
-  // filenames from Outlook's left list or expanded message history.
-  const visibleCards = await findVisiblePdfAttachmentCards(page, logs);
-  for (const card of visibleCards) {
-    const fileName = safeFileName(card.fileName);
-    const key = fileName.toLowerCase();
-    if (downloadedKeys.has(key)) continue;
-
-    logs.push(`Trying visible attachment card download: ${fileName}`);
-    const saved = await downloadPdfAttachmentFromCardBox(page, email, card, logs);
-    if (!saved) continue;
-
-    downloadedDocuments.push(saved);
-    downloadedKeys.add(key);
+    const saved = await downloadPdfAttachmentByName(page, email, expectedName, logs);
+    if (saved) {
+      records.push(saved);
+      logs.push(`OUTLOOK_DIRECT_PDF_RECOVERED=${expectedName}`);
+    }
   }
 
-  if (downloadedDocuments.length) return downloadedDocuments;
+  const nameCoverage = completeAttachmentCoverage({
+    expected: [...expectedNames],
+    existing: [...existingNames],
+    downloaded: records.map(record => record.fileName)
+  });
+  const occurrenceCoverage = attachmentOccurrenceCoverage({
+    expected: [...expectedOccurrences],
+    recovered: [...recoveredOccurrences]
+  });
+  const complete = nameCoverage.complete && occurrenceCoverage.complete;
 
-  const candidates = await findPdfAttachmentCandidates(page, logs);
+  email.attachments = [...expectedNames];
+  email.raw = {
+    ...(email.raw || {}),
+    attachment_occurrence_coverage: {
+      ...occurrenceCoverage,
+      message_group_count: messageGroupCount
+    },
+    attachment_download_complete: complete
+  };
 
-  if (!candidates.length) {
-    logs.push('No PDF attachment names found in the opened message. Saving debug screenshot.');
-    await screenshot(page, `no-pdf-attachments-${Date.now()}.png`, logs);
-    return downloadedDocuments;
-  }
+  logs.push(
+    `OUTLOOK_ALL_PDFS_RESULT|EMAIL=${email.subject}`
+    + `|MESSAGE_GROUPS=${messageGroupCount}`
+    + `|ATTACHMENTS_EXPECTED=${occurrenceCoverage.expected_count}`
+    + `|ATTACHMENTS_RECOVERED=${occurrenceCoverage.recovered_count}`
+    + `|UNIQUE_NAMES_EXPECTED=${nameCoverage.expected_count}`
+    + `|UNIQUE_NAMES_AVAILABLE=${nameCoverage.available_count}`
+    + `|UNIQUE_DOCUMENTS_NEW=${records.length}`
+    + `|COMPLETE=${complete}`
+    + `|MISSING_OCCURRENCES=${occurrenceCoverage.missing.length}`
+    + `|MISSING_NAMES=${nameCoverage.missing.join(' | ') || '(none)'}`
+  );
 
-  logs.push(`Found ${candidates.length} PDF attachment name(s): ${candidates.map(c => c.fileName).join(', ')}`);
-
-  for (const candidate of candidates) {
-    const fileName = safeFileName(candidate.fileName);
-    const key = fileName.toLowerCase();
-    if (downloadedKeys.has(key)) continue;
-
-    logs.push(`Trying to download PDF attachment by filename: ${fileName}`);
-    const saved = await downloadPdfAttachmentByName(page, email, fileName, logs);
-    if (!saved) continue;
-
-    downloadedDocuments.push(saved);
-    downloadedKeys.add(key);
-  }
-
-  return downloadedDocuments;
+  return records;
 }
 
 async function readMessage(page, row, rowText, logs = []) {
@@ -989,96 +1454,273 @@ async function readMessage(page, row, rowText, logs = []) {
   return email;
 }
 
+// A2000_V4_6_8_2_MATCHED_EMAIL_OBSERVABILITY
+// A2000_V4_7_0_UNREAD_QUEUE_DRAIN
+// A2000_V4_7_0_UNREAD_QUEUE_DRAIN
 async function collectVisibleEmails(page, maxEmails, logs) {
-  const rows = await getRows(page, logs);
-  if (!rows) return { emails: [], documents: [] };
-
-  const count = Math.min(await rows.count(), maxEmails);
   const emails = [];
   const documents = [];
-  const seen = new Set();
+  const processedRows = new Set();
+  const processedEmails = new Set();
+  const query = String(page.__a2000CurrentSearchQuery || config.outlookSearchQuery || '').trim();
+  let processedCount = 0;
+  let idlePasses = 0;
+  let scrollPasses = 0;
 
-  for (let i = 0; i < count; i += 1) {
-    const row = rows.nth(i);
-    const rowText = await safeText(row);
-    const rowMeta = await getRowMeta(row);
-    const rowCombinedText = `${rowText} ${rowMeta.combined || ''}`;
+  const scrollMessageList = async () => {
+    const selectors = [
+      '[data-automationid="MessageList"]',
+      '[aria-label*="Message list" i]',
+      '[aria-label*="Lista de mensajes" i]',
+      '[role="listbox"]'
+    ];
 
-    if (isProbablySystemRow(rowText)) continue;
+    for (const selector of selectors) {
+      const list = page.locator(selector).first();
+      if (!(await list.count().catch(() => 0))) continue;
+
+      const moved = await list.evaluate(element => {
+        const before = Number(element.scrollTop || 0);
+        const step = Math.max(Number(element.clientHeight || 0) * 0.82, 450);
+        element.scrollTop = Math.min(
+          before + step,
+          Math.max(0, Number(element.scrollHeight || 0) - Number(element.clientHeight || 0))
+        );
+        return {
+          before,
+          after: Number(element.scrollTop || 0),
+          height: Number(element.scrollHeight || 0),
+          viewport: Number(element.clientHeight || 0)
+        };
+      }).catch(() => null);
+
+      if (moved) {
+        logs.push(
+          `OUTLOOK_RESULT_SCROLL|BEFORE=${moved.before}|AFTER=${moved.after}`
+          + `|HEIGHT=${moved.height}|VIEWPORT=${moved.viewport}`
+        );
+        await page.waitForTimeout(900);
+        return moved.after > moved.before;
+      }
+    }
+
+    return false;
+  };
+
+  const resetMessageListToTop = async () => {
+    for (const selector of [
+      '[data-automationid="MessageList"]',
+      '[aria-label*="Message list" i]',
+      '[aria-label*="Lista de mensajes" i]',
+      '[role="listbox"]'
+    ]) {
+      const list = page.locator(selector).first();
+      if (!(await list.count().catch(() => 0))) continue;
+      await list.evaluate(element => { element.scrollTop = 0; }).catch(() => null);
+      await page.waitForTimeout(700);
+      return;
+    }
+  };
+
+  await resetMessageListToTop();
+
+  while (processedCount < maxEmails && idlePasses < 6) {
+    const rows = await getRows(page, logs);
+    if (!rows) break;
+
+    const count = Math.min(await rows.count().catch(() => 0), 250);
+    let candidate = null;
+
+    for (let index = 0; index < count; index += 1) {
+      const row = rows.nth(index);
+      const rowText = await safeText(row);
+      if (isProbablySystemRow(rowText)) continue;
+
+      const rowMeta = await getRowMeta(row);
+      const combined = `${rowText} ${rowMeta.combined || ''}`;
+      const fingerprint = stableRowFingerprint({
+        text: rowText,
+        combined,
+        index
+      });
+
+      const subjectMatch = subjectMatchesInvoiceFilter(rowText);
+      const inboxFallback = /__INBOX_DOM_UNREAD_FALLBACK__/i.test(query);
+
+      if (inboxFallback && index < 60) {
+        logs.push(
+          `OUTLOOK_INBOX_ROW_DIAGNOSTIC|INDEX=${index}`
+          + `|SUBJECT_MATCH=${subjectMatch}`
+          + `|IS_UNREAD=${rowMeta.isUnread}`
+          + `|IS_READ=${rowMeta.isRead}`
+          + `|READ_SOURCE=${rowMeta.readStateSource || 'unknown'}`
+          + `|TEXT=${rowText.replace(/\s+/g, ' ').slice(0, 220)}`
+        );
+      }
+
+      if (!subjectMatch) continue;
+      if (config.invoiceReceivedOnly && isSentFolderRow(combined)) continue;
+
+      const unreadDecision = rowUnreadDecision(rowMeta, query);
+      logs.push(
+        `OUTLOOK_ROW_CANDIDATE|INDEX=${index}`
+        + `|UNREAD_ACCEPT=${unreadDecision.accept}`
+        + `|UNREAD_SOURCE=${unreadDecision.source}`
+        + `|READ_STATE_SOURCE=${rowMeta.readStateSource || 'unknown'}`
+        + `|FINGERPRINT=${fingerprint.slice(0, 120)}`
+      );
+
+      if (config.invoiceRequireUnread && !unreadDecision.accept) continue;
+      if (processedRows.has(fingerprint)) continue;
+
+      candidate = {
+        row,
+        rowText,
+        rowMeta,
+        fingerprint,
+        index
+      };
+      break;
+    }
+
+    if (!candidate) {
+      const moved = await scrollMessageList();
+      scrollPasses += 1;
+      idlePasses += moved ? 1 : 2;
+      logs.push(`OUTLOOK_UNREAD_QUEUE_IDLE|PASS=${idlePasses}|SCROLL_PASS=${scrollPasses}`);
+      continue;
+    }
+
+    idlePasses = 0;
+    processedRows.add(candidate.fingerprint);
 
     try {
-      if (config.invoiceReceivedOnly && isSentFolderRow(rowCombinedText)) {
-        const rowPreview = rowText.replace(/\s+/g, ' ').trim().slice(0, 140);
-        logs.push(`Ignoring row because it appears to be Sent/Enviados, not Inbox/received: ${rowPreview}`);
+      const email = await readMessage(page, candidate.row, candidate.rowText, logs);
+
+      if (!subjectMatchesInvoiceFilter(email.subject) && subjectMatchesInvoiceFilter(candidate.rowText)) {
+        email.subject = config.invoiceSubjectFilter || 'factura american';
+      }
+
+      const emailKey = email.externalKey
+        || `${email.subject}|${email.senderEmail}|${email.receivedAt}|${candidate.fingerprint}`;
+
+      if (processedEmails.has(emailKey)) {
+        logs.push(`OUTLOOK_EMAIL_DUPLICATE_IN_RUN=${emailKey}`);
         continue;
       }
+      processedEmails.add(emailKey);
 
-      const rowLooksTarget = subjectMatchesInvoiceFilter(rowText);
+      const existingFileNames = await downloadedDocumentFileNamesForEmail(email.externalKey);
+      const downloadedDocuments = await downloadMatchingPdfAttachments(
+        page,
+        email,
+        logs,
+        { skipFileNames: existingFileNames }
+      );
 
-      // Critical guard: pre-filter by the message-list row before opening it.
-      // Outlook keeps hidden/stale emails in the DOM, and the previous version
-      // could click a non-target row while the reading pane still showed an old
-      // matching subject. That caused the bot to download a PDF from the wrong thread.
-      if (config.invoiceDownloadOnlyMatching && !rowLooksTarget) {
-        const rowPreview = rowText.replace(/\s+/g, ' ').trim().slice(0, 120);
-        logs.push(`Ignoring visible row because it does not contain '${config.invoiceSubjectFilter}': ${rowPreview}`);
-        continue;
-      }
+      email.downloadedDocuments = downloadedDocuments.map(document => ({
+        externalKey: document.externalKey,
+        fileName: document.fileName,
+        localPath: document.localPath
+      }));
 
-      if (config.invoiceRequireUnread && rowMeta.isRead && !rowMeta.isUnread) {
-        const rowPreview = rowText.replace(/\s+/g, ' ').trim().slice(0, 140);
-        logs.push(`Ignoring row because it appears already read. Use unread target emails only: ${rowPreview}`);
-        continue;
-      }
+      const expectedNames = mergePdfAttachmentNames(
+        email.attachments || [],
+        downloadedDocuments.map(document => document.fileName)
+      );
+      const nameCoverage = completeAttachmentCoverage({
+        expected: expectedNames,
+        existing: existingFileNames,
+        downloaded: downloadedDocuments.map(document => document.fileName)
+      });
+      const occurrenceCoverage = email.raw?.attachment_occurrence_coverage || {
+        expected_count: 0,
+        recovered_count: 0,
+        missing: [],
+        complete: true,
+        message_group_count: 0
+      };
+      const complete = nameCoverage.complete && occurrenceCoverage.complete !== false;
 
-      const email = await readMessage(page, row, rowText, logs);
-      const key = email.externalKey || `${email.subject}|${email.senderEmail}|${email.snippet}`;
-      const matchesTarget = subjectMatchesInvoiceFilter(email.subject) || rowLooksTarget;
-
-      if (rowLooksTarget && !subjectMatchesInvoiceFilter(email.subject)) {
-        logs.push(`Opened row matched '${config.invoiceSubjectFilter}' but parsed subject looked different: '${email.subject}'. Keeping row-based subject for download.`);
-        email.subject = config.invoiceSubjectFilter || email.subject;
-      }
-
-      if (config.invoiceDownloadOnlyMatching && !matchesTarget) {
-        logs.push(`Ignoring email because subject does not match '${config.invoiceSubjectFilter}': ${email.subject}`);
-        continue;
-      }
-
-      if (config.invoiceReceivedOnly && isSentFolderRow(`${email.raw?.rowText || ''} ${email.bodyText || ''}`)) {
-        logs.push(`Ignoring email because it appears to come from Sent/Enviados instead of Inbox/received: ${email.subject}`);
-        continue;
-      }
-
-      if (config.invoiceSkipAlreadyDownloaded && await hasDownloadedDocumentsForEmail(email.externalKey)) {
-        logs.push(`Skipping email because this invoice email was already downloaded before: ${email.subject}`);
-        await markCurrentMessageAsRead(page, logs, row);
-        continue;
-      }
-
-      if (!seen.has(key) && (email.subject || email.bodyText || email.snippet)) {
-        seen.add(key);
-        const downloadedDocuments = await downloadMatchingPdfAttachments(page, email, logs);
-        email.downloadedDocuments = downloadedDocuments.map(doc => ({
-          externalKey: doc.externalKey,
-          fileName: doc.fileName,
-          localPath: doc.localPath
-        }));
-        documents.push(...downloadedDocuments);
-        if (downloadedDocuments.length > 0) {
-          await markCurrentMessageAsRead(page, logs, row);
+      email.raw = {
+        ...(email.raw || {}),
+        unread_queue: {
+          query,
+          row_index: candidate.index,
+          row_fingerprint: candidate.fingerprint,
+          unread_source: rowUnreadDecision(candidate.rowMeta, query).source
+        },
+        attachment_coverage: {
+          ...nameCoverage,
+          complete,
+          occurrence_coverage: occurrenceCoverage
         }
-        emails.push(email);
+      };
+
+      emails.push(email);
+      documents.push(...downloadedDocuments);
+      processedCount += 1;
+
+      if (complete) {
+        const markedRead = await markCurrentMessageAsRead(page, logs, candidate.row);
+
+        const refreshedRowText = await safeText(candidate.row, candidate.rowText);
+        const refreshedRowMeta = await getRowMeta(candidate.row);
+        const refreshedFingerprint = stableRowFingerprint({
+          text: refreshedRowText,
+          combined: `${refreshedRowText} ${refreshedRowMeta.combined || ''}`,
+          index: candidate.index
+        });
+        processedRows.add(refreshedFingerprint);
+
+        if (markedRead) {
+          logs.push(
+            `OUTLOOK_EMAIL_COMPLETED_AND_MARKED_READ=${email.subject}`
+            + `|MESSAGE_GROUPS=${occurrenceCoverage.message_group_count || 0}`
+            + `|ATTACHMENTS=${occurrenceCoverage.expected_count || nameCoverage.expected_count}`
+          );
+        } else {
+          logs.push(
+            `OUTLOOK_EMAIL_PROCESSED_BUT_MARK_READ_FAILED=${email.subject}`
+            + `|ATTACHMENTS=${occurrenceCoverage.expected_count || nameCoverage.expected_count}`
+          );
+        }
+
+        await page.waitForTimeout(1400);
+        await resetMessageListToTop();
+      } else {
+        logs.push(
+          `OUTLOOK_EMAIL_LEFT_UNREAD=${email.subject}`
+          + `|MESSAGE_GROUPS=${occurrenceCoverage.message_group_count || 0}`
+          + `|ATTACHMENTS_EXPECTED=${occurrenceCoverage.expected_count || nameCoverage.expected_count}`
+          + `|ATTACHMENTS_AVAILABLE=${occurrenceCoverage.recovered_count || nameCoverage.available_count}`
+          + `|MISSING_NAMES=${nameCoverage.missing.join(' | ') || '(none)'}`
+          + `|MISSING_OCCURRENCES=${occurrenceCoverage.missing?.length || 0}`
+        );
+        await scrollMessageList();
       }
     } catch (error) {
-      logs.push(`Could not read row ${i + 1}: ${error.message}`);
+      logs.push(
+        `OUTLOOK_UNREAD_ROW_ERROR|INDEX=${candidate.index}`
+        + `|NAME=${error.name || 'Error'}|MESSAGE=${error.message}`
+      );
+      await scrollMessageList();
     }
   }
+
+  logs.push(
+    `OUTLOOK_UNREAD_QUEUE_COMPLETE|EMAILS=${emails.length}`
+    + `|PDFS=${documents.length}|MAX=${maxEmails}`
+  );
 
   return { emails, documents };
 }
 
-export async function scanOutlook({ maxEmails = config.outlookMaxEmails, searchQuery = config.outlookSearchQuery } = {}) {
+export async function scanOutlook({
+  maxEmails = config.outlookMaxEmails,
+  searchQuery = config.outlookSearchQuery,
+  forceInbox = false
+} = {}) {
   await ensureDirs();
 
   const browser = await chromium.launchPersistentContext(userDataDir, {
@@ -1093,6 +1735,10 @@ export async function scanOutlook({ maxEmails = config.outlookMaxEmails, searchQ
   const logs = [];
 
   try {
+    page.__a2000CurrentSearchQuery = forceInbox
+      ? '__INBOX_DOM_UNREAD_FALLBACK__'
+      : String(searchQuery || '');
+
     await openOutlookPage(page, logs);
 
     const readiness = await waitForOutlookReady(page, logs);
@@ -1104,35 +1750,69 @@ export async function scanOutlook({ maxEmails = config.outlookMaxEmails, searchQ
         logs: [
           ...logs,
           'Outlook is not ready. The Playwright profile is probably not logged in.',
-          'Run npm --prefix api run login from an environment with a visible browser/VNC, then try /run-scan again.'
+          'Run npm --prefix api run login from a visible browser/VNC session.'
         ]
       };
     }
 
-    const scanMode = String(config.outlookScanMode || 'inbox').toLowerCase();
     let result = { emails: [], documents: [] };
 
-    if (scanMode === 'search') {
-      logs.push('Scan mode: search. Outlook search will be used first.');
-      logs.push(`Received-only guard: ${config.invoiceReceivedOnly ? 'on' : 'off'}; unread guard: ${config.invoiceRequireUnread ? 'on' : 'off'}; skip already-downloaded: ${config.invoiceSkipAlreadyDownloaded ? 'on' : 'off'}`);
-      await searchMessages(page, readiness.searchBox, searchQuery, logs);
-      result = await collectVisibleEmails(page, maxEmails, logs);
-    } else {
-      logs.push('Scan mode: inbox. Reading recent visible inbox rows and then analyzing full email bodies.');
-      logs.push(`Only received/unread subjects matching '${config.invoiceSubjectFilter}' will be downloaded as invoice PDFs.`);
-      logs.push(`Received-only guard: ${config.invoiceReceivedOnly ? 'on' : 'off'}; unread guard: ${config.invoiceRequireUnread ? 'on' : 'off'}; skip already-downloaded: ${config.invoiceSkipAlreadyDownloaded ? 'on' : 'off'}`);
+    if (forceInbox) {
+      logs.push(
+        'OUTLOOK_INBOX_DOM_FALLBACK=START'
+        + `|SUBJECT_FILTER=${config.invoiceSubjectFilter}`
+      );
       await clearSearchIfPossible(page, logs);
+      await page.waitForTimeout(1400);
       result = await collectVisibleEmails(page, maxEmails, logs);
+      logs.push(
+        `OUTLOOK_INBOX_DOM_FALLBACK=END`
+        + `|EMAILS=${result.emails?.length || 0}`
+        + `|PDFS=${result.documents?.length || 0}`
+      );
+    } else {
+      const scanMode = String(config.outlookScanMode || 'search').toLowerCase();
+
+      if (scanMode === 'search' && String(searchQuery || '').trim()) {
+        logs.push(
+          `OUTLOOK_SEARCH_MODE=START|QUERY=${searchQuery}`
+          + `|SUBJECT_FILTER=${config.invoiceSubjectFilter}`
+        );
+        await searchMessages(page, readiness.searchBox, searchQuery, logs);
+        result = await collectVisibleEmails(page, maxEmails, logs);
+      } else {
+        logs.push(
+          `OUTLOOK_INBOX_MODE=START`
+          + `|SUBJECT_FILTER=${config.invoiceSubjectFilter}`
+        );
+        await clearSearchIfPossible(page, logs);
+        result = await collectVisibleEmails(page, maxEmails, logs);
+      }
     }
 
     if (!result.emails.length) {
-      await screenshot(page, 'outlook-scan-no-target-emails.png', logs);
-      return { emails: [], documents: [], logs: [...logs, 'No matching invoice emails found in visible rows.'] };
+      await screenshot(page, forceInbox
+        ? 'outlook-inbox-fallback-no-target-emails.png'
+        : 'outlook-search-no-target-emails.png', logs);
+
+      return {
+        emails: [],
+        documents: [],
+        logs: [
+          ...logs,
+          'No matching unread invoice emails were accepted in this pass.'
+        ]
+      };
     }
 
-    logs.push(`Parsed ${result.emails.length} matching emails.`);
-    logs.push(`Downloaded ${result.documents.length} PDF documents locally.`);
-    return { emails: result.emails, documents: result.documents, logs };
+    logs.push(`Parsed ${result.emails.length} matching unread emails.`);
+    logs.push(`Downloaded ${result.documents.length} unique PDF documents locally.`);
+
+    return {
+      emails: result.emails,
+      documents: result.documents,
+      logs
+    };
   } catch (error) {
     await screenshot(page, 'outlook-scan-error.png', logs);
     throw error;

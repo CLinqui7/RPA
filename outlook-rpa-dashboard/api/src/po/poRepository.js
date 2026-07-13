@@ -2,10 +2,23 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { supabase } from '../supabase.js';
 import { extractPdfTextFromDocument } from './pdfText.js';
-import { parsePurchaseOrder } from './parsers/index.js';
+import { parsePurchaseOrder, parsePurchaseOrders } from './parsers/index.js';
 
 function toJson(value) {
   return value === undefined ? null : value;
+}
+
+function clean(value) {
+  return String(value ?? '').trim();
+}
+
+function unique(values = []) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function multiOrderPersistenceReady() {
+  const value = String(process.env.A2000_MULTI_ORDER_PERSISTENCE_READY || '').trim().toUpperCase();
+  return value === 'TRUE' || value === 'YES' || value === '1';
 }
 
 export async function listPurchaseOrders({ limit = 200 } = {}) {
@@ -33,9 +46,32 @@ async function getDocumentsForProcessing({ limit = 20, documentId = null } = {})
   return data || [];
 }
 
-async function upsertParsedOrder(document, parsed, text) {
+async function existingOrdersForDocument(documentId) {
+  const { data, error } = await supabase
+    .from('purchase_orders')
+    .select('id, order_no')
+    .eq('document_id', documentId);
+  if (error) throw error;
+  return data || [];
+}
+
+async function deleteOrderAndLines(orderId) {
+  const { error: lineError } = await supabase
+    .from('purchase_order_lines')
+    .delete()
+    .eq('purchase_order_id', orderId);
+  if (lineError) throw lineError;
+
+  const { error: orderError } = await supabase
+    .from('purchase_orders')
+    .delete()
+    .eq('id', orderId);
+  if (orderError) throw orderError;
+}
+
+function parsedOrderRow(document, parsed) {
   const header = parsed.header || {};
-  const orderRow = {
+  return {
     document_id: document.id,
     source_file_name: document.file_name,
     parser_name: parsed.parser,
@@ -62,20 +98,71 @@ async function upsertParsedOrder(document, parsed, text) {
     conflicts: toJson(parsed.conflicts || []),
     raw_json: toJson(parsed)
   };
+}
 
-  const { data: order, error: orderError } = await supabase
+async function saveOrderRow(document, parsed) {
+  const orderRow = parsedOrderRow(document, parsed);
+  const orderNo = clean(orderRow.order_no);
+
+  if (multiOrderPersistenceReady() && orderNo) {
+    const { data: order, error } = await supabase
+      .from('purchase_orders')
+      .upsert(orderRow, { onConflict: 'document_id,order_no' })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return order;
+  }
+
+  if (!multiOrderPersistenceReady()) {
+    const { data: order, error } = await supabase
+      .from('purchase_orders')
+      .upsert(orderRow, { onConflict: 'document_id' })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return order;
+  }
+
+  const { data: nullOrderRows, error: lookupError } = await supabase
     .from('purchase_orders')
-    .upsert(orderRow, { onConflict: 'document_id' })
+    .select('id')
+    .eq('document_id', document.id)
+    .is('order_no', null);
+  if (lookupError) throw lookupError;
+
+  const existing = nullOrderRows || [];
+  if (existing.length > 1) {
+    for (const row of existing) await deleteOrderAndLines(row.id);
+  }
+
+  if (existing.length === 1) {
+    const { data: order, error } = await supabase
+      .from('purchase_orders')
+      .update(orderRow)
+      .eq('id', existing[0].id)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return order;
+  }
+
+  const { data: order, error } = await supabase
+    .from('purchase_orders')
+    .insert(orderRow)
     .select('*')
     .single();
+  if (error) throw error;
+  return order;
+}
 
-  if (orderError) throw orderError;
+async function replaceOrderLines(document, order, parsed) {
+  const header = parsed.header || {};
 
   const { error: deleteError } = await supabase
     .from('purchase_order_lines')
     .delete()
     .eq('purchase_order_id', order.id);
-
   if (deleteError) throw deleteError;
 
   const lineRows = (parsed.lines || []).map(line => ({
@@ -125,51 +212,137 @@ async function upsertParsedOrder(document, parsed, text) {
     if (linesError) throw linesError;
   }
 
-  const { error: docError } = await supabase
+  return lineRows.length;
+}
+
+async function upsertParsedOrder(document, parsed) {
+  const order = await saveOrderRow(document, parsed);
+  const lineCount = await replaceOrderLines(document, order, parsed);
+  return { order, lineCount, parsed };
+}
+
+function aggregateDocumentStatus(parsedOrders) {
+  if (!parsedOrders.length) return 'parse_error';
+  if (parsedOrders.every(parsed => parsed.status === 'parsed')) return 'parsed';
+  if (parsedOrders.some(parsed => parsed.status === 'needs_mapping')) return 'needs_mapping';
+  return parsedOrders[0].status || 'parsed';
+}
+
+async function updateProcessedDocument(document, parsedOrders, text) {
+  const customerCodes = unique(
+    parsedOrders.map(parsed => clean(parsed.header?.customer_code)).filter(Boolean)
+  );
+  const orderNos = parsedOrders
+    .map(parsed => clean(parsed.header?.order_no))
+    .filter(Boolean);
+  const documentRawJson = parsedOrders.length === 1
+    ? parsedOrders[0]
+    : {
+        document_family: 'multi_order_document',
+        order_count: parsedOrders.length,
+        order_numbers: orderNos,
+        orders: parsedOrders
+      };
+
+  const { error } = await supabase
     .from('documents')
     .update({
-      status: parsed.status || 'parsed',
-      detected_customer: header.customer_raw || null,
-      detected_po: header.order_no || null,
+      status: aggregateDocumentStatus(parsedOrders),
+      detected_customer: customerCodes.length === 1 ? customerCodes[0] : null,
+      detected_po: orderNos.length ? orderNos.join(', ') : null,
       ocr_text: text,
-      raw_json: parsed,
+      raw_json: documentRawJson,
       error_message: null
     })
     .eq('id', document.id);
-  if (docError) throw docError;
+  if (error) throw error;
+}
 
-  return { order, lineCount: lineRows.length, parsed };
+async function removeStaleOrders(existingOrders, savedOrders) {
+  const currentIds = new Set(savedOrders.map(saved => String(saved.order.id)));
+  const stale = (existingOrders || []).filter(row => !currentIds.has(String(row.id)));
+  for (const row of stale) await deleteOrderAndLines(row.id);
+  return stale.length;
 }
 
 export async function processDownloadedDocuments({ limit = 20, documentId = null } = {}) {
   const documents = await getDocumentsForProcessing({ limit, documentId });
   const results = [];
+  let processedOrderCount = 0;
 
   for (const document of documents) {
     try {
       const text = await extractPdfTextFromDocument(document);
-      const parsed = parsePurchaseOrder({ text, fileName: document.file_name, document });
-      const saved = await upsertParsedOrder(document, parsed, text);
-      results.push({
-        document_id: document.id,
-        file_name: document.file_name,
-        status: saved.order.status,
-        parser: parsed.parser,
-        order_no: saved.order.order_no,
-        line_count: saved.lineCount,
-        missing_fields: parsed.needs_mapping,
-        conflicts: parsed.conflicts || []
-      });
+      const multiOrderMode = multiOrderPersistenceReady();
+      const parsedOrders = multiOrderMode
+        ? parsePurchaseOrders({
+            text,
+            fileName: document.file_name,
+            document
+          })
+        : [parsePurchaseOrder({
+            text,
+            fileName: document.file_name,
+            document
+          })];
+
+      if (!parsedOrders.length) {
+        throw new Error('No purchase order candidates were parsed from document.');
+      }
+
+      const existingOrders = multiOrderMode
+        ? await existingOrdersForDocument(document.id)
+        : [];
+      const savedOrders = [];
+
+      for (const [orderIndex, parsed] of parsedOrders.entries()) {
+        const saved = await upsertParsedOrder(document, parsed);
+        savedOrders.push(saved);
+        processedOrderCount += 1;
+        results.push({
+          document_id: document.id,
+          file_name: document.file_name,
+          status: saved.order.status,
+          parser: parsed.parser,
+          order_no: saved.order.order_no,
+          line_count: saved.lineCount,
+          source_document_order_index: parsed.header?.raw?.source_order_index || orderIndex + 1,
+          source_document_order_count: parsed.header?.raw?.source_order_count || parsedOrders.length,
+          purchase_order_id: saved.order.id,
+          missing_fields: parsed.needs_mapping,
+          conflicts: parsed.conflicts || []
+        });
+      }
+
+      const staleOrderCount = multiOrderMode
+        ? await removeStaleOrders(existingOrders, savedOrders)
+        : 0;
+      await updateProcessedDocument(document, parsedOrders, text);
+
+      for (const result of results.filter(item => item.document_id === document.id)) {
+        result.stale_order_count_removed = staleOrderCount;
+      }
     } catch (error) {
       await supabase
         .from('documents')
         .update({ status: 'parse_error', error_message: error.message })
         .eq('id', document.id);
-      results.push({ document_id: document.id, file_name: document.file_name, status: 'parse_error', error: error.message });
+      results.push({
+        document_id: document.id,
+        file_name: document.file_name,
+        status: 'parse_error',
+        error: error.message
+      });
     }
   }
 
-  return { processed_count: results.length, results };
+  return {
+    processed_count: results.length,
+    processed_document_count: documents.length,
+    processed_order_count: processedOrderCount,
+    multi_order_persistence_ready: multiOrderPersistenceReady(),
+    results
+  };
 }
 
 export async function ensureExportsDir() {

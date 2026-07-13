@@ -1,0 +1,71 @@
+{
+  "patch": "A2000_V4_6_STAGE1_PRODUCTION_PILOT_AND_WEB_OPS",
+  "installed_at": "2026-07-10T12:24:48.370941+00:00",
+  "project": "/workspaces/RPA/outlook-rpa-dashboard",
+  "a2000_writes_performed": false,
+  "installer_supabase_writes_performed": false,
+  "backup": "/workspaces/RPA/BACKUP_A2000_V4_6_STAGE1_20260710_122441",
+  "before_sha256": {
+    "server": "a1e5457e4c5f5b0f54f1d95550cc8bfed8566d5c48d26dfc22ba13451733e305",
+    "run_scan": "457175ddf57fcf89de5e9d54fa8ed52776d15d26709906089936a84a4b74551d",
+    "document_repo": "17a248b7ce08864fc071c9891bc9d870e26dc68bb16423604bcda7ec736a6a46",
+    "main": "9ae33ec993403969ee9b7cbd8095c3aba72eb4947e4614301bf074552993db57",
+    "styles": "91ef5fcb6e81755893da83ee441d9a900d84af45ca91c5624c156ba5c97856ec",
+    "env": "2fb84cdb9bca998d1fbd8c7e4c927adef10e23adeca03a5ba254b20852d7dba6"
+  },
+  "after_sha256": {
+    "server": "e2e691becd5ef6f45afa7d8fa11520a4b96670faa20d15108e887dac71bd9a55",
+    "run_scan": "022312d13b291e7f724532d9df450db69ac75c3f087df43966d534e572094b20",
+    "document_repo": "37d5122c87df1fabb6dff81e441a1c3a5e0cbd58b26786901eaea6d8f78298b7",
+    "workflow": "b73130ee3db2ceeb66cc6aff6bba30403275fe59dc9f68cb13388436c56f78c8",
+    "smoke": "423595f9f968c72934910067f2d5ca92e7b733591c8fdf6dca3c48d3d9805c4d",
+    "main": "9287e028befbff0bf6c07ca8f8af6b739d5bf74e5e178f991af70cb8ef4dbe84",
+    "styles": "3e21c3e347c9ae55650ca1b164ace507115d4e0b5b6293109c10696855fd3e96",
+    "env": "8f8d02dbbcdf6f6db78a0872dad6740831c08417c2694b49ad9e6886a632b569"
+  },
+  "checks": {
+    "node_syntax": {
+      "pass": true,
+      "failures": []
+    },
+    "web_build": {
+      "pass": true,
+      "stdout_tail": "\n> outlook-rpa-web@0.1.0 build\n> vite build\n\nvite v6.4.3 building for production...\ntransforming...\n\u2713 1578 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.17 kB \u2502 gzip:  0.15 kB\ndist/assets/index-Cm75HMNn.css   21.21 kB \u2502 gzip:  4.64 kB\ndist/assets/index-Y9KIBKfd.js   247.73 kB \u2502 gzip: 74.90 kB\n\u2713 built in 4.31s\n",
+      "stderr_tail": ""
+    },
+    "readonly_smoke": {
+      "pass": true,
+      "stdout": "A2000_V4_6_STAGE1_SMOKE=PASS\nENVIRONMENT=AMEXTEST\nAUTO_UPLOAD_ENABLED=false\nEMAIL_SCAN_AUTO_PARSE=true\nCERTIFIED_CUSTOMER_COUNT=11\nOPERATIONAL_ORDER_READ_COUNT=5\nOPERATIONS_LOG_READ_COUNT=5\nA2000_WRITES_PERFORMED=NO\nSUPABASE_WRITES_PERFORMED=NO\n",
+      "stderr": ""
+    },
+    "markers": {
+      "server": true,
+      "web": true,
+      "auto_process": true,
+      "manual_source": true
+    },
+    "pass": true
+  },
+  "stage1_customers": [
+    "10BELOW",
+    "BEALLSOUTL",
+    "CITI",
+    "GABRIELBRO",
+    "ITSFASHION",
+    "MESALVEINC",
+    "OLLIES",
+    "SHOE4500",
+    "VARIETYWHO",
+    "VERSONA",
+    "ZUMIEZ"
+  ],
+  "workflow": {
+    "email_scan_auto_parse": true,
+    "manual_pdf_upload": true,
+    "search_po_customer_file_style_ctrl": true,
+    "manual_process_button": true,
+    "manual_a2000_submit_button": true,
+    "a2000_job_log": true,
+    "auto_a2000_upload_default": false
+  }
+}

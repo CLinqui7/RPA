@@ -1,0 +1,84 @@
+{
+  "patch": "A2000_CURRENT_HEAD_SAFE_V4_3_MEGA_RELEASE_GATE",
+  "project": "/workspaces/RPA/outlook-rpa-dashboard",
+  "backup": "/workspaces/RPA/_archive_local/A2000_CURRENT_HEAD_SAFE_V4_3_20260710_110513",
+  "a2000_writes_performed": false,
+  "supabase_writes_performed": false,
+  "status": "installed",
+  "tests": {
+    "node_syntax": [
+      {
+        "file": "api/src/po/parsers/index.js",
+        "rc": 0
+      },
+      {
+        "file": "api/src/po/poRepository.js",
+        "rc": 0
+      },
+      {
+        "file": "api/src/debug-verify-all-customers-master-only.js",
+        "rc": 0
+      },
+      {
+        "file": "api/src/debug-verify-reading-v3-master-matches.js",
+        "rc": 0
+      },
+      {
+        "file": "api/src/po/enrichment/customerReadingHardening.js",
+        "rc": 0
+      },
+      {
+        "file": "api/src/debug-verify-enrichment-batch01-v43-compatible.js",
+        "rc": 0
+      },
+      {
+        "file": "api/src/run-a2000-mega-release-gate.js",
+        "rc": 0
+      },
+      {
+        "file": "api/test/a2000/customerReadingHardening.test.js",
+        "rc": 0
+      },
+      {
+        "file": "api/test/a2000/multiOrderPersistenceContract.test.js",
+        "rc": 0
+      }
+    ],
+    "test_a2000_rc": 0,
+    "legacy_batch01_informational_rc": 1,
+    "legacy_batch01_expected_delta": true,
+    "blocking_regressions": [
+      {
+        "suite": "api/src/debug-verify-parser-fixtures.js",
+        "rc": 0
+      },
+      {
+        "suite": "api/src/debug-verify-enrichment-batch01-v43-compatible.js",
+        "rc": 0
+      },
+      {
+        "suite": "api/src/debug-verify-batch01-v3-guards.js",
+        "rc": 0
+      },
+      {
+        "suite": "api/src/debug-verify-all-customers-master-only.js",
+        "rc": 0
+      },
+      {
+        "suite": "api/src/debug-audit-all-hardcopy-fixtures.js",
+        "rc": 0
+      },
+      {
+        "suite": "api/src/debug-verify-reading-v3-master-matches.js",
+        "rc": 0
+      },
+      {
+        "suite": "api/src/debug-audit-master-style-color-upc.js",
+        "rc": 0
+      }
+    ],
+    "web_build_rc": 0
+  },
+  "migration_required_for_multi_order": "api/sql/purchase_orders_multi_order_document.sql",
+  "multi_order_default_mode": "legacy_safe_until_A2000_MULTI_ORDER_PERSISTENCE_READY=true"
+}

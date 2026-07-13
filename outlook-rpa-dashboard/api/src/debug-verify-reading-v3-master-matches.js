@@ -66,14 +66,21 @@ const versona = await parseSource('Versona/615628 earlier ship.pdf', { subject: 
 const itsfashionOrders = await parseSourceOrders('ITSFASHION/stainless steel AMEX PO.pdf', { subject: 'ITS FASHION PURCHASE ORDERS' });
 const carnival = await parseBatch('PO_127_1674444_0_US.pdf', { subject: 'CARNIVAL' });
 
-check('10BELOW chooses SIMPLY10 from the printed primary Ship To name/address and builds official UPCs without inventing size buckets', () => {
+check('10BELOW chooses SIMPLY10, builds official UPCs, and distributes total EACH quantity by the exact RT ratio after the printed range matches', () => {
   assert.equal(tenbelow.header.store_code, 'SIMPLY10');
   assert.equal(tenbelow.header.raw?.store_master?.source, 'stores_master_exact_ship_to_address');
   assert.deepEqual(tenbelow.lines.map((line) => [line.style_code, line.color_code, line.master_upc]), [
     ['WILLA01L', 'SGA', '194866934613'],
     ['RYNN05L', 'WHA', '194866886837']
   ]);
-  assert.ok(tenbelow.lines.every((line) => Object.keys(positiveBuckets(line)).length === 0));
+  assert.deepEqual(positiveBuckets(tenbelow.lines[0]), {
+    qty_sz1: 20, qty_sz2: 20, qty_sz3: 20, qty_sz4: 40,
+    qty_sz5: 40, qty_sz6: 40, qty_sz7: 40, qty_sz8: 20
+  });
+  assert.deepEqual(positiveBuckets(tenbelow.lines[1]), {
+    qty_sz1: 25, qty_sz2: 25, qty_sz3: 25, qty_sz4: 50,
+    qty_sz5: 50, qty_sz6: 50, qty_sz7: 50, qty_sz8: 25
+  });
 });
 
 check('VARIETYWHO matches every printed base style and truncated color hint to official master style/color and unique UPC', () => {
@@ -111,7 +118,7 @@ check('BEALLS old resolves 03HOSTAR-Y only because 03HOSTARYK is the unique near
   });
 });
 
-check('GABRIELBRO matches MRMD MLTI to MERMAID MULTI/MDA and FSCHA to FUCHSIA-FUSCHIA/FSA using official prepack ALL-size master rows', () => {
+check('GABRIELBRO matches official prepack colors and distributes total EACH quantity only because printed CS PK 12 equals the official GK ratio total', () => {
   assert.equal(gabes.header.store_code, 'SAME');
   assert.equal(gabes.header.warehouse_code, 'PE');
   assert.deepEqual(gabes.lines.map((line) => [line.style_code, line.color_code, line.master_upc]), [
@@ -119,17 +126,27 @@ check('GABRIELBRO matches MRMD MLTI to MERMAID MULTI/MDA and FSCHA to FUCHSIA-FU
     ['WELMA61K', 'FSA', '194866098254']
   ]);
   assert.ok(gabes.lines.every((line) => line.raw?.description_color_resolution?.reason === 'unique_alpha_all_size_official_color_for_prepack'));
-  assert.ok(gabes.lines.every((line) => strictLineMissing(gabes.header, line).includes('qty_szn')));
+  assert.deepEqual(positiveBuckets(gabes.lines[0]), {
+    qty_sz1: 42, qty_sz2: 42, qty_sz3: 42, qty_sz4: 42,
+    qty_sz5: 84, qty_sz6: 84, qty_sz7: 84, qty_sz8: 84
+  });
+  assert.deepEqual(positiveBuckets(gabes.lines[1]), {
+    qty_sz1: 55, qty_sz2: 55, qty_sz3: 55, qty_sz4: 55,
+    qty_sz5: 110, qty_sz6: 110, qty_sz7: 110, qty_sz8: 110
+  });
 });
 
-check('IPC splits AX9851B-42-G16 into official style/color, builds UPC, maps ordered QTY to the unique PC bucket, and keeps PP terms', () => {
+check('IPC keeps official style/color/UPC/bucket and corrects only the same-MM/DD one-year pickup typo to the viable 2026 date', () => {
   const line = ipc.lines[0];
   assert.equal(ipc.header.terms_code, 'PP');
+  assert.equal(ipc.header.start_date, '2026-05-08');
+  assert.equal(ipc.header.raw?.pickup_date_resolution?.preserved_earlier_source_date, '2025-05-08');
   assert.equal(line.style_code, 'AX9851B-42');
   assert.equal(line.color_code, 'G16');
   assert.equal(line.master_upc, '196540921803');
   assert.equal(line.qty_sz1, 2000);
-  assert.ok(codes(ipc.conflicts).includes('source_date_conflict'));
+  assert.equal(codes(ipc.conflicts).includes('source_date_conflict'), false);
+  assert.ok(codes(ipc.warnings).includes('source_date_year_typo_corrected'));
 });
 
 check('MESALVE SOLID lines use printed description color words to select official numeric colors and UPCs', () => {
@@ -177,11 +194,16 @@ check('CITI preserves printed customer UPC separately while official style/color
   assert.ok(line.raw?.upc_note);
 });
 
-check('CARNIVAL BLACK source resolves official 133CARNIVA01/003 and per-size official UPCs but CASE counts never become QTY buckets', () => {
+check('CARNIVAL BLACK source converts CASE quantity by printed pack 6 and exact size-to-SIZE_NUM mapping while keeping EACH price blocked', () => {
   assert.ok(carnival.lines.every((line) => line.style_code === '133CARNIVA01'));
   assert.ok(carnival.lines.every((line) => line.color_code === '003'));
   assert.ok(carnival.lines.every((line) => line.master_upc));
-  assert.ok(carnival.lines.every((line) => Object.keys(positiveBuckets(line)).length === 0));
+  assert.deepEqual(carnival.lines.map((line) => line.qty_total), [408, 372, 354, 366, 324, 312, 270]);
+  carnival.lines.forEach((line, index) => {
+    assert.deepEqual(positiveBuckets(line), { [`qty_sz${index + 1}`]: line.qty_total });
+    assert.equal(line.sales_price, null);
+  });
+  assert.ok(codes(carnival.conflicts).includes('carnival_each_sales_price_requires_source_rule'));
 });
 
 check('SHOE4500 resolves every printed size-grid row to its own official master UPC without pretending the multi-size line has one UPC', () => {
@@ -217,11 +239,12 @@ check('server production PDF paths use parsePurchaseOrders so a multi-PO ITSFASH
   assert.doesNotMatch(serverSource, /import\s+\{[^}]*parsePurchaseOrder[^s][^}]*\}/);
 });
 
-check('TJMAXX and VERSONA keep printed PO values as evidence but block final A2000 export until business PO ownership review', () => {
+check('TJMAXX keeps PO ownership review, while confirmed VERSONA PO 615628 preserves the printed order number and is locally parse-ready', () => {
   assert.ok(codes(tjmaxx.conflicts).includes('order_no_requires_business_review'));
-  assert.ok(codes(versona.conflicts).includes('order_no_requires_business_review'));
   assert.equal(tjmaxx.status, 'needs_mapping');
-  assert.equal(versona.status, 'needs_mapping');
+  assert.equal(codes(versona.conflicts).includes('order_no_requires_business_review'), false);
+  assert.equal(versona.header.order_no, '615628');
+  assert.equal(versona.status, 'parsed');
   assert.ok(versona.lines.every((line) => line.style_code && line.color_code && line.master_upc));
 });
 
