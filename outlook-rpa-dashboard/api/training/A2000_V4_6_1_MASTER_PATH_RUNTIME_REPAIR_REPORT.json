@@ -1,0 +1,31 @@
+{
+  "patch": "A2000_V4_6_1_MASTER_PATH_RUNTIME_REPAIR_AND_RPA_GATE",
+  "installed_at": "2026-07-10T12:34:10.672963+00:00",
+  "project": "/workspaces/RPA/outlook-rpa-dashboard",
+  "patch_state": "PATCHED",
+  "a2000_writes_performed": false,
+  "installer_supabase_writes_performed": false,
+  "backup": "/workspaces/RPA/BACKUP_A2000_V4_6_1_20260710_123405",
+  "checks": {
+    "node_syntax": {
+      "pass": true,
+      "failures": []
+    },
+    "rpa_pipeline": {
+      "scan_outlook": true,
+      "save_documents": true,
+      "auto_process": true,
+      "run_scan_endpoint": true,
+      "document_process_endpoint": true,
+      "a2000_submit_endpoint": true,
+      "log_endpoint": true,
+      "stage1_workflow": true
+    },
+    "web_build": {
+      "pass": true,
+      "stdout_tail": "\n> outlook-rpa-web@0.1.0 build\n> vite build\n\nvite v6.4.3 building for production...\ntransforming...\n\u2713 1578 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.17 kB \u2502 gzip:  0.15 kB\ndist/assets/index-Cm75HMNn.css   21.21 kB \u2502 gzip:  4.64 kB\ndist/assets/index-Y9KIBKfd.js   247.73 kB \u2502 gzip: 74.90 kB\n\u2713 built in 4.23s\n",
+      "stderr_tail": ""
+    },
+    "pass": true
+  }
+}

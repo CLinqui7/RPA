@@ -1,0 +1,46 @@
+{
+  "patch": "A2000_V4_6_6_CURRENT_EMAIL_SIZE_NATIVE_MATCH_ONE_CLICK_A2000",
+  "installed_at": "2026-07-10T14:20:15.400830+00:00",
+  "project": "/workspaces/RPA/outlook-rpa-dashboard",
+  "a2000_writes_performed": false,
+  "installer_supabase_writes_performed": false,
+  "backup": "/workspaces/RPA/BACKUP_A2000_V4_6_6_20260710_142008",
+  "checks": {
+    "node_syntax": {
+      "pass": true,
+      "failures": []
+    },
+    "targeted_v466": {
+      "pass": true,
+      "stdout": "\u2714 CITI alias row keeps exact native color 0C9 and derives v0 size buckets (6.759247ms)\n\u2714 CITI operational VR_SKU_Z evidence beats generic exact color text when alias rows are not color-unique (2.238925ms)\n\u2714 Bealls documentary terminal variant letter resolves to exact native style base/42 only through master (2.022964ms)\n\u2714 resolver never accepts non-native style after variant search (2.321367ms)\n\u2139 tests 4\n\u2139 suites 0\n\u2139 pass 4\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 103.8386\n",
+      "stderr": ""
+    },
+    "test_a2000": {
+      "pass": true,
+      "stdout": "\n> outlook-rpa-api@0.1.0 test:a2000\n> node --test test/a2000/*.test.js\n\n\u2714 10BELOW distributes total EACH by exact official RT ratio and matching printed range (4.978399ms)\n\u2714 10BELOW refuses ratio when printed range does not exactly cover official scale range (0.401677ms)\n\u2714 GABRIELBRO distributes total EACH only when PDF case pack equals official ratio total (0.614172ms)\n\u2714 Carnival maps CASE count times pack to exact size bucket but blocks EACH price (0.872816ms)\n\u2714 IPC applies only the narrow same-MM/DD one-year typo correction and preserves both raw dates (0.717545ms)\n\u2714 Versona removes only PO 615628 business-review blocker and preserves printed order number (0.31681ms)\n\u2714 unrelated explicit size distribution remains unchanged (0.261959ms)\n\u2714 persistence keeps legacy single-order mode safe until composite schema is explicitly enabled (7.641067ms)\n\u2714 multi-order mode uses document_id + order_no only behind the schema-ready gate (0.3436ms)\n\u2714 multi-order migration replaces document-only uniqueness with composite document_id + order_no uniqueness (0.289931ms)\n\u2714 customer scope exists and is searched before global styles (3.574017ms)\n\u2714 JANCEET resolves only inside CITI customer style scope to native 11JANCET (5.371392ms)\n\u2714 KS306-S9962 uses customer style scope and native numeric prefix (3.097614ms)\n\u2714 concatenated Zumiez style plus color suffix is split by official style boundary (1.698682ms)\n\u2714 partial printed color suffix is completed only inside the resolved style (1.412177ms)\n\u2714 exact UPC corrects a typo in printed style (0.628474ms)\n\u2714 existing exact official Bealls native style/color remains untouched (0.862481ms)\n\u2714 customer UPC stays separate from master UPC and does not overwrite native identity (1.224949ms)\n\u2714 official line division overrides an existing generic header division (1.108446ms)\n\u2714 REST guard blocks a header division that disagrees with the official line division (0.722624ms)\n\u2714 REST guard blocks raw or non-native style (0.268239ms)\n\u2714 REST guard accepts exact native style/color pair (0.231734ms)\n\u2714 CITI alias row keeps exact native color 0C9 and derives v0 size buckets (5.600246ms)\n\u2714 CITI operational VR_SKU_Z evidence beats generic exact color text when alias rows are not color-unique (1.746344ms)\n\u2714 Bealls documentary terminal variant letter resolves to exact native style base/42 only through master (1.190598ms)\n\u2714 resolver never accepts non-native style after variant search (0.520813ms)\n\u2714 shared ORDER_LI requires explicit manual CLEAR confirmation before writes (2.28271ms)\n\u2714 production writes remain blocked without the explicit production gate (0.353314ms)\n\u2714 AMEXTEST passes the production-environment write gate (0.214729ms)\n\u2714 REST mapper uses STORE_NO and preserves exact qty buckets (1.772092ms)\n\u2714 preflight rejects qty_total without a real size distribution (0.920858ms)\n\u2714 idempotency key is stable for the same canonical A2000 payload (2.102122ms)\n\u2714 live scale resolver accepts the certified 1:2:2:1 distribution (9.606085ms)\n\u2714 live scale resolver blocks the wrong Header division (0.712868ms)\n\u2714 V4.5 accepts one exact printed size slot without forcing the full scale ratio (2.673841ms)\n\u2714 V4.5 exact printed size path still blocks wrong Header division (0.766258ms)\n\u2714 V4.5 accepts an exact VR_UPC_STYLE per-size grid as evidence without inventing ratio quantities (0.987426ms)\n\u2714 V4.5 accepts only a narrow PC one-size official master UPC fallback when VR_SKU_Z has no row (0.515025ms)\n\u2714 V4.5 does not use the PC fallback for arbitrary size text (0.590327ms)\n\u2714 V4.5 preserves generic full-ratio rejection for out-of-ratio quantities (0.906046ms)\n\u2714 existing positive Citi PC bucket is preserved and never cleared (2.784015ms)\n\u2714 VR_SKU_Z SIZE_NUM maps printed size 7 to qty_sz4 (0.768421ms)\n\u2714 Citi per-size rows aggregate into one exact A2000 distribution (5.237307ms)\n\u2714 out-of-ratio distribution is rejected by scale validation (0.668873ms)\n\u2714 ambiguous scale candidates do not map a printed size (0.41713ms)\n\u2139 tests 45\n\u2139 suites 0\n\u2139 pass 45\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 1155.151198\n",
+      "stderr": ""
+    },
+    "web_build": {
+      "pass": true,
+      "stdout": "\n> outlook-rpa-web@0.1.0 build\n> vite build\n\nvite v6.4.3 building for production...\ntransforming...\n\u2713 1578 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.17 kB \u2502 gzip:  0.15 kB\ndist/assets/index-Cm75HMNn.css   21.21 kB \u2502 gzip:  4.64 kB\ndist/assets/index-U816Mp0z.js   249.03 kB \u2502 gzip: 75.50 kB\n\u2713 built in 3.82s\n",
+      "stderr": ""
+    },
+    "markers": {
+      "pass": true,
+      "values": {
+        "resolver_v466": true,
+        "alias_rows_preserved": true,
+        "operational_color_tiebreak": true,
+        "rest_native_guard": true,
+        "one_click": true,
+        "one_click_upload_true": true,
+        "one_click_lines_button": true,
+        "size_a2000_ui": true,
+        "qty_a2000_ui": true,
+        "customer_upc_ui": true,
+        "master_upc_ui": true
+      }
+    },
+    "pass": true
+  }
+}

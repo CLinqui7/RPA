@@ -1,0 +1,31 @@
+{
+  "patch": "A2000_V4_6_3_UNIVERSAL_OFFICIAL_MASTER_IDENTITY_RESOLVER",
+  "installed_at": "2026-07-10T13:06:12.283619+00:00",
+  "project": "/workspaces/RPA/outlook-rpa-dashboard",
+  "parser_patch_state": "PATCHED",
+  "rest_patch_state": "PATCHED",
+  "a2000_writes_performed": false,
+  "installer_supabase_writes_performed": false,
+  "backup": "/workspaces/RPA/BACKUP_A2000_V4_6_3_20260710_130605",
+  "checks": {
+    "node_syntax": {
+      "pass": true,
+      "failures": []
+    },
+    "targeted_universal_resolver": {
+      "pass": true,
+      "stdout": "\u2714 JANCEET maps to unique official native style 11JANCET (4.950872ms)\n\u2714 KS306-S9962 maps to official 11KS306S9962 and VR_SKU_Z ratio (2.028512ms)\n\u2714 exact official UPC overrides a typo in printed style without inventing identity (0.557759ms)\n\u2714 REST native identity guard blocks a style that is not exact VR_SKU (0.420555ms)\n\u2714 REST native identity guard accepts exact official STYLE/COLOR_NO (0.270021ms)\n\u2139 tests 5\n\u2139 suites 0\n\u2139 pass 5\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 114.690025\n",
+      "stderr": ""
+    },
+    "test_a2000": {
+      "pass": true,
+      "stdout": "\n> outlook-rpa-api@0.1.0 test:a2000\n> node --test test/a2000/*.test.js\n\n\u2714 10BELOW distributes total EACH by exact official RT ratio and matching printed range (5.371807ms)\n\u2714 10BELOW refuses ratio when printed range does not exactly cover official scale range (0.449618ms)\n\u2714 GABRIELBRO distributes total EACH only when PDF case pack equals official ratio total (0.935118ms)\n\u2714 Carnival maps CASE count times pack to exact size bucket but blocks EACH price (1.046675ms)\n\u2714 IPC applies only the narrow same-MM/DD one-year typo correction and preserves both raw dates (0.813307ms)\n\u2714 Versona removes only PO 615628 business-review blocker and preserves printed order number (0.364061ms)\n\u2714 unrelated explicit size distribution remains unchanged (0.293616ms)\n\u2714 persistence keeps legacy single-order mode safe until composite schema is explicitly enabled (1.531244ms)\n\u2714 multi-order mode uses document_id + order_no only behind the schema-ready gate (0.294868ms)\n\u2714 multi-order migration replaces document-only uniqueness with composite document_id + order_no uniqueness (0.292204ms)\n\u2714 JANCEET maps to unique official native style 11JANCET (20.568855ms)\n\u2714 KS306-S9962 maps to official 11KS306S9962 and VR_SKU_Z ratio (4.847208ms)\n\u2714 exact official UPC overrides a typo in printed style without inventing identity (0.576807ms)\n\u2714 REST native identity guard blocks a style that is not exact VR_SKU (0.401235ms)\n\u2714 REST native identity guard accepts exact official STYLE/COLOR_NO (0.263862ms)\n\u2714 shared ORDER_LI requires explicit manual CLEAR confirmation before writes (1.769087ms)\n\u2714 production writes remain blocked without the explicit production gate (0.355898ms)\n\u2714 AMEXTEST passes the production-environment write gate (0.195921ms)\n\u2714 REST mapper uses STORE_NO and preserves exact qty buckets (1.061937ms)\n\u2714 preflight rejects qty_total without a real size distribution (0.605439ms)\n\u2714 idempotency key is stable for the same canonical A2000 payload (0.815291ms)\n\u2714 live scale resolver accepts the certified 1:2:2:1 distribution (2.059539ms)\n\u2714 live scale resolver blocks the wrong Header division (0.449848ms)\n\u2714 V4.5 accepts one exact printed size slot without forcing the full scale ratio (2.093459ms)\n\u2714 V4.5 exact printed size path still blocks wrong Header division (0.512741ms)\n\u2714 V4.5 accepts an exact VR_UPC_STYLE per-size grid as evidence without inventing ratio quantities (0.832606ms)\n\u2714 V4.5 accepts only a narrow PC one-size official master UPC fallback when VR_SKU_Z has no row (0.444681ms)\n\u2714 V4.5 does not use the PC fallback for arbitrary size text (0.386634ms)\n\u2714 V4.5 preserves generic full-ratio rejection for out-of-ratio quantities (0.757004ms)\n\u2714 existing positive Citi PC bucket is preserved and never cleared (1.597573ms)\n\u2714 VR_SKU_Z SIZE_NUM maps printed size 7 to qty_sz4 (0.462787ms)\n\u2714 Citi per-size rows aggregate into one exact A2000 distribution (2.416628ms)\n\u2714 out-of-ratio distribution is rejected by scale validation (0.371462ms)\n\u2714 ambiguous scale candidates do not map a printed size (0.245014ms)\n\u2139 tests 34\n\u2139 suites 0\n\u2139 pass 34\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 784.750784\n",
+      "stderr": ""
+    },
+    "web_build": {
+      "pass": true,
+      "stdout": "\n> outlook-rpa-web@0.1.0 build\n> vite build\n\nvite v6.4.3 building for production...\ntransforming...\n\u2713 1578 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.17 kB \u2502 gzip:  0.15 kB\ndist/assets/index-Cm75HMNn.css   21.21 kB \u2502 gzip:  4.64 kB\ndist/assets/index-Y9KIBKfd.js   247.73 kB \u2502 gzip: 74.90 kB\n\u2713 built in 4.04s\n",
+      "stderr": ""
+    }
+  }
+}

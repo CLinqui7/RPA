@@ -1,0 +1,59 @@
+{
+  "patch": "A2000_V4_5_SURGICAL_RECOVERY_AND_HEADER_CONTRACT_GATE",
+  "project": "/workspaces/RPA/outlook-rpa-dashboard",
+  "a2000_writes_performed": false,
+  "baseline": {
+    "api/src/a2000/scaleResolver.js": {
+      "expected": "7de368e4844398c5605055f16d176f30d227d925",
+      "actual": "7de368e4844398c5605055f16d176f30d227d925",
+      "match": true
+    }
+  },
+  "payload": {
+    "api/src/a2000/scaleResolver.js": {
+      "expected": "9af81c0a34df99e3f3a95260194a5df708dceef3",
+      "actual": "9af81c0a34df99e3f3a95260194a5df708dceef3",
+      "match": true
+    },
+    "api/test/a2000/scaleResolverV45.test.js": {
+      "expected": "bbbe075709d4503347fe7c55d593b7b9fc53f210",
+      "actual": "bbbe075709d4503347fe7c55d593b7b9fc53f210",
+      "match": true
+    }
+  },
+  "checks": {
+    "node_syntax": {
+      "cmd": [
+        "node",
+        "--check",
+        "api/src/a2000/scaleResolver.js"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    "targeted_tests": {
+      "cmd": [
+        "node",
+        "--test",
+        "api/test/a2000/scaleResolver.test.js",
+        "api/test/a2000/scaleResolverV45.test.js"
+      ],
+      "rc": 0,
+      "stdout": "\u2714 live scale resolver accepts the certified 1:2:2:1 distribution (1.977516ms)\n\u2714 live scale resolver blocks the wrong Header division (0.482496ms)\n\u2714 V4.5 accepts one exact printed size slot without forcing the full scale ratio (1.880593ms)\n\u2714 V4.5 exact printed size path still blocks wrong Header division (0.427755ms)\n\u2714 V4.5 accepts an exact VR_UPC_STYLE per-size grid as evidence without inventing ratio quantities (0.656575ms)\n\u2714 V4.5 accepts only a narrow PC one-size official master UPC fallback when VR_SKU_Z has no row (0.346875ms)\n\u2714 V4.5 does not use the PC fallback for arbitrary size text (0.315118ms)\n\u2714 V4.5 preserves generic full-ratio rejection for out-of-ratio quantities (0.683325ms)\n\u2139 tests 8\n\u2139 suites 0\n\u2139 pass 8\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 210.654501\n",
+      "stderr": ""
+    },
+    "git_diff_check": {
+      "cmd": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  },
+  "backup": "/workspaces/RPA/BACKUP_A2000_V4_5_SURGICAL_RECOVERY_AND_HEADER_CONTRACT_GATE_20260710_120050",
+  "status": "PASS"
+}

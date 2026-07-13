@@ -9,7 +9,10 @@
     "scan": "node src/run-scan-cli.js",
     "login": "node src/rpa/login.js",
     "demo:process": "node src/run-demo-process-cli.js",
-    "demo:export": "node src/run-demo-export-cli.js"
+    "demo:export": "node src/run-demo-export-cli.js",
+    "test:a2000": "node --test test/a2000/*.test.js",
+    "a2000:preflight": "node src/debug-a2000-rest-readonly-preflight.js",
+    "a2000:upload": "node src/run-a2000-rest-upload-cli.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",

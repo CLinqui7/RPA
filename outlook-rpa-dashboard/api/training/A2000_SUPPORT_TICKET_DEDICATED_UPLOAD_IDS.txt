@@ -13,23 +13,21 @@ Observed behavior:
 - After using CLEAR on ORDER_LI in AMEXTEST, the same REST flow was validated independently.
 - The next request returned only the real business validation for our single CITI row ("out of ratio").
 - After sending a ratio-preserving size distribution, ORDER_LI succeeded with updated=1 and the line was visible in VR_ORDER_LI.
+- A two-Line exact size-distribution batch also succeeded with updated=2 and exact Viewer bucket verification.
 
 We need to confirm the scope and isolation of pending Upload Utility data for REST Uploads.
 
-For production safety, we would like dedicated Upload IDs for our REST integration, cloned from the current Sales Order uploads, for example:
-
+For production safety, we would like dedicated Upload IDs for our REST integration, cloned from the current Sales Order uploads:
 - dedicated Header Upload ID based on ORDER_HD
 - dedicated Line Upload ID based on ORDER_LI
 
 The exact names can follow A2000/GCS naming standards.
-
-Our goal is to prevent manual uploads or other integrations from sharing pending upload state with the REST automation.
 
 Please confirm:
 1. Is pending Upload Utility data scoped by Upload ID, user, REST OAuth client, company, or globally?
 2. Can a REST POST process/validate rows already pending under the same Upload ID?
 3. Can dedicated Upload IDs be created for this integration?
 4. Is there a supported REST operation to inspect or clear pending Upload Utility rows before an upload?
-5. Is there an official Viewer/master for Sales Order size-scale ratio definitions so we can validate QTY_SZ1..QTY_SZ18 before POST?
+5. Is VR_SKU_Z the supported master source for SIZE_NUM -> QTY_SZn and SCALE_QTY ratio validation for Sales Order Lines?
 
 Thank you.

@@ -18,6 +18,11 @@ import {
   Search,
   ShieldCheck,
   UserRound,
+  Upload,
+  ScrollText,
+  Play,
+  Send,
+  Activity,
   X
 } from 'lucide-react';
 import './styles.css';
@@ -39,6 +44,8 @@ const NAV_ITEMS = [
   { id: 'unanswered', label: 'Sin respuesta', icon: Clock3, helper: 'Requiere seguimiento' },
   { id: 'urgent', label: 'Urgentes', icon: Bell, helper: 'Urgente o fecha crítica' },
   { id: 'orders', label: 'Órdenes', icon: Inbox, helper: 'PO/PT Factura American' },
+  { id: 'process', label: 'Procesar + subir', icon: Activity, helper: 'PDF → Sales Order + Lines' },
+  { id: 'log', label: 'LOG', icon: ScrollText, helper: 'A2000 audit trail' },
   { id: 'a2000', label: 'A2000 Lab', icon: Inbox, helper: 'PDFs, masters y extracción' },
   { id: 'responses', label: 'Respondidos', icon: MailCheck, helper: 'Con respuesta detectada' },
   { id: 'all', label: 'Factura American', icon: CheckCircle2, helper: 'Solo asuntos filtrados' }
@@ -724,6 +731,1005 @@ function A2000PdfLab() {
   );
 }
 
+// A2000_V4_6_STAGE1_WEB
+
+
+// A2000_V4_6_6_ONE_CLICK_PROCESS_UPLOAD
+function lineRawJson(line = {}) {
+  const raw = line?.raw_json;
+  return raw && typeof raw === 'object' ? raw : {};
+}
+
+function customerUpcValue(line = {}) {
+  const raw = lineRawJson(line);
+  return line.customer_upc
+    || line.upc
+    || raw.customer_upc_raw
+    || raw.customer_upc
+    || '-';
+}
+
+function a2000IdentityTrace(line = {}) {
+  return lineRawJson(line).universal_official_master_identity || {};
+}
+
+function a2000QtyResolution(line = {}) {
+  return lineRawJson(line).universal_official_qty_resolution || {};
+}
+
+function a2000MasterUpcValue(line = {}) {
+  return line.master_upc
+    || a2000IdentityTrace(line).master_upc
+    || '-';
+}
+
+function a2000InternalSkuValue(line = {}) {
+  return line.internal_sku
+    || a2000IdentityTrace(line).internal_sku
+    || '-';
+}
+
+function a2000ScaleValue(line = {}) {
+  return line.scale_code
+    || a2000QtyResolution(line).scale
+    || a2000IdentityTrace(line).scale
+    || '-';
+}
+
+function a2000QtyBuckets(line = {}) {
+  const buckets = {};
+  for (let index = 1; index <= 18; index += 1) {
+    const value = Number(line[`qty_sz${index}`] || 0);
+    if (Number.isFinite(value) && value > 0) {
+      buckets[`QTY_SZ${index}`] = value;
+    }
+  }
+  return buckets;
+}
+
+function a2000QtySummary(line = {}) {
+  const buckets = a2000QtyBuckets(line);
+  const entries = Object.entries(buckets);
+  if (!entries.length) return '-';
+  return entries
+    .map(([bucket, qty]) => `${bucket.replace('QTY_', '')}=${qty}`)
+    .join(' · ');
+}
+
+function a2000SizeSummary(line = {}) {
+  const resolution = a2000QtyResolution(line);
+  const names = resolution.size_names_by_bucket || {};
+  const distribution = resolution.distribution || a2000QtyBuckets(line);
+
+  const entries = Object.entries(distribution)
+    .filter(([, qty]) => Number(qty) > 0)
+    .sort(([left], [right]) => {
+      const leftNo = Number(String(left).replace(/[^0-9]/g, '')) || 0;
+      const rightNo = Number(String(right).replace(/[^0-9]/g, '')) || 0;
+      return leftNo - rightNo;
+    });
+
+  if (!entries.length) return '-';
+
+  return entries.map(([bucket, qty]) => {
+    const name = names[bucket] || bucket.replace('QTY_', '');
+    return `${name}:${qty}`;
+  }).join(' · ');
+}
+
+function ProcessOrdersPage() {
+  const [orders, setOrders] = useState([]);
+  const [launch, setLaunch] = useState(null);
+  const [catalog, setCatalog] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [query, setQuery] = useState('');
+  const [files, setFiles] = useState([]);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [preflightByOrder, setPreflightByOrder] = useState({});
+
+  const sourceDocumentId = order => order?.document_id || order?.document?.id || null;
+
+  const isServiceUnavailable = payload => {
+    const workflow = payload?.workflow || payload || {};
+    const errors = [
+      ...(workflow.preflight?.errors || []),
+      ...(workflow.last_error ? [workflow.last_error] : []),
+      ...(workflow.upload?.last_error ? [workflow.upload.last_error] : [])
+    ];
+    return (
+      workflow.stage === 'a2000_service_unavailable'
+      || errors.some(item => (
+        item?.code === 'A2000_SERVICE_UNAVAILABLE'
+        || [502, 503, 504].includes(Number(item?.http_status || 0))
+        || /no backend server available|failure of web server bridge/i.test(
+          String(item?.raw_message || item?.message || '')
+        )
+      ))
+    );
+  };
+
+  const friendlyServiceUnavailable = (
+    'A2000 AMEXTEST está temporalmente fuera de servicio. '
+    + 'No se envió ORDER_HD ni ORDER_LI. La lectura local permanece válida.'
+  );
+
+  function workflowErrors(payload = {}) {
+    if (isServiceUnavailable(payload)) return friendlyServiceUnavailable;
+
+    const workflow = payload.workflow || payload;
+    const errors = [
+      ...(workflow.preflight?.errors || []),
+      ...(workflow.upload?.last_error ? [workflow.upload.last_error] : []),
+      ...(workflow.last_error ? [workflow.last_error] : [])
+    ];
+
+    const formatted = errors.map(item => {
+      const line = item.line_no ? `Línea ${item.line_no}: ` : '';
+      const code = item.code || item.stage || item.field || 'ERROR';
+      const detail = item.message || item.error || item.field || JSON.stringify(item);
+      return `${line}${code} · ${detail}`;
+    });
+
+    if (formatted.length) return formatted.join('\n');
+    return payload.error || workflow.stage || 'La operación no pudo completarse.';
+  }
+
+  async function load() {
+    setError('');
+    const [ordersRes, launchRes, checklistRes] = await Promise.all([
+      fetch(`${API_URL}/po/operational-orders?limit=700`),
+      fetch(`${API_URL}/po/launch-status`),
+      fetch(`${API_URL}/po/checklists/status`)
+    ]);
+    const ordersData = await ordersRes.json().catch(() => ({}));
+    const launchData = await launchRes.json().catch(() => ({}));
+    const checklistData = await checklistRes.json().catch(() => ({}));
+    if (!ordersRes.ok || ordersData.ok === false) {
+      throw new Error(ordersData.error || 'No se pudieron cargar las órdenes.');
+    }
+    const next = ordersData.orders || [];
+    setOrders(next);
+    setLaunch(launchData);
+    setCatalog(checklistData);
+    setSelected(current => current
+      ? next.find(item => String(item.id) === String(current.id)) || null
+      : next[0] || null
+    );
+  }
+
+  useEffect(() => {
+    load().catch(event => setError(event.message));
+  }, []);
+
+  async function scanAndProcess() {
+    setLoading(true);
+    setError('');
+    setMessage('Leyendo todas las conversaciones no leídas con asunto Factura American...');
+    try {
+      const response = await fetch(`${API_URL}/run-scan`, { method: 'POST' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.run?.status === 'error') {
+        throw new Error(data.error || data.run?.error_message || 'No se pudo ejecutar Outlook RPA.');
+      }
+
+      const attachmentCount = (data.emails || []).reduce((sum, email) => {
+        const count = email.raw?.attachment_occurrence_coverage?.expected_count
+          || email.raw?.attachment_coverage?.occurrence_coverage?.expected_count
+          || email.attachments?.length
+          || 0;
+        return sum + Number(count || 0);
+      }, 0);
+
+      const uniquePdfs = data.documents?.length || 0;
+      const processed = data.processing?.processed_order_count
+        || data.processing?.processed_document_count
+        || 0;
+
+      setMessage(
+        `Outlook terminado: ${data.emails?.length || 0} conversación(es), `
+        + `${attachmentCount} adjunto(s) PDF recuperados, ${uniquePdfs} PDF(s) únicos guardados, `
+        + `${processed} documento(s) procesados.`
+      );
+      await load();
+    } catch (event) {
+      setError(event.message);
+      setMessage('');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function uploadSelectedFiles() {
+    if (!files.length) return setError('Selecciona uno o más PDF.');
+    setLoading(true);
+    setError('');
+    let completed = 0;
+    try {
+      for (const file of files) {
+        const response = await fetch(`${API_URL}/po/upload-pdf`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/pdf',
+            'X-File-Name': file.name,
+            'X-Email-Subject': 'Manual upload - Factura American'
+          },
+          body: file
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.ok === false) {
+          throw new Error(`${file.name}: ${data.error || 'falló la carga'}`);
+        }
+        completed += 1;
+      }
+      setFiles([]);
+      setMessage(`${completed} PDF(s) subidos, leídos y guardados.`);
+      await load();
+    } catch (event) {
+      setError(event.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function reprocessOrder(order) {
+    if (!sourceDocumentId(order)) {
+      setError('Esta orden viene de históricos/test-pdfs. Puedes abrir el PDF y validar A2000, pero no tiene document_id para volver a leerla desde Supabase.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${API_URL}/po/orders/${encodeURIComponent(order.id)}/reprocess`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok === false) {
+        throw new Error(workflowErrors(data));
+      }
+      setMessage(`PO ${order.order_no} volvió a leerse contra los masters. No se envió a A2000.`);
+      await load();
+    } catch (event) {
+      setError(event.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function preflightOne(order, { quiet = false } = {}) {
+    if (!quiet) {
+      setLoading(true);
+      setError('');
+      setMessage('Validando contra A2000 sin crear la Sales Order...');
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/po/orders/${encodeURIComponent(order.id)}/preflight`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      const data = await response.json().catch(() => ({}));
+      const workflow = data.workflow || data;
+      setPreflightByOrder(current => ({
+        ...current,
+        [String(order.id)]: workflow
+      }));
+
+      if (!response.ok || data.ok === false) {
+        if (!quiet) {
+          if (isServiceUnavailable(data)) {
+            setMessage(friendlyServiceUnavailable);
+            setError('');
+          } else {
+            setError(workflowErrors(data));
+          }
+        }
+        return {
+          ok: false,
+          unavailable: isServiceUnavailable(data),
+          data
+        };
+      }
+
+      if (!quiet) {
+        setMessage(`PO ${order.order_no}: preflight aprobado. Esta prueba no creó ninguna Sales Order.`);
+      }
+      return { ok: true, data };
+    } catch (event) {
+      if (!quiet) setError(event.message);
+      return { ok: false, data: { error: event.message } };
+    } finally {
+      if (!quiet) setLoading(false);
+    }
+  }
+
+  async function sendOne(order) {
+    if (!confirmClear) {
+      setError('Antes de escribir en A2000, confirma que revisaste/limpiaste ORDER_LI para los Upload IDs compartidos.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setMessage('Ejecutando preflight seguro antes de crear la Sales Order...');
+
+    try {
+      const safeCheck = await preflightOne(order, { quiet: true });
+      if (!safeCheck.ok) {
+        throw new Error(workflowErrors(safeCheck.data));
+      }
+
+      setMessage('Preflight aprobado. Enviando Header y Lines a A2000...');
+      const response = await fetch(`${API_URL}/po/orders/${encodeURIComponent(order.id)}/a2000`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm_order_li_cleared: true })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok === false) {
+        throw new Error(workflowErrors(data));
+      }
+      const ctrl = data.workflow?.upload?.a2000_ctrl_no
+        || data.workflow?.upload?.a2000_seq_order_no
+        || 'ver LOG';
+      setMessage(`PO ${order.order_no} creada en A2000. CTRL/SEQ ${ctrl}.`);
+      await load();
+    } catch (event) {
+      setError(event.message);
+      setMessage('');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function sendAllValidated() {
+    if (!confirmClear) {
+      setError('Confirma primero la revisión de ORDER_LI. La carga masiva sí crea Sales Orders.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setMessage('Validando y enviando secuencialmente todas las órdenes elegibles...');
+    try {
+      const response = await fetch(`${API_URL}/po/upload-all-validated`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          limit: 50,
+          confirm_order_li_cleared: true
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      const workflow = data.workflow || {};
+      const failedDetails = (workflow.results || [])
+        .filter(item => !item.ok)
+        .slice(0, 8)
+        .map(item => `${item.customer_code || '?'} PO ${item.order_no || '?'}: ${workflowErrors(item)}`);
+
+      setMessage(
+        `Carga masiva terminada: ${workflow.completed_count || 0} completadas, `
+        + `${workflow.failed_count || 0} fallidas, ${workflow.skipped_count || 0} omitidas.`
+      );
+
+      if (failedDetails.length) {
+        setError(failedDetails.join('\n'));
+      } else if (!response.ok || data.ok === false) {
+        setError(workflowErrors(data));
+      }
+      await load();
+    } catch (event) {
+      setError(event.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function generateChecklist(order) {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${API_URL}/po/orders/${encodeURIComponent(order.id)}/checklist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok === false) {
+        throw new Error(
+          data.reason === 'NO_CUSTOMER_CHECKLIST_TEMPLATE'
+            ? 'No hay una plantilla histórica conectada para este customer.'
+            : data.error || data.reason || 'No se pudo generar checklist.'
+        );
+      }
+      window.open(
+        `${API_URL}/po/orders/${encodeURIComponent(order.id)}/checklist/download`,
+        '_blank',
+        'noopener,noreferrer'
+      );
+      setMessage(`Checklist ${data.file_name} generado conservando formato e imágenes.`);
+    } catch (event) {
+      setError(event.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const visible = useMemo(() => {
+    const value = query.trim().toLowerCase();
+    if (!value) return orders;
+    return orders.filter(order => [
+      order.order_no,
+      order.customer_code,
+      order.status,
+      order.document?.file_name,
+      order.source_file_name,
+      order.a2000_job?.status,
+      order.a2000_job?.a2000_ctrl_no,
+      ...(order.purchase_order_lines || []).flatMap(line => [
+        line.style_code,
+        line.style_raw,
+        line.color_code,
+        line.customer_sku
+      ])
+    ].filter(Boolean).join(' ').toLowerCase().includes(value));
+  }, [orders, query]);
+
+  const stats = useMemo(() => ({
+    read: orders.filter(item => item.reading_valid).length,
+    ready: orders.filter(item => (
+      item.a2000_local_ready
+      && item.stage1_certified
+      && item.a2000_job?.status !== 'completed'
+    )).length,
+    uploaded: orders.filter(item => item.a2000_job?.status === 'completed').length,
+    review: orders.filter(item => !item.a2000_local_ready).length
+  }), [orders]);
+
+  const selectedLines = selected?.purchase_order_lines || [];
+  const selectedPreflight = selected ? preflightByOrder[String(selected.id)] : null;
+  const previewUrl = selected
+    ? `${API_URL}/po/orders/${encodeURIComponent(selected.id)}/pdf`
+    : '';
+  const downloadUrl = selected
+    ? `${previewUrl}?download=1`
+    : '';
+  const canReprocess = Boolean(sourceDocumentId(selected));
+  const checklistTemplates = catalog?.templates || [];
+  const selectedCustomerCode = String(selected?.customer_code || '').toUpperCase();
+  const checklistAvailable = checklistTemplates.some(item => (
+    !item.error
+    && String(item.customer_code || '').toUpperCase() === selectedCustomerCode
+    && item.best_sheet?.table
+  ));
+  const selectedJobUnavailable = isServiceUnavailable({
+    workflow: {
+      stage: selected?.a2000_job?.status,
+      last_error: selected?.a2000_job?.last_error
+    }
+  });
+
+  return <section className="v471-operation">
+    <header className="v471-header">
+      <div>
+        <p className="eyebrow">SALES ORDER CONTROL</p>
+        <h1>Factura American → A2000</h1>
+        <p>Solo correos no leídos. Todos los PDF. Lectura, validación y envío claramente separados.</p>
+      </div>
+      <div className="v470-env">
+        <span>A2000</span>
+        <strong>{launch?.environment || '...'}</strong>
+        <small>{launch?.auto_upload_enabled ? 'AUTO' : 'CONTROLADO'}</small>
+      </div>
+    </header>
+
+    <section className="v471-controls">
+      <div className="v471-actions">
+        <button className="primary" disabled={loading} onClick={scanAndProcess}>
+          <RefreshCcw size={17} className={loading ? 'spin' : ''}/>
+          Leer correos no leídos
+        </button>
+        <label className="v470-file">
+          <Upload size={17}/>
+          <span>{files.length ? `${files.length} PDF(s)` : 'Seleccionar PDF(s)'}</span>
+          <input
+            type="file"
+            multiple
+            accept="application/pdf,.pdf"
+            onChange={event => setFiles([...event.target.files])}
+          />
+        </label>
+        <button disabled={loading || !files.length} onClick={uploadSelectedFiles}>
+          Subir PDF manual
+        </button>
+        <button
+          className="v470-bulk"
+          disabled={loading || stats.ready === 0}
+          onClick={sendAllValidated}
+          title="Este botón sí crea Sales Orders en A2000."
+        >
+          <Send size={17}/>
+          Enviar todas a A2000 ({stats.ready})
+        </button>
+      </div>
+
+      <label className="safety-check v471-safety">
+        <input
+          type="checkbox"
+          checked={confirmClear}
+          onChange={event => setConfirmClear(event.target.checked)}
+        />
+        Confirmo revisión/limpieza de ORDER_LI antes de cualquier escritura.
+      </label>
+    </section>
+
+    <section className="v471-status-row">
+      <div className="v471-stats">
+        <Stat label="Órdenes leídas" value={stats.read}/>
+        <Stat label="Listas localmente" value={stats.ready} tone="pending"/>
+        <Stat label="Subidas" value={stats.uploaded}/>
+        <Stat label="Revisión" value={stats.review} tone="urgent"/>
+      </div>
+      <div className="v471-meaning">
+        <span><strong>Volver a leer:</strong> PDF + masters, sin conectar A2000.</span>
+        <span><strong>Validar A2000:</strong> consulta live, sin escritura.</span>
+        <span><strong>Enviar:</strong> único paso que crea la Sales Order.</span>
+        <span><strong>Checklists:</strong> {catalog?.template_count || 0} plantillas únicas del ZIP maestro.</span>
+      </div>
+    </section>
+
+    {(message || error) && <section className="v471-notices">
+      {message && <div className="notice ok">{message}</div>}
+      {error && <pre className="notice error v471-error"><AlertTriangle size={18}/>{error}</pre>}
+    </section>}
+
+    <section className="v471-workspace">
+      <div className="v471-list-panel">
+        <div className="v471-toolbar">
+          <label className="search">
+            <Search size={16}/>
+            <input
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              placeholder="Buscar PO, customer, archivo, style o CTRL"
+            />
+          </label>
+          <button onClick={() => load().catch(event => setError(event.message))}>Actualizar</button>
+        </div>
+
+        <div className="v471-list">
+          {visible.map(order => <button
+            key={order.id}
+            className={`v470-order ${String(selected?.id) === String(order.id) ? 'selected' : ''}`}
+            onClick={() => {
+              setSelected(order);
+              setError('');
+              setMessage('');
+            }}
+          >
+            <div>
+              <strong>{order.customer_code || 'Customer ?'} · PO {order.order_no || '?'}</strong>
+              <span>{order.document?.file_name || order.source_file_name || 'PDF'}</span>
+            </div>
+            <div className="v470-order-status">
+              <StatusBadge status={
+                order.a2000_job?.status === 'completed'
+                  ? 'completed'
+                  : order.a2000_local_ready
+                    ? 'parsed'
+                    : order.status
+              }/>
+              <small>{order.purchase_order_lines?.length || 0} líneas</small>
+            </div>
+          </button>)}
+          {!visible.length && <div className="empty-list">
+            <CheckCircle2 size={24}/>
+            <p>No hay órdenes para este filtro.</p>
+          </div>}
+        </div>
+      </div>
+
+      <aside className="v471-detail">
+        {!selected ? <div className="empty-detail">
+          <Inbox size={28}/>
+          <h2>Selecciona una orden</h2>
+          <p>Aquí verás el PDF, la lectura, los errores exactos y las acciones.</p>
+        </div> : <>
+          <div className="v471-detail-head">
+            <div>
+              <StatusBadge status={
+                selected.a2000_job?.status === 'completed'
+                  ? 'completed'
+                  : selected.status
+              }/>
+              <h2>{selected.customer_code || '?'} · PO {selected.order_no || '?'}</h2>
+              <p>{selected.document?.file_name || selected.source_file_name || 'PDF'}</p>
+            </div>
+            <div className="v471-pdf-actions">
+              <a className="link-button" href={previewUrl} target="_blank" rel="noreferrer">
+                <ExternalLink size={16}/>Abrir PDF
+              </a>
+              <a className="link-button" href={downloadUrl}>
+                <Download size={16}/>Descargar
+              </a>
+            </div>
+          </div>
+
+          <div className="v471-pdf-frame-wrap">
+            <iframe className="v471-pdf-frame" src={previewUrl} title={`PDF PO ${selected.order_no}`}/>
+          </div>
+
+          <div className="mini-matrix v471-matrix">
+            <TinyField label="Customer" value={selected.customer_code}/>
+            <TinyField label="Store" value={selected.store_code}/>
+            <TinyField label="Order date" value={selected.order_date}/>
+            <TinyField label="Start" value={selected.start_date}/>
+            <TinyField label="Cancel" value={selected.cancel_date}/>
+            <TinyField label="Div" value={selected.division_code}/>
+            <TinyField label="Terms" value={selected.terms_code}/>
+            <TinyField label="WH" value={selected.warehouse_code}/>
+            <TinyField label="CTRL" value={selected.a2000_job?.a2000_ctrl_no}/>
+          </div>
+
+          <div className="v470-readiness">
+            <span className={selected.reading_valid ? 'good' : 'bad'}>
+              Lectura {selected.reading_valid ? 'completa' : 'incompleta'}
+            </span>
+            <span className={selected.a2000_local_ready ? 'good' : 'warn'}>
+              Validación local {selected.a2000_local_ready ? 'aprobada' : 'requiere ajuste'}
+            </span>
+            {selectedPreflight && <span className={
+              selectedPreflight.ok
+                ? 'good'
+                : isServiceUnavailable(selectedPreflight)
+                  ? 'warn'
+                  : 'bad'
+            }>
+              {selectedPreflight.ok
+                ? 'Preflight A2000 aprobado'
+                : isServiceUnavailable(selectedPreflight)
+                  ? 'A2000 no disponible · sin escritura'
+                  : 'Preflight A2000 fallido'}
+            </span>}
+            {!selectedPreflight && selectedJobUnavailable && <span className="warn">
+              A2000 no disponible en el último intento · sin escritura
+            </span>}
+          </div>
+
+          <div className="v471-order-actions">
+            <button
+              disabled={loading || !canReprocess}
+              onClick={() => reprocessOrder(selected)}
+              title={canReprocess
+                ? 'Vuelve a leer el PDF y cruza masters. No escribe en A2000.'
+                : 'Orden histórica sin document_id. Usa Abrir PDF y Validar A2000.'}
+            >
+              <Play size={16}/>Volver a leer PDF
+            </button>
+            <button
+              disabled={loading}
+              onClick={() => preflightOne(selected)}
+              title="Consulta y valida contra A2000, pero no crea la orden."
+            >
+              <ShieldCheck size={16}/>Validar A2000 sin enviar
+            </button>
+            <button
+              disabled={loading || !checklistAvailable}
+              onClick={() => generateChecklist(selected)}
+              title={checklistAvailable
+                ? `Genera la checklist ${selectedCustomerCode} desde el ZIP maestro.`
+                : `El ZIP maestro no contiene una checklist compatible para ${selectedCustomerCode || 'este customer'}.`}
+            >
+              <FileText size={16}/>
+              {checklistAvailable ? 'Generar checklist histórica' : `Sin checklist ${selectedCustomerCode || ''}`}
+            </button>
+            <button
+              className="primary"
+              disabled={
+                loading
+                || !selected.a2000_local_ready
+                || !selected.stage1_certified
+                || selected.a2000_job?.status === 'completed'
+              }
+              onClick={() => sendOne(selected)}
+              title="Este botón sí crea la Sales Order en A2000."
+            >
+              <Send size={16}/>Crear Sales Order en A2000
+            </button>
+          </div>
+
+          {selectedPreflight && !selectedPreflight.ok && <pre className="notice error v471-error">
+            <AlertTriangle size={18}/>{workflowErrors(selectedPreflight)}
+          </pre>}
+
+          {selected.a2000_job?.last_error && <pre className={
+            `notice ${selectedJobUnavailable ? 'warning' : 'error'} v471-error`
+          }>
+            <AlertTriangle size={18}/>
+            {selectedJobUnavailable
+              ? friendlyServiceUnavailable
+              : workflowErrors({ workflow: { last_error: selected.a2000_job.last_error } })}
+          </pre>}
+
+          {!selected.a2000_local_ready && <div className="notice error">
+            <AlertTriangle size={18}/>
+            {(selected.a2000_local_errors || [])
+              .map(item => `${item.line_no ? `L${item.line_no} ` : ''}${item.field || item.code}`)
+              .join(', ') || 'Requiere revisión de mapping.'}
+          </div>}
+
+          <section className="extract-section v471-lines">
+            <h3>Líneas y master match</h3>
+            {selectedLines.map(line => <article
+              className="a2000-line-card"
+              key={`${selected.id}-${line.line_no}`}
+            >
+              <div className="line-card-head">
+                <div>
+                  <span className="line-index">Línea {line.line_no}</span>
+                  <h4>{line.style_code || line.style_raw || '?'} / {line.color_code || '?'}</h4>
+                  <p>{line.description || 'Sin descripción'}</p>
+                </div>
+                <div className="line-qty"><span>Qty</span><strong>{line.qty_total ?? '-'}</strong></div>
+              </div>
+              <div className="mini-matrix">
+                <TinyField label="Style PDF" value={line.style_raw}/>
+                <TinyField label="Style A2000" value={line.style_code}/>
+                <TinyField label="Color PDF" value={line.color_raw}/>
+                <TinyField label="Color A2000" value={line.color_code}/>
+                <TinyField label="Customer SKU" value={line.customer_sku}/>
+                <TinyField label="UPC master" value={line.raw_json?.master_upc}/>
+                <TinyField label="Sales price" value={line.sales_price ?? 'Omitido'}/>
+                <TinyField label="Size PDF" value={line.size_raw || 'No impreso'}/>
+              </div>
+              <details className="raw-json">
+                <summary>Ver evidencia y QTY_SZn</summary>
+                <pre>{JSON.stringify(line.raw_json || {}, null, 2)}</pre>
+              </details>
+            </article>)}
+          </section>
+        </>}
+      </aside>
+    </section>
+  </section>;
+}
+
+function OpsLogPage() {
+  const [logs, setLogs] = useState([]);
+  const [query, setQuery] = useState('');
+  const [error, setError] = useState('');
+
+  const serviceUnavailable = item => {
+    const detail = item?.last_error || {};
+    return (
+      detail.code === 'A2000_SERVICE_UNAVAILABLE'
+      || [502, 503, 504].includes(Number(detail.http_status || 0))
+      || /no backend server available|failure of web server bridge/i.test(
+        String(detail.raw_message || detail.message || '')
+      )
+    );
+  };
+
+  const writePerformed = item => Boolean(
+    item?.a2000_seq_order_no
+    || item?.a2000_ctrl_no
+    || item?.header_request
+    || item?.lines_request
+    || item?.header_response_json
+    || item?.lines_response_json
+  );
+
+  async function load() {
+    setError('');
+    const response = await fetch(`${API_URL}/po/logs?limit=500`);
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data.ok === false) {
+      throw new Error(data.error || 'No se pudo cargar LOG.');
+    }
+
+    setLogs(data.logs || []);
+  }
+
+  useEffect(() => {
+    load().catch(event => setError(event.message));
+  }, []);
+
+  const visible = useMemo(() => {
+    const value = query.trim().toLowerCase();
+    if (!value) return logs;
+
+    return logs.filter(item => [
+      item.customer_code,
+      item.order_no,
+      item.status,
+      item.a2000_ctrl_no,
+      item.a2000_seq_order_no,
+      ...(item.uploaded_lines || []).flatMap(line => [
+        line.style,
+        line.color_no,
+        line.qty_total,
+        JSON.stringify(line.qty_buckets || {})
+      ]),
+      JSON.stringify(item.last_error || {})
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(value));
+  }, [logs, query]);
+
+  return (
+    <section className="ops-page v472-ops-page">
+      <div className="ops-hero">
+        <div>
+          <p className="eyebrow">Audit trail · V4.7.2</p>
+          <h2>LOG A2000 detallado</h2>
+          <p>Los intentos sin payload se identifican como diagnósticos. Solo existe escritura cuando ves ORDER_HD/ORDER_LI, CTRL o SEQ.</p>
+        </div>
+        <div className="environment-card">
+          <span>Registros</span>
+          <strong>{visible.length}</strong>
+          <small>A2000 REST JOBS</small>
+        </div>
+      </div>
+
+      <div className="ops-toolbar">
+        <label className="search ops-search">
+          <Search size={17}/>
+          <input
+            value={query}
+            onChange={event => setQuery(event.target.value)}
+            placeholder="Buscar PO, customer, CTRL, SEQ, style, color..."
+          />
+        </label>
+        <button onClick={() => load().catch(event => setError(event.message))}>
+          <RefreshCcw size={17}/> Actualizar LOG
+        </button>
+      </div>
+
+      {error && <div className="notice error"><AlertTriangle size={18}/>{error}</div>}
+
+      <div className="log-list detailed-log-list">
+        {visible.map((item, index) => {
+          const unavailable = serviceUnavailable(item);
+          const wrote = writePerformed(item);
+
+          return <details className="log-entry" key={item.id} open={index === 0}>
+            <summary className="log-row">
+              <span>{formatDate(item.updated_at || item.created_at)}</span>
+              <span>
+                <strong>{item.customer_code || '?'}</strong>
+                <small>PO {item.order_no || '?'}</small>
+              </span>
+              <span>
+                {unavailable && !wrote
+                  ? <span className="v472-status unavailable">A2000 no disponible</span>
+                  : <StatusBadge status={item.status}/>}
+                <small className={unavailable ? 'v472-no-write' : 'log-error'}>
+                  {unavailable && !wrote
+                    ? 'Sin escritura'
+                    : item.last_error?.code || ''}
+                </small>
+              </span>
+              <span>
+                <strong>CTRL {item.a2000_ctrl_no || '-'}</strong>
+                <small>SEQ {item.a2000_seq_order_no || '-'}</small>
+              </span>
+              <span>
+                <strong>{item.uploaded_total_qty || 0} und.</strong>
+                <small>{item.uploaded_line_count || 0} línea(s)</small>
+              </span>
+              <span className="log-open-label">Abrir detalle completo ▾</span>
+            </summary>
+
+            <div className="log-detail">
+              {unavailable && !wrote && <section className="notice warning v472-diagnostic">
+                <AlertTriangle size={18}/>
+                <div>
+                  <strong>Diagnóstico de conectividad, no una Sales Order fallida.</strong>
+                  <p>A2000 AMEXTEST devolvió HTTP {item.last_error?.http_status || 503}. No se envió ORDER_HD ni ORDER_LI.</p>
+                </div>
+              </section>}
+
+              {wrote ? <>
+                <section>
+                  <h3>Header exacto enviado a ORDER_HD</h3>
+                  <div className="log-header-grid">
+                    {Object.entries(item.uploaded_header || {}).map(([key, value]) => (
+                      <div className="log-fact" key={key}>
+                        <span>{key}</span>
+                        <strong>{String(value ?? '') || '-'}</strong>
+                      </div>
+                    ))}
+                  </div>
+                  {!item.uploaded_header && <p>No hay Header persistido para este intento.</p>}
+                </section>
+
+                <section>
+                  <div className="log-section-title">
+                    <h3>Sales Lines exactas enviadas a ORDER_LI</h3>
+                    <span>{item.uploaded_line_count || 0} líneas · {item.uploaded_total_qty || 0} unidades</span>
+                  </div>
+
+                  <div className="log-lines">
+                    {(item.uploaded_lines || []).map((line, lineIndex) => (
+                      <article className="log-line-card" key={`${item.id}-${line.line_no}-${lineIndex}`}>
+                        <div className="log-line-top">
+                          <div>
+                            <span>Línea {line.line_no}</span>
+                            <strong>{line.style || '?'} / {line.color_no || '?'}</strong>
+                          </div>
+                          <div>
+                            <span>Qty</span>
+                            <strong>{line.qty_total || 0}</strong>
+                          </div>
+                        </div>
+
+                        <div className="log-line-meta">
+                          <span>Precio: {line.sales_price ?? '-'}</span>
+                          <span>WH: {line.warehouse || '-'}</span>
+                          <span>Store: {line.store_no || '-'}</span>
+                          <span>SEQ: {line.seq_order_no || item.a2000_seq_order_no || '-'}</span>
+                        </div>
+
+                        <div className="log-buckets">
+                          {Object.entries(line.qty_buckets || {}).map(([bucket, qty]) => (
+                            <span key={bucket}><strong>{bucket}</strong> {qty}</span>
+                          ))}
+                          {!Object.keys(line.qty_buckets || {}).length && <span>Sin QTY_SZn positivo</span>}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="log-response-grid">
+                  <div>
+                    <h3>Payload REST ORDER_HD</h3>
+                    <pre>{JSON.stringify(item.header_request, null, 2)}</pre>
+                  </div>
+                  <div>
+                    <h3>Respuesta real ORDER_HD</h3>
+                    <pre>{JSON.stringify(item.header_response_json, null, 2)}</pre>
+                  </div>
+                  <div>
+                    <h3>Payload REST ORDER_LI</h3>
+                    <pre>{JSON.stringify(item.lines_request, null, 2)}</pre>
+                  </div>
+                  <div>
+                    <h3>Respuesta real ORDER_LI</h3>
+                    <pre>{JSON.stringify(item.lines_response_json, null, 2)}</pre>
+                  </div>
+                </section>
+              </> : <section className="v472-no-payload">
+                <h3>No hubo escritura REST</h3>
+                <p>No existe Header, Lines, CTRL ni SEQ para este registro.</p>
+              </section>}
+
+              {item.last_error && (
+                <section>
+                  <h3>Detalle técnico</h3>
+                  <pre>{JSON.stringify(item.last_error, null, 2)}</pre>
+                </section>
+              )}
+            </div>
+          </details>;
+        })}
+
+        {!visible.length && <div className="empty-block">No hay registros para este filtro.</div>}
+      </div>
+    </section>
+  );
+}
+
+
 function Stat({ label, value, tone = 'neutral' }) {
   return (
     <div className={`stat ${tone}`}>
@@ -737,200 +1743,20 @@ function App() {
   const [authUser, setAuthUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem('rpaUser')); } catch { return null; }
   });
-  const [events, setEvents] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [scanLog, setScanLog] = useState('');
-  const [error, setError] = useState('');
-  const [tab, setTab] = useState('today');
-  const [query, setQuery] = useState('');
-
-  async function loadEvents() {
-    const [eventsRes, docsRes] = await Promise.all([
-      fetch(`${API_URL}/events?subject=${encodeURIComponent(TARGET_SUBJECT_FILTER)}`),
-      fetch(`${API_URL}/po/email-documents?subject=${encodeURIComponent(TARGET_SUBJECT_FILTER)}&limit=200`)
-    ]);
-    if (!eventsRes.ok) throw new Error('No se pudieron cargar los eventos');
-    const eventsData = await eventsRes.json();
-    const docsData = docsRes.ok ? await docsRes.json().catch(() => ({})) : { documents: [] };
-    const emailEvents = (Array.isArray(eventsData) ? eventsData : []).filter(isTargetInvoiceEvent);
-    const documentEvents = (docsData.documents || []).map(documentToEvent);
-    const merged = [...documentEvents, ...emailEvents]
-      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-    setEvents(merged);
-    if (selected) {
-      const updated = merged.find(item => item.id === selected.id);
-      if (updated) setSelected(updated);
-    }
-  }
-
-  async function runScan() {
-    setLoading(true);
-    setError('');
-    setScanLog(`Ejecutando revisión de Outlook solo para asuntos: ${TARGET_SUBJECT_FILTER}...`);
-    try {
-      const res = await fetch(`${API_URL}/run-scan`, { method: 'POST' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Error ejecutando RPA');
-      const logPreview = Array.isArray(data.logs) && data.logs.length ? ` Último log: ${data.logs[data.logs.length - 1]}` : '';
-      setScanLog(`Revisión terminada para ${TARGET_SUBJECT_FILTER}. Leídos: ${data.run.scanned_count}. Nuevos: ${data.run.inserted_count}.${logPreview}`);
-      await loadEvents();
-    } catch (e) {
-      setError(e.message);
-      setScanLog('');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function mark(id, status) {
-    if (String(id || '').startsWith('doc-')) return;
-    await fetch(`${API_URL}/events/${id}/status`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status })
-    });
-    await loadEvents();
-  }
-
-  function logout() {
-    localStorage.removeItem('rpaUser');
-    setAuthUser(null);
-  }
-
-  useEffect(() => {
-    if (authUser) loadEvents().catch(e => setError(e.message));
-  }, [authUser]);
-
-  const scopedEvents = useMemo(() => events.filter(isTargetInvoiceEvent).filter(event => matchesUser(event, authUser)), [events, authUser]);
-
-  const stats = useMemo(() => ({
-    total: scopedEvents.length,
-    urgent: scopedEvents.filter(isUrgent).length,
-    unanswered: scopedEvents.filter(isAwaiting).length,
-    orders: scopedEvents.filter(isOrder).length,
-    responses: scopedEvents.filter(isResponse).length,
-    unassigned: scopedEvents.filter(e => !getAnalysis(e).hasExplicitMention).length
-  }), [scopedEvents]);
-
-  const counts = useMemo(() => ({
-    today: scopedEvents.filter(e => isUrgent(e) || isAwaiting(e) || e.status === 'new').length,
-    unanswered: stats.unanswered,
-    urgent: stats.urgent,
-    orders: stats.orders,
-    responses: stats.responses,
-    all: stats.total
-  }), [scopedEvents, stats]);
-
-  const filteredEvents = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return scopedEvents.filter(event => {
-      const analysis = getAnalysis(event);
-      const byTab =
-        tab === 'all' ? true :
-        tab === 'today' ? (isUrgent(event) || isAwaiting(event) || event.status === 'new') :
-        tab === 'unanswered' ? isAwaiting(event) :
-        tab === 'urgent' ? isUrgent(event) :
-        tab === 'orders' ? isOrder(event) :
-        tab === 'responses' ? isResponse(event) : true;
-      if (!byTab) return false;
-      if (!q) return true;
-      const haystack = [
-        analysis.displayTitle,
-        analysis.summary,
-        analysis.customerName,
-        analysis.poNumber,
-        analysis.ptNumber,
-        analysis.operatorName,
-        analysis.assignmentLabel,
-        event.sender_email,
-        event.snippet,
-        event.body_text
-      ].join(' ').toLowerCase();
-      return haystack.includes(q);
-    });
-  }, [scopedEvents, tab, query]);
-
-  if (!authUser) return <Login onLogin={setAuthUser} />;
-
-  return (
-    <div className="workspace">
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark">PO</div>
-          <div>
-            <strong>Tracking</strong>
-            <span>Outlook Monitor</span>
-          </div>
-        </div>
-
-        <nav className="nav-list">
-          {NAV_ITEMS.map(item => {
-            const Icon = item.icon;
-            return (
-              <button key={item.id} className={tab === item.id ? 'active' : ''} onClick={() => setTab(item.id)}>
-                <Icon size={18}/>
-                <span>{item.label}</span>
-                <em>{counts[item.id] || 0}</em>
-              </button>
-            );
-          })}
-        </nav>
-
-        <div className="sidebar-footer">
-          <div className="user-block"><UserRound size={16}/><span>{authUser.name}</span></div>
-          <button onClick={logout}><LogOut size={16}/> Salir</button>
-        </div>
-      </aside>
-
-      <main className="main-panel">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">Centro operativo</p>
-            <h1>{NAV_ITEMS.find(item => item.id === tab)?.label || 'Dashboard'}</h1>
-            <p>Vista filtrada: solo correos con asunto <strong>Factura American</strong>. No mostramos toda la bandeja.</p>
-          </div>
-          {tab !== 'a2000' && (
-            <div className="top-actions">
-              <label className="search"><Search size={16}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar PO, cliente o Factura American" /></label>
-              <button className="primary" disabled={loading} onClick={runScan}><RefreshCcw size={18} className={loading ? 'spin' : ''}/>{loading ? 'Revisando...' : 'Revisar Factura American'}</button>
-            </div>
-          )}
-        </header>
-
-        {tab !== 'a2000' && (
-          <section className="stats-row">
-            <Stat label="Sin respuesta" value={stats.unanswered} tone="pending" />
-            <Stat label="Urgentes" value={stats.urgent} tone="urgent" />
-            <Stat label="Órdenes Factura American" value={stats.orders} />
-            <Stat label="Sin @ asignado" value={stats.unassigned} />
-          </section>
-        )}
-
-        {tab !== 'a2000' && scanLog && <div className="notice ok">{scanLog}</div>}
-        {tab !== 'a2000' && error && <div className="notice error"><AlertTriangle size={18}/>{error}</div>}
-
-        {tab === 'a2000' ? (
-          <A2000PdfLab />
-        ) : (
-          <section className="content-grid">
-            <div className="event-list">
-              <div className="list-head">
-                <div><h2>Bandeja Factura American</h2><p>{filteredEvents.length} correos filtrados por asunto</p></div>
-                <button onClick={() => loadEvents().catch(e => setError(e.message))}>Actualizar</button>
-              </div>
-              {filteredEvents.length === 0 ? (
-                <div className="empty-list"><CheckCircle2 size={24}/><p>No hay correos Factura American para este filtro.</p></div>
-              ) : filteredEvents.map(event => (
-                <CompactEvent key={event.id} event={event} selected={selected?.id === event.id} onSelect={setSelected} onMark={mark} />
-              ))}
-            </div>
-            <DetailPanel event={selected} onClose={() => setSelected(null)} onMark={mark} />
-          </section>
-        )}
-      </main>
-    </div>
-  );
+  const [tab, setTab] = useState('process');
+  if (!authUser) return <Login onLogin={setAuthUser}/>;
+  const logout = () => { localStorage.removeItem('rpaUser'); setAuthUser(null); };
+  return <div className="workspace v470-shell">
+    <aside className="sidebar v470-sidebar">
+      <div className="brand"><div className="brand-mark">PO</div><div><strong>Sales Order</strong><span>American Exchange</span></div></div>
+      <nav className="nav-list">
+        <button className={tab === 'process' ? 'active' : ''} onClick={() => setTab('process')}><Activity size={18}/><span>Operación</span></button>
+        <button className={tab === 'log' ? 'active' : ''} onClick={() => setTab('log')}><ScrollText size={18}/><span>LOG A2000</span></button>
+      </nav>
+      <div className="sidebar-footer"><div className="user-block"><UserRound size={16}/><span>{authUser.name}</span></div><button onClick={logout}><LogOut size={16}/>Salir</button></div>
+    </aside>
+    <main className="main-panel v470-main">{tab === 'process' ? <ProcessOrdersPage/> : <OpsLogPage/>}</main>
+  </div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);

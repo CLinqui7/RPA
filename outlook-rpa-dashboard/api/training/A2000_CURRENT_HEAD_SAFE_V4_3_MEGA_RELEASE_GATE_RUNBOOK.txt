@@ -1,0 +1,106 @@
+A2000 CURRENT HEAD SAFE V4.3 MEGA RELEASE GATE RUNBOOK
+=====================================================
+
+1. V4.2 rollback diagnosis
+--------------------------
+V4.2 added intentionally different outputs for 10BELOW, GABRIELBRO, CARNIVAL,
+IPC and VERSONA. The old debug-verify-enrichment-batch01.js fixture suite still
+compares its previous expected subset literally and therefore may return RC=1.
+V4.3 does not silently ignore all batch01 regressions. It runs:
+- old batch01 as informational evidence
+- debug-verify-enrichment-batch01-v43-compatible.js as the blocking suite
+
+The compatibility suite permits differences only in the exact certified V4.2
+fields for the named customers. All other expected fixture fields still compare.
+
+2. Reading rules installed
+--------------------------
+10BELOW:
+- total EACH undistributed
+- exact official style/color
+- exact printed size range compatible with VR_SKU_Z
+- qty divisible by official SCALE_QTY ratio total
+- distribute to QTY_SZ1..18 by SIZE_NUM
+
+GABRIELBRO:
+- printed CS PK must equal official VR_SKU_Z ratio total
+- qty_total must divide exactly by that ratio total
+- distribute by official ratio
+
+CARNIVAL:
+- CASE count x exact printed pack = EACH quantity
+- exact printed size -> exact VR_SKU_Z SIZE_NUM -> QTY_SZn
+- CASE price is preserved in raw trace
+- REST sales_price remains blocked until source-certified EACH rounding rule
+
+IPC:
+- only same MM/DD + exactly one year conflict
+- earlier year must predate order year
+- later year must be chronologically viable
+- both raw dates preserved
+
+VERSONA:
+- printed PO 615628 accepted as ORDER_NO
+
+3. Persistence compatibility
+----------------------------
+api/src/po/poRepository.js is dual-mode.
+Default:
+  legacy single-order persistence using onConflict=document_id
+
+After Supabase migration and env gate:
+  A2000_MULTI_ORDER_PERSISTENCE_READY=true
+  parsePurchaseOrders plural
+  onConflict=document_id,order_no
+  one ITSFASHION PDF may persist six purchase_orders
+
+4. Mega gate
+------------
+The mega gate uses the certified source:
+  PurchaseOrder-0000199431-00-009721.pdf
+
+It requires:
+- CITI
+- order 0000199431
+- parser cititrends
+- status parsed
+- no header missing
+- no line missing
+- no blocking conflicts
+- live A2000 scale preflight valid
+- saga table present
+
+It persists the candidate in Supabase only when no valid stored candidate exists.
+
+5. Controlled AMEXTEST write
+----------------------------
+Manual safety before run:
+- AMEXTEST
+- Import / Upload Utility
+- ORDER_LI
+- inspect pending rows
+- Export Data for evidence if rows exist
+- CLEAR only ORDER_LI
+
+Then run with:
+  --confirm-write --confirm-order-li-cleared
+
+The gate creates a unique synthetic AMEXTEST ORDER_NO beginning RPAC and uses the
+certified CITI header/line data. A2000RestAdapter performs:
+- live preflight
+- persistent idempotency job
+- ORDER_HD once
+- persist SEQ_ORDER_NO immediately
+- ORDER_LI
+- Viewer verification
+- completed saga
+
+The exact same controlled order is passed to the adapter a second time. The
+second call must return an idempotent completed stage and must not recreate the
+header.
+
+6. Production
+-------------
+A V4.3 AMEXTEST pass certifies the technical end-to-end adapter path. It does not
+turn on production writes automatically. Production remains protected by the
+existing A2000 production environment gate and upload isolation rules.

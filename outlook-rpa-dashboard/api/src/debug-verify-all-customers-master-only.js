@@ -199,12 +199,19 @@ check('every canonical source marked parsed satisfies strict header and every li
   }
 });
 
-check('10BELOW resolves best official Store Master match from printed Ship To address but does not invent size-bucket ratio', () => {
+check('10BELOW applies the exact official RT scale ratio only after the printed 6 to 11 range matches VR_SKU_Z', () => {
   const item = parsed.tenbelow;
   assert.equal(item.header.store_code, 'SIMPLY10');
   assert.equal(item.header.raw?.store_master?.source, 'stores_master_exact_ship_to_address');
-  assert.ok((item.lines || []).every((line) => strictLineMissing(item.header, line).includes('qty_szn')));
-  assert.equal((item.lines || []).some((line) => Array.from({ length: 18 }, (_, i) => line[`qty_sz${i + 1}`]).some((value) => Number(value) > 0)), false);
+  assert.equal(item.status, 'parsed');
+  assert.deepEqual(
+    item.lines.map((line) => Array.from({ length: 8 }, (_, i) => Number(line[`qty_sz${i + 1}`] || 0))),
+    [
+      [20, 20, 20, 40, 40, 40, 40, 20],
+      [25, 25, 25, 50, 50, 50, 50, 25]
+    ]
+  );
+  assert.ok(item.lines.every((line) => line.raw?.qty_bucket_resolution?.source === 'VR_SKU_Z'));
 });
 
 check('Cato Corporation family does not infer CATO/ITSFASHION/VERSONA banner from legal entity alone', () => {
@@ -287,13 +294,16 @@ check('VARIETYWHO resolves truncated printed color suffix only through a unique 
   assert.ok(codes(item.warnings).includes('terms_master_policy_precedence'));
 });
 
-check('VERSONA uses explicit upstream banner hint and Customer Master terms but keeps printed PO number under business review', () => {
+check('VERSONA preserves confirmed printed PO 615628 and removes only the obsolete PO ownership blocker', () => {
   const item = parsed.versona;
   assert.equal(item.header.customer_code, 'VERSONA');
+  assert.equal(item.header.order_no, '615628');
   assert.equal(item.header.terms_code, '6C');
   assert.ok(codes(item.warnings).includes('terms_master_policy_precedence'));
-  assert.ok(codes(item.conflicts).includes('order_no_requires_business_review'));
-  assert.equal(hasBlockingA2000Conflicts(item), true);
+  assert.ok(codes(item.warnings).includes('versona_printed_po_615628_accepted'));
+  assert.equal(codes(item.conflicts).includes('order_no_requires_business_review'), false);
+  assert.equal(hasBlockingA2000Conflicts(item), false);
+  assert.equal(item.status, 'parsed');
   assert.ok((item.lines || []).every((line) => line.style_code && line.color_code && line.master_upc));
 });
 
@@ -327,30 +337,40 @@ check('COLONY keeps absent ship/cancel dates unresolved and records source conta
   assert.ok(codes(item.warnings).includes('source_email_typo'));
 });
 
-check('GABRIELBRO resolves abbreviated printed descriptions to official prepack alpha colors and UPCs while leaving absent size buckets unresolved', () => {
+check('GABRIELBRO applies official GK scale ratio only when printed CS PK 12 exactly matches the official ratio total 12', () => {
   const item = parsed.gabes;
   assert.equal(item.header.store_code, 'SAME');
   assert.equal(item.header.warehouse_code, 'PE');
+  assert.equal(item.status, 'parsed');
   assert.equal(item.lines.length, 2);
-  assert.equal(item.lines[0].style_code, 'WELMA61K');
-  assert.equal(item.lines[0].color_code, 'MDA');
-  assert.equal(item.lines[0].master_upc, '194866098261');
-  assert.equal(item.lines[1].style_code, 'WELMA61K');
-  assert.equal(item.lines[1].color_code, 'FSA');
-  assert.equal(item.lines[1].master_upc, '194866098254');
-  assert.ok((item.lines || []).every((line) => strictLineMissing(item.header, line).includes('qty_szn')));
+  assert.deepEqual(item.lines.map((line) => [line.style_code, line.color_code, line.master_upc]), [
+    ['WELMA61K', 'MDA', '194866098261'],
+    ['WELMA61K', 'FSA', '194866098254']
+  ]);
+  assert.deepEqual(
+    item.lines.map((line) => Array.from({ length: 8 }, (_, i) => Number(line[`qty_sz${i + 1}`] || 0))),
+    [
+      [42, 42, 42, 42, 84, 84, 84, 84],
+      [55, 55, 55, 55, 110, 110, 110, 110]
+    ]
+  );
+  assert.ok(item.lines.every((line) => line.raw?.case_pack_master_ratio_resolution?.status === 'applied'));
 });
 
-check('IPC resolves style/color/UPC and ordered QTY bucket from official masters, keeps PP terms, and still blocks contradictory source dates', () => {
+check('IPC corrects only the same-MM/DD one-year source typo to 2026, preserves raw dates, and still requires a cancel date', () => {
   const item = parsed.ipc;
-  assert.ok(codes(item.conflicts).includes('source_date_conflict'));
+  assert.equal(codes(item.conflicts).includes('source_date_conflict'), false);
+  assert.ok(codes(item.warnings).includes('source_date_year_typo_corrected'));
   assert.ok(codes(item.warnings).includes('terms_master_policy_precedence'));
+  assert.equal(item.header.start_date, '2026-05-08');
+  assert.equal(item.header.cancel_date, null);
+  assert.equal(item.header.raw?.pickup_date_resolution?.corrected_start_date, '2026-05-08');
   assert.equal(item.header.terms_code, 'PP');
   assert.equal(item.lines[0].style_code, 'AX9851B-42');
   assert.equal(item.lines[0].color_code, 'G16');
   assert.equal(item.lines[0].master_upc, '196540921803');
   assert.equal(item.lines[0].qty_sz1, 2000);
-  assert.equal(hasBlockingA2000Conflicts(item), true);
+  assert.equal(item.needs_mapping.header.includes('cancel_date'), true);
 });
 
 
@@ -368,13 +388,20 @@ check('SPENCER uploaded hardcopy resolves exact UPC, master style/color, ship-to
   assert.equal(item.lines[0].qty_sz1, 1008);
 });
 
-check('Batch01 Carnival resolves official master style/color from printed color but never auto-populates A2000 size buckets from CASE count', () => {
+check('Batch01 Carnival converts CASE count by printed pack 6, maps exact printed size to VR_SKU_Z SIZE_NUM, and blocks EACH price until a source rule exists', () => {
   const item = carnival1674444;
   assert.equal(item.header.customer_code, 'CARNIVAL');
   assert.ok((item.lines || []).every((line) => line.style_code === '133CARNIVA01'));
   assert.ok((item.lines || []).every((line) => line.color_code === '003'));
-  assert.ok((item.lines || []).every((line) => String(line.raw?.quantity_semantics || '').toUpperCase() === 'CASE'));
-  assert.ok((item.lines || []).every((line) => strictLineMissing(item.header, line).includes('qty_szn')));
+  assert.deepEqual(item.lines.map((line) => line.qty_total), [408, 372, 354, 366, 324, 312, 270]);
+  item.lines.forEach((line, index) => {
+    assert.equal(Number(line[`qty_sz${index + 1}`]), line.qty_total);
+    assert.equal(strictLineMissing(item.header, line).includes('qty_szn'), false);
+    assert.equal(strictLineMissing(item.header, line).includes('sales_price'), true);
+    assert.equal(line.sales_price, null);
+    assert.equal(line.raw?.case_to_each_conversion?.exact_each_price_candidate, 5.985);
+  });
+  assert.ok(codes(item.conflicts).includes('carnival_each_sales_price_requires_source_rule'));
 });
 
 const failed = checks.filter((item) => item.result === 'FAIL');

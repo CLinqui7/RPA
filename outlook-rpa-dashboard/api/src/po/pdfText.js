@@ -4,6 +4,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import pdfParse from 'pdf-parse';
+import { annotatePdfTextWithVisualBrand } from './pdfVisualBrand.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -12,7 +13,6 @@ export async function downloadDocumentBuffer(document) {
     throw new Error(`Document ${document.id} has no storage bucket/path`);
   }
 
-  // Lazy import keeps local PDF parser fixtures independent from Supabase credentials.
   const { supabase } = await import('../supabase.js');
 
   const { data, error } = await supabase.storage
@@ -34,8 +34,6 @@ async function hasPdftotext() {
     await execFileAsync('pdftotext', ['-v'], { timeout: 3000 });
     return true;
   } catch (error) {
-    // poppler's pdftotext returns version on stderr and may exit non-zero on some builds;
-    // if command exists, ENOENT will not be present.
     return error?.code !== 'ENOENT';
   }
 }
@@ -59,8 +57,6 @@ function scoreTextForTables(text = '') {
   const t = String(text || '');
   let score = 0;
   if (/SKU\s+MFG\s+Style\s+MFG\s+Color/i.test(t)) score += 5;
-  // Layout-preserving table anchors for customer-specific raw parsers.
-  // Require wide column spacing so collapsed pdf-parse text does not receive the same bonus.
   if (/^Ln\s{2,}SKU\s{2,}Description\s{2,}UPC Number\s+Model#/im.test(t)) score += 6;
   if (/^PO\s{2,}QUANTITY\s{2,}UNIT\s{2,}ITEM NUMBER\s{2,}DESCRIPTION/im.test(t)) score += 6;
   if (/VENDOR STYLE\s{10,}DESCRIPTION\s{10,}REORDER/im.test(t)) score += 6;
@@ -83,7 +79,7 @@ function scoreTextForTables(text = '') {
   return score;
 }
 
-export async function extractPdfTextFromBuffer(buffer) {
+async function extractPdfTextBase(buffer) {
   const engine = String(process.env.PDF_TEXT_ENGINE || 'auto').toLowerCase();
   const debug = String(process.env.PDF_TEXT_DEBUG || '').toLowerCase() === 'true';
 
@@ -97,10 +93,6 @@ export async function extractPdfTextFromBuffer(buffer) {
         const layoutText = await extractWithPdftotextLayout(buffer);
         if (engine === 'pdftotext') return layoutText;
 
-        // In auto mode, strong customer-table signatures are sufficient evidence
-        // to keep the layout-preserving extractor. Do not invoke pdf-parse merely
-        // to compare scores in those cases: some customer fonts trigger noisy
-        // TrueType warnings even when pdftotext already produced a clean table.
         const layoutScore = scoreTextForTables(layoutText);
         if (layoutScore >= 7) {
           if (debug) console.log(`[pdfText] strong pdftotext layout score=${layoutScore}; skipping pdf-parse comparison`);
@@ -109,9 +101,7 @@ export async function extractPdfTextFromBuffer(buffer) {
 
         const pdfParseText = await extractWithPdfParse(buffer).catch(() => '');
         const parseScore = scoreTextForTables(pdfParseText);
-        if (debug) {
-          console.log(`[pdfText] pdftotext score=${layoutScore}, pdf-parse score=${parseScore}`);
-        }
+        if (debug) console.log(`[pdfText] pdftotext score=${layoutScore}, pdf-parse score=${parseScore}`);
         return layoutScore >= parseScore ? layoutText : pdfParseText;
       } catch (error) {
         if (debug) console.warn(`[pdfText] pdftotext failed, falling back to pdf-parse: ${error.message}`);
@@ -121,6 +111,11 @@ export async function extractPdfTextFromBuffer(buffer) {
   }
 
   return extractWithPdfParse(buffer);
+}
+
+export async function extractPdfTextFromBuffer(buffer) {
+  const text = await extractPdfTextBase(buffer);
+  return annotatePdfTextWithVisualBrand(text, buffer);
 }
 
 export async function extractPdfTextFromDocument(document) {

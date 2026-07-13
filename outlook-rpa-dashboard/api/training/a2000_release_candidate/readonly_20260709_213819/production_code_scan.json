@@ -1,0 +1,19 @@
+[
+  {
+    "id": "CODE-BLOCKER-005",
+    "severity": "BLOCKER",
+    "finding": "No A2000 REST Adapter file is present in api/src/a2000. The live API path is certified, but the project code is still CSV-oriented.",
+    "file": "api/src/a2000"
+  },
+  {
+    "id": "CODE-BLOCKER-006",
+    "severity": "BLOCKER",
+    "finding": "The API source does not yet show the persistent REST saga/idempotency markers required to avoid duplicate Headers and resume Lines safely.",
+    "missing_patterns": [
+      "HEADER_CREATED_LINES_FAILED",
+      "reconciliation_required",
+      "a2000_seq_order_no",
+      "idempotency_key"
+    ]
+  }
+]

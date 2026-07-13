@@ -1,3 +1,5 @@
+import crypto from 'node:crypto';
+
 const KNOWN_PEOPLE = [
   { id: 'carlos', name: 'Carlos Linqui', role: 'user', emails: ['carlos.linqui@axnygroup.com', 'linquicarloss@gmail.com'], aliases: ['carlos', 'carlos linqui', 'linqui', '@carlos'] },
   { id: 'routing', name: 'Routing', role: 'group', emails: ['routing@axnygroup.com'], aliases: ['routing', 'routing team', '@routing'] },
@@ -454,9 +456,37 @@ export function correlateEvents(events = []) {
   }));
 }
 
+// A2000_V4_6_8_1_STABLE_OUTLOOK_MESSAGE_IDENTITY
 export function stableKey(email) {
-  const raw = `${email.subject || ''}|${email.senderEmail || ''}|${email.receivedAt || ''}|${email.poNumber || ''}|${email.ptNumber || ''}|${email.snippet || ''}`;
-  return Buffer.from(raw).toString('base64').slice(0, 160);
+  const messageLocator = String(
+    email.raw?.currentUrl
+    || email.messageId
+    || email.message_id
+    || ''
+  ).trim();
+
+  const attachmentKey = [
+    ...new Set(
+      (email.attachments || [])
+        .map(value => String(value || '').trim().toLowerCase())
+        .filter(Boolean)
+    )
+  ]
+    .sort()
+    .join('|');
+
+  const raw = [
+    messageLocator,
+    email.subject || '',
+    email.senderEmail || '',
+    email.receivedAt || '',
+    email.poNumber || '',
+    email.ptNumber || '',
+    attachmentKey,
+    email.snippet || ''
+  ].join('|');
+
+  return `outlook|${crypto.createHash('sha256').update(raw).digest('hex')}`;
 }
 
 export { KNOWN_PEOPLE };

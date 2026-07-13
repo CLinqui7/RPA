@@ -1,6 +1,9 @@
 import { compactText, inferStatus } from '../helpers.js';
 import { normalizeForA2000 } from '../mappers/normalizeForA2000.js';
 import { enrichOrderWithMasters } from '../enrichment/enrichOrder.js';
+import { applyCustomerReadingHardening } from '../enrichment/customerReadingHardening.js';
+import { resolveOrderOfficialMasterIdentity } from '../enrichment/officialMasterIdentityResolver.js';
+import { resolveCatoFamilyCustomerFromOfficialMaster } from '../enrichment/catoFamilyCustomerResolver.js';
 import { parseBealls } from './bealls.js';
 import { parseGabes } from './gabes.js';
 import { parseCitiTrends } from './cititrends.js';
@@ -127,7 +130,12 @@ function addQuality(parsed) {
 }
 
 function enrichAndAddQuality(rawParsed) {
-  return addQuality(enrichOrderWithMasters(normalizeForA2000(rawParsed)));
+  const identified = resolveCatoFamilyCustomerFromOfficialMaster(rawParsed);
+  const normalized = normalizeForA2000(identified);
+  const enriched = enrichOrderWithMasters(normalized);
+  const nativeMasterResolved = resolveOrderOfficialMasterIdentity(enriched);
+  const hardened = applyCustomerReadingHardening(nativeMasterResolved);
+  return addQuality(hardened);
 }
 
 export function parsePurchaseOrders({ text, fileName, document }) {

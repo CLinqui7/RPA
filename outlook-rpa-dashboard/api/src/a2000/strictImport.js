@@ -95,9 +95,10 @@ export function strictLineMissing(header = {}, line = {}) {
   if (!clean(line.style_code)) missing.push('style_code');
   if (!clean(line.color_code)) missing.push('color_code');
 
+  // V4.7: SALES_PRICE is optional. Never synthesize zero. When present it must
+  // still be a valid non-negative number.
   const salesPriceRaw = clean(line.sales_price);
-  if (!salesPriceRaw) missing.push('sales_price');
-  else {
+  if (salesPriceRaw) {
     const salesPrice = finiteNumber(salesPriceRaw);
     if (salesPrice === null || salesPrice < 0) missing.push('sales_price_invalid');
   }

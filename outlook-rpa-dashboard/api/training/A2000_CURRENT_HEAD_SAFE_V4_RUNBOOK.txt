@@ -1,0 +1,239 @@
+A2000 CURRENT HEAD SAFE V4
+===========================
+
+PURPOSE
+-------
+Integrate the certified A2000 REST architecture into the exact merged hardened
+RPA code without replaying the obsolete anchor-based V3 installer.
+
+BASELINE PROTECTED BY THIS PATCH
+--------------------------------
+The installer verifies the exact Git blob hashes of the three critical existing
+runtime files before replacing them:
+
+- api/scripts/build-master-cache.py
+- api/src/po/enrichment/masterData.js
+- api/src/po/enrichment/enrichOrder.js
+
+The expected baseline is the hardened project tree represented by commit:
+e3d609b0f066b044dd82c0457c100fb3f3563581
+
+The merge commit b8cc7e24 has the same project file tree for these files.
+
+If the critical baseline does not match, the installer stops before changing
+the project.
+
+WHAT V4 ADDS
+------------
+1. VR_SKU_Z compact cache
+   api/masters/VR_SKU_Z.xlsx
+       -> api/masters/cache/sku_z.csv
+
+2. Cache manifest v9 policy:
+   vr_sku_z_size_num_to_qty_szn_v1
+
+3. Runtime indexes:
+   skuZByStyleColor
+   skuZByStyleColorSize
+
+4. Safe Citi size mapping:
+   existing positive qty_sz1..qty_sz18 is preserved
+   unresolved Citi EACH rows with an explicit size are mapped only when
+   STYLE + COLOR + SIZE_NAME resolve to one SIZE_NUM and one SCALE in VR_SKU_Z
+
+5. Citi logical aggregation:
+   per-size rows mapped through VR_SKU_Z are grouped by
+   STYLE + COLOR + SALES_PRICE + WAREHOUSE + SCALE
+   and exact qty_sz1..qty_sz18 buckets are summed
+
+6. Local VR_SKU_Z SCALE_QTY ratio validation for newly aggregated Citi lines
+
+7. A2000 REST Client:
+   OAuth client_credentials
+   60-second token refresh margin
+   rawBody preservation
+   duplicate top-level "errors" detection
+   no automatic write retry
+   FILTER singular for Viewers
+
+8. REST Mapper:
+   ORDER_HD
+   ORDER_LI with STORE_NO
+   exact QTY_SZ1..QTY_SZ18 only
+   no _NO
+   no qty_total -> QTY_SZ1 fallback
+
+9. Live VR_SKU_Z preflight before REST writes
+
+10. Persistent saga / idempotency architecture:
+    a2000_rest_jobs SQL migration
+    idempotency_key
+    a2000_seq_order_no
+    raw Header response
+    raw Lines response
+    reconciliation_required state
+
+11. Viewer verification after writes
+
+12. Additional write gates:
+    production writes blocked by default
+    shared ORDER_LI requires explicit manual CLEAR confirmation
+    production shared Upload IDs remain blocked by default
+
+WHAT V4 DOES NOT CHANGE
+-----------------------
+- customer detection profiles
+- the 23 customer profile registry
+- existing customer parser files
+- CSV 59 / 41 fallback layouts
+- Outlook scanner
+- Supabase document intake
+- multi-order persistence cardinality
+
+MULTI-ORDER PERSISTENCE
+-----------------------
+The in-memory parser supports 1..N orders per document.
+
+The current poRepository still uses:
+  parsePurchaseOrder(...)
+and:
+  onConflict: 'document_id'
+
+Therefore multi-order persistence remains a separate known gap.
+
+V4 intentionally does not mix that schema/cardinality change with the first
+A2000 REST pilot.
+
+INSTALL
+-------
+Upload:
+  A2000_CURRENT_HEAD_SAFE_V4.zip
+
+to:
+  /workspaces/RPA/A2000_CURRENT_HEAD_SAFE_V4.zip
+
+Run:
+
+  cd /workspaces/RPA || exit 1
+
+  rm -rf /tmp/a2000_current_head_safe_v4
+  mkdir -p /tmp/a2000_current_head_safe_v4
+
+  unzip -o \
+    A2000_CURRENT_HEAD_SAFE_V4.zip \
+    -d /tmp/a2000_current_head_safe_v4
+
+  python3 \
+    /tmp/a2000_current_head_safe_v4/install_current_head_safe_v4.py
+
+The installer performs NO A2000 writes.
+
+Expected:
+  PATCH=PASS
+  BASELINE=EXACT_HARDENED_HEAD
+  MASTER_CACHE_VERSION=9
+  MASTER_SKU_Z_COUNT=<positive>
+  A2000_NODE_TESTS=PASS
+  HARDENED_REGRESSIONS=7/7
+  GIT_DIFF_CHECK=PASS
+  A2000_WRITES_PERFORMED=NO
+
+READ-ONLY LIVE PREFLIGHT
+------------------------
+After PATCH=PASS:
+
+  cd /workspaces/RPA/outlook-rpa-dashboard || exit 1
+
+  npm --prefix api run a2000:preflight \
+    | tee /tmp/a2000_v4_live_preflight.log
+
+Expected for the already-certified v0 source context:
+  A2000_WRITES_PERFORMED=NO
+  PREFLIGHT_VALID=true
+  LOCAL_VALIDATION_VALID=true
+  SOURCE_GUARD_VALID=true
+  LIVE_SCALE_VALID=true
+  LINE=1 ... VALID=true ... PACK_MULTIPLIER=96
+  LINE=2 ... VALID=true ... PACK_MULTIPLIER=96
+
+RELEASE CANDIDATE READONLY
+--------------------------
+Run:
+
+  A2000_CERT_PHASE=readonly \
+  python3 api/training/a2000_release_candidate_certification.py \
+    | tee /tmp/a2000_v4_rc_readonly.log
+
+Expected code result:
+  CODE-001 | PASS
+  0 blocking code findings remain before production.
+
+Important:
+This only means the production code architecture is present.
+It does NOT mean the Supabase migration was applied.
+It does NOT authorize a write.
+
+SUPABASE MIGRATION
+------------------
+Do not run it until the V4 read-only results have been reviewed.
+
+Migration:
+  api/sql/a2000_rest_jobs.sql
+
+After approval, run it once in Supabase SQL Editor.
+
+PREVIEW A STORED ORDER
+----------------------
+Preflight only:
+
+  npm --prefix api run a2000:upload -- \
+    --order-id '<PURCHASE_ORDER_ID>'
+
+No A2000 write occurs.
+
+CONTROLLED AMEXTEST WRITE
+-------------------------
+Do not run until:
+- read-only V4 tests are reviewed
+- a2000_rest_jobs migration exists
+- the selected stored order is parsed and has no blocking conflicts
+- live VR_SKU_Z preflight is valid
+- ORDER_LI pending Upload Utility rows were inspected and cleared
+
+Then the explicit command is:
+
+  npm --prefix api run a2000:upload -- \
+    --order-id '<PURCHASE_ORDER_ID>' \
+    --confirm-write \
+    --confirm-order-li-cleared
+
+The shared ORDER_LI gate will block the write if the manual clear confirmation
+flag is missing.
+
+PRODUCTION WRITES
+-----------------
+Production is blocked by default even if dedicated Upload IDs exist.
+
+A production write additionally requires:
+  A2000_ALLOW_PRODUCTION_WRITES=I_UNDERSTAND_PRODUCTION_A2000_WRITES
+
+Shared production ORDER_HD / ORDER_LI are also blocked unless the separate
+shared-ID override is explicitly enabled after A2000/GCS risk approval.
+
+GO-LIVE GATES
+-------------
+[ ] V4 PATCH=PASS
+[ ] 7/7 hardened regression suites PASS
+[ ] sku_z.csv exists
+[ ] manifest version 9
+[ ] sku_z_rows > 0
+[ ] npm test:a2000 PASS
+[ ] live readonly A2000 preflight PASS
+[ ] release candidate CODE-001 PASS
+[ ] a2000_rest_jobs migration applied
+[ ] one stored parsed CITI order preflight PASS
+[ ] first controlled AMEXTEST order completes Header + Lines + Viewer verify
+[ ] exact rerun returns idempotent completed state
+[ ] 5-10 CITI orders pass manual pilot
+[ ] multi-order persistence fixed separately
+[ ] dedicated Upload IDs received or shared-ID risk formally approved

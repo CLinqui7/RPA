@@ -290,10 +290,40 @@ function buildCatoParsedDocument({ order, fileName, legalEntityRaw, hint, source
   };
 }
 
+
+// A2000_V4_6_8_1_CATO_FAMILY_VISUAL_BRAND_HINT
+function visualBrandHintFromText(text = '') {
+  const match = String(text || '').match(
+    /\[A2000_PDF_VISUAL_BRAND:([A-Z0-9]+):([A-F0-9]{64})\]/i
+  );
+
+  if (!match) return null;
+
+  const code = clean(match[1]).toUpperCase();
+  if (!['VERSONA', 'ITSFASHION'].includes(code)) return null;
+
+  return {
+    code,
+    source: 'pdf_visual_brand_fingerprint',
+    evidence: `${code}:${match[2].toLowerCase()}`,
+    strength: 'visual_brand_fingerprint'
+  };
+}
+
+function catoFamilySourceHint(text, document) {
+  return (
+    visualBrandHintFromText(text)
+    || customerHintFromDocument(
+      document,
+      ['CATO', 'ITSFASHION', 'VERSONA']
+    )
+  );
+}
+
 export function parseCatoCorpOrders({ text, fileName, document }) {
   const chunks = splitCatoOrderChunks(text);
   const parsedOrders = chunks.map(parseOrderChunk).filter((order) => order.orderNo || order.lines.length);
-  const hint = customerHintFromDocument(document, ['CATO', 'ITSFASHION', 'VERSONA']);
+  const hint = catoFamilySourceHint(text, document);
   const legalEntityRaw = clean(compactText(text).match(/Ship\s+to:\s*(CATO CORPORATION)/i)?.[1]) || null;
   const sourceOrderCount = parsedOrders.length;
   if (!sourceOrderCount) {
@@ -313,7 +343,7 @@ export function parseCatoCorp({ text, fileName, document }) {
   const parsedOrders = parseCatoCorpOrders({ text, fileName, document });
   if (parsedOrders.length <= 1) return parsedOrders[0];
 
-  const hint = customerHintFromDocument(document, ['CATO', 'ITSFASHION', 'VERSONA']);
+  const hint = catoFamilySourceHint(text, document);
   const legalEntityRaw = clean(compactText(text).match(/Ship\s+to:\s*(CATO CORPORATION)/i)?.[1]) || null;
   const conflicts = [{
     field: 'order_no', code: 'multi_order_document_requires_split', severity: 'high', blocking: true,

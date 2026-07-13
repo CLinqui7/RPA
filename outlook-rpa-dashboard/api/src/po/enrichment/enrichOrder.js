@@ -4,6 +4,11 @@ import {
   normalizeMasterAddressParts,
   normalizeMasterToken
 } from './masterData.js';
+import {
+  aggregateCitiSizeRows,
+  hasPositiveSizeDistribution,
+  mapExtractedSizeToBucket
+} from './sizeScaleMapping.js';
 
 function clean(value) {
   return cleanMasterValue(value);
@@ -1394,6 +1399,24 @@ function enrichLine(line, parsed, masters, customerCode, warnings) {
   applyExactPrintedSizeGrid(line, raw, masters);
   applyExactPrintedSingleSize(line, raw, masters);
   applyUniqueOfficialSizeSlot(line, raw, masters);
+
+  if (parser === 'cititrends' && !hasPositiveSizeDistribution(line)) {
+    raw.a2000_size_mapping = mapExtractedSizeToBucket(
+      { ...line, raw },
+      masters
+    );
+
+    if (raw.a2000_size_mapping?.applied) {
+      const bucket = Number(raw.a2000_size_mapping.bucket);
+      if (Number.isInteger(bucket) && bucket >= 1 && bucket <= 18) {
+        line[`qty_sz${bucket}`] = raw.a2000_size_mapping.quantity;
+        line.size_bucket = bucket;
+        line.scale_code = raw.a2000_size_mapping.scale || line.scale_code || null;
+        line.scale_abbr = raw.a2000_size_mapping.scale_abbr || line.scale_abbr || null;
+      }
+    }
+  }
+
   resolveMasterUpcsByPrintedSizeGrid(line, raw, masters);
 
   const upc = findMasterUpc(masters, line.style_code, line.color_code, line.size_raw || line.size_code);
@@ -1466,6 +1489,11 @@ export function enrichOrderWithMasters(parsed) {
   const customerCode = applyCustomerMaster(parsed, masters, conflicts, warnings, trace);
   applyDefaultStore(parsed, masters, customerCode, trace, warnings);
   parsed.lines = (parsed.lines || []).map((line) => enrichLine(line, parsed, masters, customerCode, warnings));
+
+  if (clean(parsed.parser).toLowerCase() === 'cititrends') {
+    parsed.lines = aggregateCitiSizeRows(parsed.lines, masters, conflicts);
+  }
+
   applyHeaderFromLines(parsed, conflicts);
 
   const pendingWarnings = warnings.filter((warning) => {
