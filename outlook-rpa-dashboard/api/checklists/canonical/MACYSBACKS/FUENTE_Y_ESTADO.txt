@@ -1,0 +1,6 @@
+Customer: MACYSBACKS
+Aliases: Macy's Backstage
+Estado: CANÓNICA
+Nivel de fuente: Hardcopies de ejemplo
+Ruta original: Customers/Hardcopies de ejemplo/MACYSBACKS/MACYSBACKS CHECKLIST Pt 1763449.xlsx
+Notas: 

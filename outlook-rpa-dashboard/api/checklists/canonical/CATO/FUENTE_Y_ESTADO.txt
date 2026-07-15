@@ -1,0 +1,6 @@
+Customer: CATO
+Aliases: Cato / CATCO
+Estado: PROVISIONAL
+Nivel de fuente: CLIENTS
+Ruta original: Customers/CLIENTS/CLIENTS/CATCO/CATCO CHECKLIST - PT 1737879.xlsx
+Notas: El archivo está bajo CATCO, pero el customer operativo se normaliza como CATO. Falta hardcopy de ejemplo para certificarla.

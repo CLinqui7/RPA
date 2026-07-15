@@ -1,0 +1,6 @@
+Customer: SHOE4500
+Aliases: Shoe Show
+Estado: CANÓNICA
+Nivel de fuente: Hardcopies de ejemplo
+Ruta original: Customers/Hardcopies de ejemplo/SHOE4500/Check list PT 1761105.xlsx
+Notas: 

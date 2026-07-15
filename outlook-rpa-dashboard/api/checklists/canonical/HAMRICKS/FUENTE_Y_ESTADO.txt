@@ -1,0 +1,6 @@
+Customer: HAMRICKS
+Aliases: Hamricks
+Estado: PROVISIONAL
+Nivel de fuente: Hermanito parche 2.0
+Ruta original: Customers/Hermanito parche 2.0/Customers/Hamricks/PT/HAMRICKS CHECKLIST PT 1757996 - 1758014.xlsx
+Notas: Se usa Hermanito 2.0 por la prioridad indicada. Debe certificarse contra su PT/hardcopy.

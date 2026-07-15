@@ -1,0 +1,6 @@
+Customer: BEALLSOUTL
+Aliases: Bealls Outlet
+Estado: CANÓNICA
+Nivel de fuente: Hardcopies de ejemplo
+Ruta original: Customers/Hardcopies de ejemplo/beallsoutl/Bealls Outlet Checklist PT 1760350 - 1760351.xlsx
+Notas: Se selecciona una sola checklist. La otra checklist de la misma carpeta queda como histórica, no como fallback.

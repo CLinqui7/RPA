@@ -1,0 +1,6 @@
+Customer: TJMAXX
+Aliases: TJ Maxx
+Estado: CANÓNICA
+Nivel de fuente: Hardcopies de ejemplo
+Ruta original: Customers/Hardcopies de ejemplo/TJMAXX/Checklist  PT 1771915-1771919.xlsx
+Notas: TJMAXX tendrá su propia checklist. No se reutilizará automáticamente la de Marshalls.

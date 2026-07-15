@@ -1,0 +1,6 @@
+Customer: VERSONA
+Aliases: Versona
+Estado: CANÓNICA
+Nivel de fuente: Hardcopies de ejemplo
+Ruta original: Customers/Hardcopies de ejemplo/Versona/VERSONA PT 1764800.xlsx
+Notas: Aunque el nombre no dice CHECKLIST, el contenido sí corresponde a la checklist del customer.
