@@ -1,0 +1,6 @@
+Customer: MARSHALLS
+Aliases: Marshalls
+Estado: CANÓNICA
+Nivel de fuente: Hardcopies de ejemplo
+Ruta original: Customers/Hardcopies de ejemplo/MARSHALLS/Checklist Marshalls PT 1743913.xlsx
+Notas: Marshalls tendrá su propia checklist, aunque visualmente se parezca a TJMAXX.

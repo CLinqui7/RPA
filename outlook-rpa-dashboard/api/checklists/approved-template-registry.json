@@ -1,0 +1,657 @@
+{
+  "version": "5.0.0",
+  "generated_at": "2026-07-15",
+  "runtime_policy": "ONE_CHECKLIST_PER_CUSTOMER_NO_RUNTIME_SCORING",
+  "rule": "Each customer resolves to exactly one bundled checklist. Historical catalog scoring is audit-only and may never choose a runtime template.",
+  "statuses": {
+    "canonical": "Approved runtime template.",
+    "provisional": "Runtime template allowed with an explicit warning; must be recertified.",
+    "missing_approved_template": "Generation is blocked until a customer-specific template is approved."
+  },
+  "customers": {
+    "10BELOW": {
+      "aliases": [
+        "10BELOW",
+        "10 BELOW",
+        "10SPOT",
+        "10 SPOT",
+        "SIMPLY 10"
+      ],
+      "production_status": "ready_mapping",
+      "checklist_status": "missing_approved_template",
+      "allow_generation": false,
+      "bundled_template_path": null,
+      "sha256": null,
+      "source_path": null,
+      "source_tier": "Hardcopies de ejemplo + Hermanito 2.0",
+      "notes": "No encontré una checklist visual real. Los archivos llamados checklist/export son tablas operativas de ORDER_NO, PICKTKT, STYLE, CLR y PICK_QTY. No se aprobará una tabla de datos como checklist.",
+      "block_reason": null,
+      "schema": null
+    },
+    "BEALLSOUTL": {
+      "aliases": [
+        "BEALLSOUTL",
+        "BEALLS OUTLET",
+        "BEALLS"
+      ],
+      "production_status": "ready_mapping",
+      "checklist_status": "canonical",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/BEALLSOUTL/CHECKLIST.xlsx",
+      "sha256": "bb2cfff2b0f159cd31412459e5696a4abc66467a0b1cf5bc0acd58480a4f6740",
+      "source_path": "Customers/Hardcopies de ejemplo/beallsoutl/Bealls Outlet Checklist PT 1760350 - 1760351.xlsx",
+      "source_tier": "Hardcopies de ejemplo",
+      "notes": "Se selecciona una sola checklist. La otra checklist de la misma carpeta queda como histórica, no como fallback.",
+      "block_reason": null,
+      "schema": {
+        "sheet_name": "Sheet1",
+        "header_row": 19,
+        "data_start_row": 20,
+        "columns": {
+          "style_code": 2,
+          "color_code": 3,
+          "customer_style": 4,
+          "manufacturer_style": 5,
+          "customer_color": 6,
+          "description": 7,
+          "customer_sku_upc": 8,
+          "qty_total": 9,
+          "pick_ticket_no": 10,
+          "order_no": 11,
+          "tickets": 12,
+          "tracking": 13,
+          "dept_code": 14
+        }
+      }
+    },
+    "CARNIVAL": {
+      "aliases": [
+        "CARNIVAL"
+      ],
+      "production_status": "blocked",
+      "checklist_status": "canonical",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/CARNIVAL/CHECKLIST.xlsx",
+      "sha256": "c1133a669de3649ea9d262b5644f513dc0362ae461af78974ee9689233bba575",
+      "source_path": "Customers/Hermanito parche 2.0/Customers/Carnival/PT/Carnival Checklist PT 1763032 - 1763033.xlsx",
+      "source_tier": "Hermanito parche 2.0",
+      "notes": "Checklist encontrada en la segunda fuente prioritaria.",
+      "block_reason": "Missing authoritative STORE_NO, START_DATE and CANCEL_DATE.",
+      "schema": {
+        "sheet_name": "Sheet1",
+        "header_row": 1,
+        "data_start_row": 2,
+        "columns": {
+          "pick_ticket_no": 1,
+          "order_no": 2,
+          "customer_code": 3,
+          "start_date": 4,
+          "cancel_date": 5,
+          "warehouse_code": 6,
+          "line_warehouse_code": 7,
+          "division_code": 8,
+          "style_code": 9,
+          "color_code": 10,
+          "qty_total": 11,
+          "customer_upc": 12,
+          "retail_price": 13,
+          "sub_style": 14,
+          "sub_color": 15
+        }
+      }
+    },
+    "CATO": {
+      "aliases": [
+        "CATO",
+        "CATCO"
+      ],
+      "production_status": "pending_certification",
+      "checklist_status": "provisional",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/CATO/CHECKLIST.xlsx",
+      "sha256": "b20749feb5209786c6e295d4e5a08798b4a100b0cbc15fe34be95085817d4cfc",
+      "source_path": "Customers/CLIENTS/CLIENTS/CATCO/CATCO CHECKLIST - PT 1737879.xlsx",
+      "source_tier": "CLIENTS",
+      "notes": "El archivo está bajo CATCO, pero el customer operativo se normaliza como CATO. Falta hardcopy de ejemplo para certificarla.",
+      "block_reason": null,
+      "schema": {
+        "sheet_name": "BELK 2 POs 3878539 - 3878540",
+        "header_row": 26,
+        "data_start_row": 27,
+        "columns": {
+          "style_code": 1,
+          "color_code": 2,
+          "pick_ticket_no": 3,
+          "order_no": 4,
+          "qty_total": 5
+        }
+      }
+    },
+    "CITI": {
+      "aliases": [
+        "CITI",
+        "CITI TRENDS"
+      ],
+      "production_status": "ready_mapping",
+      "checklist_status": "canonical",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/CITI/CHECKLIST.xlsx",
+      "sha256": "88af78680f7408689d4d7086c1c44685d5ccab970e038ed4ddf54f676b415272",
+      "source_path": "Customers/Hardcopies de ejemplo/citi/Citi Trends CHECK LIST PT 1753086.xlsx",
+      "source_tier": "Hardcopies de ejemplo",
+      "notes": null,
+      "block_reason": null,
+      "schema": {
+        "sheet_name": "Sheet1",
+        "header_row": 29,
+        "data_start_row": 30,
+        "columns": {
+          "style_code": 1,
+          "color_code": 2,
+          "customer_style": 3,
+          "customer_sku": 4,
+          "customer_upc": 5,
+          "qty_total": 6,
+          "sub_sku": 7
+        }
+      }
+    },
+    "COLONY": {
+      "aliases": [
+        "COLONY",
+        "COLONY BRANDS"
+      ],
+      "production_status": "blocked",
+      "checklist_status": "canonical",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/COLONY/CHECKLIST.xlsx",
+      "sha256": "95de771aade907d75e2701619a89573bb3d9fcd57c1762a7ce4f937428fe65cb",
+      "source_path": "Customers/Hardcopies de ejemplo/colony/COLONY BRANDS CHECKLIST.xlsx",
+      "source_tier": "Hardcopies de ejemplo",
+      "notes": null,
+      "block_reason": "Missing authoritative Start/Cancel/Store values.",
+      "schema": {
+        "sheet_name": "8948546",
+        "header_row": 31,
+        "data_start_row": 32,
+        "columns": {
+          "style_code": 1,
+          "color_code": 2,
+          "customer_style": 3,
+          "customer_color": 4,
+          "qty_total": 5,
+          "pln_no": 6,
+          "pick_ticket_no": 7,
+          "order_no": 8
+        }
+      }
+    },
+    "GABRIELBRO": {
+      "aliases": [
+        "GABRIELBRO",
+        "GABRIEL BROS",
+        "GABRIEL BROTHERS",
+        "GABES",
+        "GRABRIELBROS"
+      ],
+      "production_status": "ready_mapping",
+      "checklist_status": "canonical",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/GABRIELBRO/CHECKLIST.xlsx",
+      "sha256": "8b6eb57ee92947dfd69f63186881a3745202fc1afe1554bb8ec3dfab1af73a08",
+      "source_path": "Customers/Hardcopies de ejemplo/gabrielbro/GABRIELBRO CHECK LIST PT 1764922.xlsx",
+      "source_tier": "Hardcopies de ejemplo",
+      "notes": null,
+      "block_reason": null,
+      "schema": {
+        "sheet_name": "Sheet1",
+        "header_row": 31,
+        "data_start_row": 32,
+        "columns": {
+          "style_code": 1,
+          "color_code": 2,
+          "qty_total": 3,
+          "customer_style": 4,
+          "description": 5,
+          "sub_sku": 6
+        }
+      }
+    },
+    "GORBRORET": {
+      "aliases": [
+        "GORBRORET",
+        "GORDON BROTHERS"
+      ],
+      "production_status": "pending_certification",
+      "checklist_status": "missing_approved_template",
+      "allow_generation": false,
+      "bundled_template_path": null,
+      "sha256": null,
+      "source_path": null,
+      "source_tier": "Customers/Customers",
+      "notes": "No hay una checklist independiente. Encontré un workbook de PO con instrucciones y un Routing Template. Son referencias para construir la checklist, no checklists aprobadas.",
+      "block_reason": null,
+      "schema": null
+    },
+    "HAMRICKS": {
+      "aliases": [
+        "HAMRICKS",
+        "HAMRICK",
+        "HAMRICK S"
+      ],
+      "production_status": "blocked",
+      "checklist_status": "provisional",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/HAMRICKS/CHECKLIST.xlsx",
+      "sha256": "abb226edd24cf527a48ae335ac0e195809f55ee4eee559c4eb42868691716fbb",
+      "source_path": "Customers/Hermanito parche 2.0/Customers/Hamricks/PT/HAMRICKS CHECKLIST PT 1757996 - 1758014.xlsx",
+      "source_tier": "Hermanito parche 2.0",
+      "notes": "Se usa Hermanito 2.0 por la prioridad indicada. Debe certificarse contra su PT/hardcopy.",
+      "block_reason": "No verified current customer hardcopy.",
+      "schema": {
+        "sheet_name": "Sheet1",
+        "header_row": 21,
+        "data_start_row": 22,
+        "columns": {
+          "customer_style": 1,
+          "style_code": 2,
+          "qty_total": 3,
+          "pick_ticket_no": 4
+        }
+      }
+    },
+    "IPC": {
+      "aliases": [
+        "IPC"
+      ],
+      "production_status": "blocked",
+      "checklist_status": "missing_approved_template",
+      "allow_generation": false,
+      "bundled_template_path": null,
+      "sha256": null,
+      "source_path": null,
+      "source_tier": "Hardcopies de ejemplo",
+      "notes": "Existe hardcopy de ejemplo, pero no encontré ninguna checklist XLS/XLSX en todo el ZIP. Habrá que construirla desde cero.",
+      "block_reason": "Missing authoritative CANCEL_DATE.",
+      "schema": null
+    },
+    "ITSFASHION": {
+      "aliases": [
+        "ITSFASHION",
+        "ITS FASHION",
+        "IT'S FASHION"
+      ],
+      "production_status": "ready_mapping",
+      "checklist_status": "canonical",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/ITSFASHION/CHECKLIST.xlsx",
+      "sha256": "d98522ff2d3409c6e081033db58f21f3c747bd14ed57094fb67f412dd0e44c65",
+      "source_path": "Customers/Hardcopies de ejemplo/ITSFASHION/ITS FASHION PT 1747160-1747168 2.xlsx",
+      "source_tier": "Hardcopies de ejemplo",
+      "notes": "Aunque el nombre no dice CHECKLIST, el workbook contiene la hoja CHECKLIST y es la plantilla correcta.",
+      "block_reason": null,
+      "schema": {
+        "sheet_name": "CHECKLIST",
+        "header_row": 23,
+        "data_start_row": 24,
+        "columns": {
+          "order_no": 2,
+          "style_code": 3,
+          "customer_style": 4,
+          "qty_total": 5,
+          "cartons": 6,
+          "carton_id": 7,
+          "dept_code": 8,
+          "tickets": 9
+        }
+      }
+    },
+    "MACYSBACKS": {
+      "aliases": [
+        "MACYSBACKS",
+        "MACYSBACK",
+        "MACYS BACKSTAGE",
+        "MACY'S BACKSTAGE"
+      ],
+      "production_status": "ready_mapping",
+      "checklist_status": "canonical",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/MACYSBACKS/CHECKLIST.xlsx",
+      "sha256": "b04e45c274f697e4df4aeef8fbcf4f99c5e66ebc2d39c0bde41d9f094de45194",
+      "source_path": "Customers/Hardcopies de ejemplo/MACYSBACKS/MACYSBACKS CHECKLIST Pt 1763449.xlsx",
+      "source_tier": "Hardcopies de ejemplo",
+      "notes": null,
+      "block_reason": null,
+      "schema": {
+        "sheet_name": "MACYS",
+        "header_row": 24,
+        "data_start_row": 25,
+        "columns": {
+          "style_code": 3,
+          "color_code": 4,
+          "customer_style": 5,
+          "qty_total": 6,
+          "sub_sku": 7
+        }
+      }
+    },
+    "MANDEE": {
+      "aliases": [
+        "MANDEE"
+      ],
+      "production_status": "blocked",
+      "checklist_status": "missing_approved_template",
+      "allow_generation": false,
+      "bundled_template_path": null,
+      "sha256": null,
+      "source_path": null,
+      "source_tier": "No encontrada",
+      "notes": "No encontré checklist ni hardcopy de Mandee en el ZIP. Se necesita un ejemplo real.",
+      "block_reason": "No verified source hardcopy or checklist.",
+      "schema": null
+    },
+    "MARSHALLS": {
+      "aliases": [
+        "MARSHALLS",
+        "MARSHAECOM",
+        "MARSHA ECOM"
+      ],
+      "production_status": "ready_mapping",
+      "checklist_status": "canonical",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/MARSHALLS/CHECKLIST.xlsx",
+      "sha256": "a1de21d3c11f2056d16500cb779a450b3245b45f8bb38365b226d13541271e7d",
+      "source_path": "Customers/Hardcopies de ejemplo/MARSHALLS/Checklist Marshalls PT 1743913.xlsx",
+      "source_tier": "Hardcopies de ejemplo",
+      "notes": "Marshalls tendrá su propia checklist, aunque visualmente se parezca a TJMAXX.",
+      "block_reason": null,
+      "schema": {
+        "sheet_name": "CHECKLIST",
+        "header_row": 26,
+        "data_start_row": 27,
+        "columns": {
+          "pick_ticket_no": 1,
+          "order_no": 2,
+          "style_code": 3,
+          "color_code": 4,
+          "qty_total": 5,
+          "store_code": 6,
+          "dc_name": 7,
+          "customer_style": 8,
+          "dept_code": 9
+        }
+      }
+    },
+    "MESALVEINC": {
+      "aliases": [
+        "MESALVEINC",
+        "ME SALVE",
+        "MESALVE",
+        "MELSALVE"
+      ],
+      "production_status": "ready_mapping",
+      "checklist_status": "canonical",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/MESALVEINC/CHECKLIST.xlsx",
+      "sha256": "11db28344da76ec426093efb6408c07df2f7b4e96830e60fcb2d35069556b1ec",
+      "source_path": "Customers/Hardcopies de ejemplo/MESALVEINC/MELSALVE CHECKLIST - PT  1773458.xlsx",
+      "source_tier": "Hardcopies de ejemplo",
+      "notes": null,
+      "block_reason": null,
+      "schema": {
+        "sheet_name": "Sheet1",
+        "header_row": 44,
+        "data_start_row": 45,
+        "columns": {
+          "style_code": 1,
+          "color_code": 2,
+          "sub_style": 3,
+          "customer_sku": 4,
+          "qty_total": 5,
+          "pick_ticket_no": 6,
+          "order_no": 7
+        }
+      }
+    },
+    "OLLIES": {
+      "aliases": [
+        "OLLIES",
+        "OLLIE'S",
+        "OLLIE S"
+      ],
+      "production_status": "ready_mapping",
+      "checklist_status": "canonical",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/OLLIES/CHECKLIST.xlsx",
+      "sha256": "2d579a443ae7944b6f51c8704dbc625cdc282db0eb8a6cd1bc8dc38fcf47b685",
+      "source_path": "Customers/Hardcopies de ejemplo/OLLIES/OLLIES CHECK LIST PT 1768078.xlsx",
+      "source_tier": "Hardcopies de ejemplo",
+      "notes": null,
+      "block_reason": null,
+      "schema": {
+        "sheet_name": "Sheet1",
+        "header_row": 19,
+        "data_start_row": 20,
+        "columns": {
+          "style_code": 1,
+          "color_code": 2,
+          "qty_total": 3,
+          "customer_sku": 4,
+          "description": 5,
+          "sub_sku": 6
+        }
+      }
+    },
+    "SHOE4500": {
+      "aliases": [
+        "SHOE4500",
+        "SHOE SHOW",
+        "SHOESHOW"
+      ],
+      "production_status": "pending_certification",
+      "checklist_status": "canonical",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/SHOE4500/CHECKLIST.xlsx",
+      "sha256": "8ac100835f21c64dd13d3bd008442ffb7e512575364adf1c29b541082eec30ea",
+      "source_path": "Customers/Hardcopies de ejemplo/SHOE4500/Check list PT 1761105.xlsx",
+      "source_tier": "Hardcopies de ejemplo",
+      "notes": "Re-certify size ratio against VR_SKU_Z.",
+      "block_reason": null,
+      "schema": {
+        "sheet_name": "14608",
+        "header_row": 8,
+        "data_start_row": 9,
+        "columns": {
+          "style_code": 1,
+          "color_code": 2,
+          "customer_style": 3,
+          "customer_color": 4,
+          "qty_total": 5,
+          "cartons": 6,
+          "size_raw": 8,
+          "customer_sku": 9
+        }
+      }
+    },
+    "SPENCER": {
+      "aliases": [
+        "SPENCER",
+        "SPENCER'S",
+        "SPENCER GIFTS"
+      ],
+      "production_status": "pending_certification",
+      "checklist_status": "provisional",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/SPENCER/CHECKLIST.xlsx",
+      "sha256": "3edd90ab678ca49710fc45d354f85a0b2fa0845928107c98b776a04ba6957eed",
+      "source_path": "Customers/CLIENTS/CLIENTS/SPENCER/SPENCER'S check list PT 1732795.xlsx",
+      "source_tier": "CLIENTS",
+      "notes": "No apareció en Hardcopies de ejemplo ni en Hermanito 2.0. Se toma de CLIENTS y debe recertificarse.",
+      "block_reason": null,
+      "schema": {
+        "sheet_name": "8948546",
+        "header_row": 31,
+        "data_start_row": 32,
+        "columns": {
+          "style_code": 1,
+          "color_code": 2,
+          "customer_style": 3,
+          "customer_color": 4,
+          "customer_sku": 5,
+          "customer_upc": 6,
+          "description": 7,
+          "qty_total": 8,
+          "pick_ticket_no": 9,
+          "order_no": 10
+        }
+      }
+    },
+    "TILLYS": {
+      "aliases": [
+        "TILLYS",
+        "TILLY'S"
+      ],
+      "production_status": "ready_mapping",
+      "checklist_status": "canonical",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/TILLYS/CHECKLIST.xlsx",
+      "sha256": "bb3218fc7581fbe4649cc26214520f84aa547abd73afd4e84ed0ace08aa5b0d9",
+      "source_path": "Customers/Hardcopies de ejemplo/TILLYS/TILLYS  check list PT 1743762-1743765.xlsx",
+      "source_tier": "Hardcopies de ejemplo",
+      "notes": null,
+      "block_reason": null,
+      "schema": {
+        "sheet_name": "CHECKLIST",
+        "header_row": 18,
+        "data_start_row": 19,
+        "columns": {
+          "style_code": 1,
+          "color_code": 2,
+          "customer_style": 3,
+          "description": 4,
+          "qty_total": 5
+        }
+      }
+    },
+    "TJMAXX": {
+      "aliases": [
+        "TJMAXX",
+        "TJ MAXX",
+        "TJXECOM",
+        "TJX ECOMM",
+        "MTJX ECOMM"
+      ],
+      "production_status": "blocked",
+      "checklist_status": "canonical",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/TJMAXX/CHECKLIST.xlsx",
+      "sha256": "1d5ad52f28f964df429d5bb026fbf820ca9c6020c68f3bc0e18787755868bfed",
+      "source_path": "Customers/Hardcopies de ejemplo/TJMAXX/Checklist  PT 1771915-1771919.xlsx",
+      "source_tier": "Hardcopies de ejemplo",
+      "notes": "TJMAXX tendrá su propia checklist. No se reutilizará automáticamente la de Marshalls.",
+      "block_reason": "STORE_NO/DC and final A2000 ORDER_NO are not authoritative.",
+      "schema": {
+        "sheet_name": "CHECKLIST",
+        "header_row": 26,
+        "data_start_row": 27,
+        "columns": {
+          "pick_ticket_no": 1,
+          "order_no": 2,
+          "style_code": 3,
+          "color_code": 4,
+          "qty_total": 5,
+          "store_code": 6,
+          "dc_name": 7,
+          "customer_style": 8,
+          "dept_code": 9
+        }
+      }
+    },
+    "VARIETYWHO": {
+      "aliases": [
+        "VARIETYWHO",
+        "VARIETY WHOLESALERS",
+        "VARIETY"
+      ],
+      "production_status": "ready_mapping",
+      "checklist_status": "canonical",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/VARIETYWHO/CHECKLIST.xlsx",
+      "sha256": "898dee08ee02b9b6a942e07429ab04a3e2515b9f5e4b468758143dc080785a8b",
+      "source_path": "Customers/Hardcopies de ejemplo/VARIETYWHO/VARIETY check list PT 1751919 - 1751920.xlsx",
+      "source_tier": "Hardcopies de ejemplo",
+      "notes": null,
+      "block_reason": null,
+      "schema": {
+        "sheet_name": "Sheet1",
+        "header_row": 25,
+        "data_start_row": 26,
+        "columns": {
+          "style_code": 1,
+          "color_code": 2,
+          "customer_style": 3,
+          "customer_sku": 4,
+          "qty_total": 5,
+          "cartons": 6,
+          "packing_instructions": 7
+        }
+      }
+    },
+    "VERSONA": {
+      "aliases": [
+        "VERSONA"
+      ],
+      "production_status": "ready_mapping",
+      "checklist_status": "canonical",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/VERSONA/CHECKLIST.xlsx",
+      "sha256": "b5b945f7f5e90e7e3cbb7746182ed94021ffbfe0c37dd230e87ceebbfc124573",
+      "source_path": "Customers/Hardcopies de ejemplo/Versona/VERSONA PT 1764800.xlsx",
+      "source_tier": "Hardcopies de ejemplo",
+      "notes": "Aunque el nombre no dice CHECKLIST, el contenido sí corresponde a la checklist del customer.",
+      "block_reason": null,
+      "schema": {
+        "sheet_name": "501165",
+        "header_row": 22,
+        "data_start_row": 23,
+        "columns": {
+          "order_no": 1,
+          "style_code": 2,
+          "customer_style": 3,
+          "qty_total": 4,
+          "cartons": 5,
+          "carton_id": 6,
+          "dept_code": 7,
+          "tickets": 8
+        }
+      }
+    },
+    "ZUMIEZ": {
+      "aliases": [
+        "ZUMIEZ",
+        "ZUMIEZ SERVICES INC"
+      ],
+      "production_status": "ready_mapping",
+      "checklist_status": "canonical",
+      "allow_generation": true,
+      "bundled_template_path": "canonical/ZUMIEZ/CHECKLIST.xlsx",
+      "sha256": "1e62ffb92aa7c02297e765117e4e0f049b585a87f3a08ebe068604cbbe2ca3f1",
+      "source_path": "Customers/Hardcopies de ejemplo/ZUMIEZ/CHECKLIST PT 1735902.xlsx",
+      "source_tier": "Hardcopies de ejemplo",
+      "notes": null,
+      "block_reason": null,
+      "schema": {
+        "sheet_name": "Sheet1",
+        "header_row": 16,
+        "data_start_row": 17,
+        "columns": {
+          "style_code": 1,
+          "customer_style": 2,
+          "qty_total": 3,
+          "customer_upc": 4,
+          "customer_sku": 5
+        }
+      }
+    }
+  }
+}

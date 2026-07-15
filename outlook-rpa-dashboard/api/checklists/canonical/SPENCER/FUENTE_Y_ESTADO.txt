@@ -1,0 +1,6 @@
+Customer: SPENCER
+Aliases: Spencer Gifts
+Estado: PROVISIONAL
+Nivel de fuente: CLIENTS
+Ruta original: Customers/CLIENTS/CLIENTS/SPENCER/SPENCER'S check list PT 1732795.xlsx
+Notas: No apareció en Hardcopies de ejemplo ni en Hermanito 2.0. Se toma de CLIENTS y debe recertificarse.

@@ -1,0 +1,6 @@
+Customer: COLONY
+Aliases: Colony Brands
+Estado: CANÓNICA
+Nivel de fuente: Hardcopies de ejemplo
+Ruta original: Customers/Hardcopies de ejemplo/colony/COLONY BRANDS CHECKLIST.xlsx
+Notas: 

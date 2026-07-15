@@ -1,0 +1,6 @@
+Customer: CARNIVAL
+Aliases: Carnival
+Estado: CANÓNICA
+Nivel de fuente: Hermanito parche 2.0
+Ruta original: Customers/Hermanito parche 2.0/Customers/Carnival/PT/Carnival Checklist PT 1763032 - 1763033.xlsx
+Notas: Checklist encontrada en la segunda fuente prioritaria.

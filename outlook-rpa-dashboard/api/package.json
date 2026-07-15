@@ -12,7 +12,15 @@
     "demo:export": "node src/run-demo-export-cli.js",
     "test:a2000": "node --test test/a2000/*.test.js",
     "a2000:preflight": "node src/debug-a2000-rest-readonly-preflight.js",
-    "a2000:upload": "node src/run-a2000-rest-upload-cli.js"
+    "a2000:upload": "node src/run-a2000-rest-upload-cli.js",
+    "health:a2000": "bash ./run-a2000-health.sh",
+    "recover:v474": "bash ./run-v474-reprocess.sh",
+    "audit:v477": "bash ./run-v477-final-audit.sh",
+    "audit:v4771": "bash ./run-v477-final-audit.sh",
+    "audit:v4772": "bash ./run-v477-final-audit.sh",
+    "test:checklists": "node --test test/checklists/*.test.js",
+    "verify:checklists": "python3 scripts/verify_canonical_checklists.py",
+    "repair:checklists": "node scripts/repair-generated-checklists.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",

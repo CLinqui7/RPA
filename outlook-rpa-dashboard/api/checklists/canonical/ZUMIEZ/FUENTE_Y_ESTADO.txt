@@ -1,0 +1,6 @@
+Customer: ZUMIEZ
+Aliases: Zumiez
+Estado: CANÓNICA
+Nivel de fuente: Hardcopies de ejemplo
+Ruta original: Customers/Hardcopies de ejemplo/ZUMIEZ/CHECKLIST PT 1735902.xlsx
+Notas: 

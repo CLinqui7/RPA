@@ -1,0 +1,6 @@
+Customer: VARIETYWHO
+Aliases: Variety Wholesalers
+Estado: CANÓNICA
+Nivel de fuente: Hardcopies de ejemplo
+Ruta original: Customers/Hardcopies de ejemplo/VARIETYWHO/VARIETY check list PT 1751919 - 1751920.xlsx
+Notas: 

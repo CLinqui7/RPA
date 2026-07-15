@@ -1,0 +1,6 @@
+Customer: CITI
+Aliases: Citi Trends
+Estado: CANÓNICA
+Nivel de fuente: Hardcopies de ejemplo
+Ruta original: Customers/Hardcopies de ejemplo/citi/Citi Trends CHECK LIST PT 1753086.xlsx
+Notas: 

@@ -1,0 +1,6 @@
+Customer: ITSFASHION
+Aliases: It's Fashion
+Estado: CANÓNICA
+Nivel de fuente: Hardcopies de ejemplo
+Ruta original: Customers/Hardcopies de ejemplo/ITSFASHION/ITS FASHION PT 1747160-1747168 2.xlsx
+Notas: Aunque el nombre no dice CHECKLIST, el workbook contiene la hoja CHECKLIST y es la plantilla correcta.
