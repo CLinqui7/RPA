@@ -1,9 +1,4 @@
-import express from 'express';
-import crypto from 'node:crypto';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import cors from 'cors';
+import { createOperationalExtensionsRouter, startOperationalExtensions } from './a2000/operationalExtensions.js';
 import { config } from './config.js';
 import { runScan } from './runScan.js';
 import { listEvents, markEvent } from './runRepository.js';
@@ -24,7 +19,14 @@ import {
 } from './po/productionWorkflow.js';
 import { checklistCatalog, checklistDownloadPath, generateChecklistForOrder, rebuildChecklistCatalog } from './checklists/checklistService.js';
 import { rowsToCsv, A2000_HEADER_COLUMNS, A2000_LINE_COLUMNS } from './a2000/csv.js';
+import { officialMasterReferenceUpc } from './a2000/restMapper.js';
 import { applyExplicitA2000QtyBuckets, hasBlockingA2000Conflicts, isStrictA2000Header, isStrictA2000Line, strictHeaderMissing, strictLineMissing } from './a2000/strictImport.js';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import express from 'express';
+import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import cors from 'cors';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const API_ROOT = path.resolve(__dirname, '..');
@@ -43,6 +45,7 @@ app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 app.use(express.json());
 
+app.use('/po', createOperationalExtensionsRouter());
 const EXPORTS_DIR = path.join(API_ROOT, 'exports');
 app.use('/exports', express.static(EXPORTS_DIR));
 
@@ -251,7 +254,10 @@ function a2000LineRowFromParsed(item, line) {
   row.SIZE_NO = cleanExportValue(line.a2000_size_no);
   row.CUST_STYLE1 = trimExport(line.cust_style1, 6);
   row.CUST_STYLE2 = trimExport(line.cust_style2, 20);
-  row.REF = trimExport(line.reference, 15);
+  row.REF = trimExport(
+    officialMasterReferenceUpc(line) || line.reference,
+    15
+  );
   row.LIST_PRICE = cleanExportValue(line.list_price);
   return row;
 }
@@ -1045,28 +1051,84 @@ app.post('/events/:id/status', async (req, res) => {
 });
 
 let running = false;
+let scanStatus = {
+  running: false,
+  status: 'idle',
+  started_at: null,
+  finished_at: null,
+  error: null,
+  result: null
+};
+
+app.get('/run-scan/status', (_req, res) => {
+  res.json(scanStatus);
+});
 
 app.post('/run-scan', async (_req, res) => {
-  if (running) return res.status(409).json({ error: 'RPA already running' });
+  if (running) {
+    return res.status(202).json({
+      ok: true,
+      accepted: true,
+      already_running: true,
+      message: 'Outlook RPA is already running',
+      status_url: '/run-scan/status',
+      ...scanStatus
+    });
+  }
 
   running = true;
-  try {
-    const result = await runScan();
-    res.json({
-      ...result,
-      scope: {
-        subject_filter: DEFAULT_INVOICE_SUBJECT_FILTER,
-        note: 'El scanner descarga/guarda solo correos recibidos cuyo asunto coincide con este filtro.'
-      }
+  scanStatus = {
+    running: true,
+    status: 'running',
+    started_at: new Date().toISOString(),
+    finished_at: null,
+    error: null,
+    result: null
+  };
+
+  res.status(202).json({
+    ok: true,
+    accepted: true,
+    message: 'Outlook RPA started',
+    status_url: '/run-scan/status',
+    ...scanStatus
+  });
+
+  void runScan()
+    .then(result => {
+      scanStatus = {
+        running: false,
+        status: 'completed',
+        started_at: scanStatus.started_at,
+        finished_at: new Date().toISOString(),
+        error: null,
+        result: {
+          run: result.run,
+          email_count: result.emails?.length || 0,
+          document_count: result.documents?.length || 0,
+          processing: result.processing || null
+        }
+      };
+    })
+    .catch(error => {
+      scanStatus = {
+        running: false,
+        status: 'error',
+        started_at: scanStatus.started_at,
+        finished_at: new Date().toISOString(),
+        error: error.message,
+        result: null
+      };
+    })
+    .finally(() => {
+      running = false;
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  } finally {
-    running = false;
-  }
 });
 
 app.listen(config.port, () => {
   console.log(`API running on http://localhost:${config.port}`);
   console.log(`Invoice subject filter: ${DEFAULT_INVOICE_SUBJECT_FILTER}`);
+  startOperationalExtensions().catch(error => {
+    console.error('Operational extensions failed to start:', error.message);
+  });
 });

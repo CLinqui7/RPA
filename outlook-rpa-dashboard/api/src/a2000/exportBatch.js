@@ -1,9 +1,23 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { supabase } from '../supabase.js';
+import {
+  supabase } from '../supabase.js';
 import { ensureExportsDir } from '../po/poRepository.js';
-import { rowsToCsv, A2000_HEADER_COLUMNS, A2000_LINE_COLUMNS } from './csv.js';
-import { applyExplicitA2000QtyBuckets, hasBlockingA2000Conflicts, isStrictA2000Header, isStrictA2000Line } from './strictImport.js';
+import { rowsToCsv,
+  A2000_HEADER_COLUMNS,
+  A2000_LINE_COLUMNS } from './csv.js';
+import { applyExplicitA2000QtyBuckets,
+  hasBlockingA2000Conflicts,
+  isStrictA2000Header,
+  isStrictA2000Line } from './strictImport.js';
+
+// A2000_BUSINESS_RULES_V2_INTEGRATED
+import {
+  resolveBackOrderForOrder,
+  resolveCustomerSkuForLine,
+  resolveSalesRepForOrder,
+  resolveSecondCustomerStyleForLine
+} from './businessRules/index.js';
 
 function toExportUrl(filePath) {
   const marker = `${path.sep}exports${path.sep}`;
@@ -96,7 +110,7 @@ function orderToA2000HeaderRow(order) {
   row.DISC_CODE = clean(order.discount_code);
   row.FACTOR_NO = clean(order.factor_code);
   row.FACTOR_APPR_NO = clean(order.factor_approval_no);
-  row.SMAN1_NO = clean(order.salesman1_code);
+  row.SMAN1_NO = resolveSalesRepForOrder(order).value;
   row.SMAN2_NO = clean(order.salesman2_code);
   row.SMAN3_NO = clean(order.salesman3_code);
   row.SMAN1_COMM = clean(order.salesman1_comm);
@@ -104,7 +118,7 @@ function orderToA2000HeaderRow(order) {
   row.SMAN3_COMM = clean(order.salesman3_comm);
   row.USER_REF1 = trimMax(order.order_no || order.source_file_name || order.customer_raw, 20);
   row.USER_REF2 = trimMax(order.terms_raw || '', 20);
-  row.BACK_ORDER = clean(order.back_order);
+  row.BACK_ORDER = resolveBackOrderForOrder(order).value;
   row.MASTER_INVOICE = clean(order.master_invoice);
   row.REORDER = clean(order.reorder);
   row.TAG = clean(order.tag);
@@ -148,14 +162,14 @@ function lineToA2000LineRow(order, line) {
   // Size Name/scale labels from masters are not proven to be ORDER_LI.SIZE_NO.
   // Export SIZE_NO only when an explicit A2000 size number has been resolved.
   row.SIZE_NO = clean(line.a2000_size_no);
-  row.CUST_STYLE1 = trimMax(line.cust_style1 || '', 6);
-  row.CUST_STYLE2 = trimMax(line.cust_style2 || '', 20);
+  row.CUST_STYLE1 = resolveCustomerSkuForLine(line, order).value;
+  row.CUST_STYLE2 = resolveSecondCustomerStyleForLine(line).value;
   row.SUB_STYLE = clean(line.sub_style);
   row.SUB_COLOR_NO = clean(line.sub_color_code);
   row.REF = trimMax(line.reference || '', 15);
   row.ORDER_ALIAS = clean(order.order_alias);
   row.LIST_PRICE = clean(line.list_price);
-  row.SMAN1_NO = clean(order.salesman1_code);
+  row.SMAN1_NO = resolveSalesRepForOrder(order).value;
   row.SMAN2_NO = clean(order.salesman2_code);
   row.SMAN3_NO = clean(order.salesman3_code);
   row.SMAN1_COMM = clean(order.salesman1_comm);

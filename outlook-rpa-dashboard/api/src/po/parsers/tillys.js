@@ -25,19 +25,34 @@ export function parseTillys({ text }) {
   const customerStyleRaw = clean(customerStyleMatch?.[1]) || null;
   const descriptionRaw = clean(customerStyleMatch?.[2]) || null;
 
-  // Require a hyphenated vendor-style token so the PO header number cannot be mistaken for a detail row.
-  const vendorStyleLine = rawLines.find((line) => /^\s*\d{2,4}\s+[A-Z0-9]+(?:-[A-Z0-9]+){2,}\s{2,}[A-Z0-9./-]+\s*$/i.test(line)) || '';
-  const vendorStyleMatch = vendorStyleLine.match(/^\s*(\d{2,4})\s+([A-Z0-9]+(?:-[A-Z0-9]+){2,})\s{2,}([A-Z0-9./-]+)\s*$/i);
+  const vendorStyleLineIndex = rawLines.findIndex(
+    (line) => /^\s*\d{2,4}\s+[A-Z0-9]+(?:-[A-Z0-9]+){2,}\s{2,}[A-Z0-9./-]+\s*$/i.test(line)
+  );
+  const vendorStyleLine = vendorStyleLineIndex >= 0
+    ? rawLines[vendorStyleLineIndex]
+    : '';
+  const vendorStyleMatch = vendorStyleLine.match(
+    /^\s*(\d{2,4})\s+([A-Z0-9]+(?:-[A-Z0-9]+){2,})\s{2,}([A-Z0-9./-]+)\s*$/i
+  );
   const subClassRaw = clean(vendorStyleMatch?.[1]) || null;
   const vendorStyleRaw = clean(vendorStyleMatch?.[2]) || null;
   const sizeRaw = clean(vendorStyleMatch?.[3]) || null;
 
-  const colorNameLineIndex = rawLines.findIndex((line) => /^\s*[A-Z][A-Z /-]+\s*$/.test(line) && /BURGUNDY/i.test(line));
-  const colorNameRaw = colorNameLineIndex >= 0 ? clean(rawLines[colorNameLineIndex]) : null;
-  const colorCodeLine = colorNameLineIndex >= 0 ? rawLines.slice(colorNameLineIndex + 1, colorNameLineIndex + 5).find((line) => /^\s*\d+\s+[A-Z]/.test(line)) || '' : '';
-  const colorCodeMatch = colorCodeLine.match(/^\s*(\d+)\s+(.+?)\s{2,}([\d,.]+)\s+([\d,]+)\s*$/i);
+  const colorWindow = vendorStyleLineIndex >= 0
+    ? rawLines.slice(vendorStyleLineIndex + 1, vendorStyleLineIndex + 12)
+    : rawLines;
+
+  const colorCodeLine = colorWindow.find(
+    (line) => /^\s*\d{2,4}\s+.+?\s{2,}\d+(?:\.\d{2})\s+[\d,]+\s*$/i.test(line)
+  ) || '';
+
+  const colorCodeMatch = colorCodeLine.match(
+    /^\s*(\d{2,4})\s+(.+?)\s{2,}([\d,.]+)\s+([\d,]+)\s*$/i
+  );
+
   const customerColorCodeRaw = clean(colorCodeMatch?.[1]) || null;
-  const colorRaw = colorNameRaw || clean(colorCodeMatch?.[2]) || null;
+  const colorRaw = clean(colorCodeMatch?.[2]) || null;
+  const colorNameRaw = colorRaw;
   const costRaw = normalizeMoney(colorCodeMatch?.[3]);
   const totalUnitsRaw = normalizeInteger(colorCodeMatch?.[4]);
 

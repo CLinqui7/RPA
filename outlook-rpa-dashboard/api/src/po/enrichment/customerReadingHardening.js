@@ -477,6 +477,98 @@ function hardenCarnival(parsed, masters) {
   }
 }
 
+function hardenMarshalls(parsed, masters) {
+  if (upper(parsed.header?.customer_code) !== 'MARSHALLS') return;
+
+  let extractedTotal = 0;
+
+  for (const line of parsed.lines || []) {
+    const totalUnits = positiveInteger(
+      line.raw?.total_units_raw
+      ?? line.qty_total
+    );
+    const dcUnits = positiveInteger(
+      line.raw?.dc_units_raw
+    );
+
+    if (!totalUnits) {
+      addConflictOnce(parsed, {
+        field: 'qty_total',
+        line_no: line.line_no,
+        code: 'marshalls_total_units_missing',
+        severity: 'high',
+        blocking: true,
+        message: 'Marshalls line is missing a positive Total Units value.'
+      });
+      continue;
+    }
+
+    line.qty_total = totalUnits;
+    extractedTotal += totalUnits;
+
+    // The source document does not print a unit cost. SALES_PRICE is optional
+    // and must remain omitted instead of being invented or sent as zero.
+    line.sales_price = null;
+
+    if (dcUnits && dcUnits !== totalUnits) {
+      addConflictOnce(parsed, {
+        field: 'qty_total',
+        line_no: line.line_no,
+        code: 'marshalls_total_units_dc_units_mismatch',
+        severity: 'high',
+        blocking: true,
+        message: 'Marshalls Total Units and destination DC Units differ. The line must be reviewed or split by DC before A2000 upload.',
+        total_units: totalUnits,
+        dc_units: dcUnits
+      });
+      continue;
+    }
+
+    if (hasPositiveSizeDistribution(line)) continue;
+
+    const plan = officialRatioPlan(masters, line);
+
+    if (
+      plan.valid
+      && totalUnits % plan.ratio_total === 0
+    ) {
+      const multiplier = totalUnits / plan.ratio_total;
+
+      applyRatioDistribution(
+        line,
+        plan,
+        multiplier,
+        'marshalls_total_units_exact_official_vr_sku_z_ratio'
+      );
+
+      addWarningOnce(parsed, {
+        field: 'qty_size_distribution',
+        line_no: line.line_no,
+        code: 'marshalls_total_units_official_ratio_applied',
+        severity: 'low',
+        blocking: false,
+        message: 'Marshalls Total Units were distributed only through the exact official VR_SKU_Z ratio for the resolved Style/Color.',
+        total_units: totalUnits,
+        dc_units: dcUnits,
+        ratio_total: plan.ratio_total,
+        pack_multiplier: multiplier,
+        scale: plan.scale
+      });
+    }
+  }
+
+  parsed.totals = parsed.totals || {};
+  parsed.totals.qty = extractedTotal || null;
+  parsed.totals.quantity_source = 'MARSHALLS_TOTAL_UNITS';
+  parsed.totals.destination_dc_units_verified = (parsed.lines || []).every(
+    line => {
+      const totalUnits = positiveInteger(line.raw?.total_units_raw ?? line.qty_total);
+      const dcUnits = positiveInteger(line.raw?.dc_units_raw);
+      return Boolean(totalUnits && dcUnits && totalUnits === dcUnits);
+    }
+  );
+}
+
 function isoDate(value) {
   const raw = clean(value);
   if (!raw) return null;
@@ -599,6 +691,7 @@ export function applyCustomerReadingHardening(parsed, providedMasters = null) {
     hardenTenBelow(parsed, masters);
     hardenGabrielBro(parsed, masters);
     hardenCarnival(parsed, masters);
+    hardenMarshalls(parsed, masters);
   }
 
   return parsed;

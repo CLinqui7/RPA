@@ -53,8 +53,37 @@ function appendStyleSuffix(styleRaw, suffixRaw) {
 }
 
 function suffixLineAfterRow(rawLines, startIndex) {
-  const candidate = tokenClean(rawLines[startIndex + 1] || '');
-  return isStandaloneStyleSuffix(candidate) ? candidate : null;
+  const candidate = tokenClean(
+    rawLines[startIndex + 1] || ''
+  );
+
+  if (!candidate) return null;
+
+  if (
+    /^\d{5,12}\b/.test(candidate)
+    || /^Total\b/i.test(candidate)
+  ) {
+    return null;
+  }
+
+  // pdftotext -layout can put the remainder of MFG Style
+  // on the visual row immediately below the SKU row:
+  //
+  // EDH02901S-  +  42-BWU
+  // EHH705-42-  +  USH Tattoo/Black
+  //
+  // Only the first token belongs to the printed composite style.
+  const firstToken = candidate.split(/\s+/)[0] || '';
+
+  if (
+    /^[A-Z0-9]{2,8}(?:-[A-Z0-9]{2,8})+$/i.test(firstToken)
+  ) {
+    return firstToken;
+  }
+
+  return isStandaloneStyleSuffix(firstToken)
+    ? firstToken
+    : null;
 }
 
 function isSkuToken(value) {
@@ -163,6 +192,156 @@ function extractStore(text) {
 
 function extractTerms(text) {
   return compactText(text).match(/\b(ROG\s*NET\s*\d+)\b/i)?.[1]?.replace(/\s+/g, ' ').toUpperCase() || null;
+}
+
+
+function normalizeBeallsTableGlyphs(value) {
+  return String(value || '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[\u0000-\u001f\u007f-\u009f\uFFFD\uFFF0-\uFFFF]/g, '-')
+    .replace(/[‐‑‒–—−]/g, '-')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isBeallsBulkDomesticLayout(text) {
+  const one = compactText(text);
+  return /BulkDomestic-\d+-\d+\b/i.test(one)
+    && /\bSKU\s+MFG\s+Style\s+MFG\s+Color\s+Size\s+Desc\./i.test(one)
+    && /\bTotal\s+Cost\b/i.test(one)
+    && /\bTotal\s+Qty\./i.test(one);
+}
+
+function parseBulkDomesticRowsStrict(text) {
+  if (!isBeallsBulkDomesticLayout(text)) return [];
+
+  const normalized = String(text || '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[\uFFFD\uFFF0-\uFFFF]/g, '-')
+    .replace(/[‐‑‒–—−]/g, '-');
+
+  const lines = normalized.split(/\r?\n/);
+
+  const headerIndex = lines.findIndex((line) => (
+    /\bSKU\b/i.test(line)
+    && /\bMFG\s+Style\b/i.test(line)
+    && /\bMFG\s+Color\b/i.test(line)
+    && /\bSize\s+Desc\./i.test(line)
+  ));
+
+  if (headerIndex < 0) return [];
+
+  const rows = [];
+  let index = headerIndex + 1;
+
+  while (index < lines.length) {
+    const rawLine = lines[index];
+
+    if (/\bTotal\s+Cost\b/i.test(rawLine)) break;
+
+    const rowMatch = rawLine.match(
+      /^\s*(\d{5,12})\s+(.+?)\s{2,}(.+?)\s{2,}(\.)\s{2,}(.+?)\s+\$\s*(\d{1,6}(?:\.\d{2})?)\s+(\d{1,7})\s*$/
+    );
+
+    if (!rowMatch) {
+      index += 1;
+      continue;
+    }
+
+    const customerSku = rowMatch[1];
+    let styleComposite = normalizeStyleRaw(rowMatch[2]);
+    let visualColor = tokenClean(rowMatch[3]);
+    const sizeRaw = rowMatch[4];
+    const description = tokenClean(rowMatch[5]);
+    const salesPrice = money(rowMatch[6]);
+    const qtyTotal = int(rowMatch[7]);
+
+    const rawSource = [rawLine];
+
+    index += 1;
+
+    while (index < lines.length) {
+      const continuation = lines[index];
+
+      if (
+        /^\s*\d{5,12}\s+/.test(continuation)
+        || /\bTotal\s+Cost\b/i.test(continuation)
+      ) {
+        break;
+      }
+
+      const trimmed = continuation.trim();
+
+      if (trimmed) {
+        rawSource.push(continuation);
+
+        const parts = trimmed
+          .split(/\s{2,}/)
+          .map((part) => part.trim())
+          .filter(Boolean);
+
+        if (parts.length > 0) {
+          const first = parts[0];
+
+          if (/^[A-Z0-9]+(?:-[A-Z0-9]+)*$/i.test(first)) {
+            styleComposite = normalizeStyleRaw(
+              `${styleComposite}${first}`
+            );
+
+            if (parts.length > 1) {
+              visualColor = tokenClean(
+                `${visualColor} ${parts.slice(1).join(' ')}`
+              );
+            }
+          } else {
+            visualColor = tokenClean(
+              `${visualColor} ${parts.join(' ')}`
+            );
+          }
+        }
+      }
+
+      index += 1;
+    }
+
+    styleComposite = styleComposite
+      .replace(/\s+/g, '')
+      .replace(/-{2,}/g, '-')
+      .replace(/-+$/g, '');
+
+    const styleParts = styleComposite
+      .split('-')
+      .filter(Boolean);
+
+    if (styleParts.length < 3) {
+      continue;
+    }
+
+    const colorCode = styleParts.at(-1);
+    const styleCode = styleParts.slice(0, -1).join('-');
+
+    rows.push({
+      customer_sku: customerSku,
+      style_raw: styleCode,
+      color_raw: colorCode,
+      size_raw: sizeRaw,
+      description,
+      sales_price: salesPrice,
+      qty_total: qtyTotal,
+      raw_source: rawSource,
+      source_strategy:
+        'bealls_bulkdomestic_layout_parser_v3',
+      printed_composite_style: styleComposite,
+      printed_style_base: styleCode,
+      printed_color_code: colorCode,
+      visual_color_description: visualColor,
+      explicit_composite_style_color: true
+    });
+  }
+
+  return rows;
 }
 
 function parseSkuWindow(rawLines, startIndex) {
@@ -330,11 +509,22 @@ function rowsToLines(rows) {
         sales_price: row.sales_price,
         qty_total: 0,
         customer_sku: row.customer_sku || null,
+        sourceStrategies: new Set(),
+        printedStyleBases: new Set(),
+        printedStyleSuffixes: new Set(),
+        printedCompositeStyles: new Set(),
+        visualColorDescriptions: new Set(),
         sourceRows: []
       });
     }
     const group = groups.get(key);
     group.qty_total += Number(row.qty_total || 0);
+    if (row.source_strategy) group.sourceStrategies.add(row.source_strategy);
+    if (row.printed_style_base) group.printedStyleBases.add(row.printed_style_base);
+    if (row.printed_style_suffix) group.printedStyleSuffixes.add(row.printed_style_suffix);
+    if (row.printed_color_code) group.printedStyleSuffixes.add(row.printed_color_code);
+    if (row.printed_composite_style) group.printedCompositeStyles.add(row.printed_composite_style);
+    if (row.visual_color_description) group.visualColorDescriptions.add(row.visual_color_description);
     group.sourceRows.push(row);
   }
 
@@ -354,15 +544,22 @@ function rowsToLines(rows) {
     sales_price: group.sales_price,
     list_price: null,
     qty_total: group.qty_total,
+    qty_sz1: (group.sourceStrategies.has('bealls_bulkdomestic_layout_parser_v3') && group.size_raw === '.') ? group.qty_total : null,
     warehouse_code: null,
     raw: {
-      source: 'bealls_v21_raw_master_only',
+      source: group.sourceStrategies.has('bealls_bulkdomestic_layout_parser_v3') ? 'bealls_bulkdomestic_layout_parser_v3' : 'bealls_v21_raw_master_only',
       vendor_style_raw: group.style_raw,
       style_resolution_hint: 'EXACT_MASTER_SKU_NORMALIZED',
       style_similarity_semantics: 'NEAREST_OFFICIAL_STYLE_CODE',
       quantity_raw: group.qty_total,
       quantity_semantics: 'EACH',
       quantity_uom_raw: 'TOTAL UNITS',
+      quantity_bucket_source: (group.sourceStrategies.has('bealls_bulkdomestic_layout_parser_v3') && group.size_raw === '.') ? 'BEALLS_BULK_SINGLE_SIZE_DOT_TOTAL_UNITS' : null,
+      printed_style_base: [...group.printedStyleBases][0] || null,
+      printed_style_suffix: [...group.printedStyleSuffixes][0] || null,
+      printed_composite_style: [...group.printedCompositeStyles][0] || null,
+      visual_color_description: [...group.visualColorDescriptions][0] || null,
+      explicit_composite_style_color: group.sourceStrategies.has('bealls_bulkdomestic_layout_parser_v3') && group.printedStyleSuffixes.size === 1,
       source_rows: group.sourceRows
     }
   }));
@@ -371,9 +568,9 @@ function rowsToLines(rows) {
 function extractBeallsLines(text) {
   const rows = [];
   const seen = new Set();
-  const lineRows = parseRowsFromLines(text);
-  // If normal line extraction works, do NOT also run compact extraction.
-  // Compact fallback can over-match across several table rows and create ghost duplicates.
+  const strictBulkRows = parseBulkDomesticRowsStrict(text);
+  const lineRows = strictBulkRows.length ? strictBulkRows : parseRowsFromLines(text);
+  // BulkDomestic uses its isolated strict parser; other Bealls layouts keep the previous parser.
   const sourceRows = lineRows.length ? lineRows : parseRowsFromCompactText(text);
   for (const row of sourceRows) {
     const key = [row.customer_sku, row.style_raw, row.color_raw, row.sales_price, row.qty_total, row.description].join('|');
@@ -420,7 +617,7 @@ export function parseBealls({ text, fileName }) {
   return {
     parser: 'bealls',
     document_family: 'bealls_purchase_order',
-    layout_version: 'bealls_v21_raw_master_only',
+    layout_version: isBeallsBulkDomesticLayout(rawText) ? 'bealls_bulkdomestic_layout_parser_v3' : 'bealls_v21_raw_master_only',
     document_identity: {
       legal_entity_raw: customerRaw,
       brand_raw: customerRaw,

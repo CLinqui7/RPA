@@ -11,6 +11,62 @@ def clean(v): return '' if v is None else str(v).replace('\u00a0',' ').strip()
 def norm(v): return re.sub(r'[^A-Z0-9]', '', clean(v).upper())
 def parse_csv_line(line): return next(csv.reader([line]))
 
+CANCEL_OPEN_LINES_HEADER_ALIASES = {
+    'CANCELOPENLINES',
+    'CANCELOPENLINE',
+    'CANCELOPENLNS',
+    'CANCELOPENLN',
+    'CANCELOPENORDERLINES',
+    'CANCELOPENSALESORDERLINES',
+    'CXLOPENLINES',
+    'CXLOPENLINE',
+    'CNCL​OPENLINES'.replace('\u200b', ''),
+}
+
+def customer_cancel_open_lines_value(row):
+    exact = []
+    semantic = []
+
+    for key, value in (row or {}).items():
+        key_clean = clean(key)
+        token = norm(key_clean)
+        if not token:
+            continue
+
+        item = (clean(value), key_clean)
+
+        if token in CANCEL_OPEN_LINES_HEADER_ALIASES:
+            exact.append(item)
+            continue
+
+        has_cancel = (
+            'CANCEL' in token
+            or 'CNCL' in token
+            or 'CXL' in token
+        )
+        has_open = 'OPEN' in token
+        has_line = (
+            'LINE' in token
+            or token.endswith('LN')
+            or 'LNS' in token
+        )
+
+        if has_cancel and has_open and has_line:
+            semantic.append(item)
+
+    matches = exact or semantic
+
+    if not matches:
+        return '', ''
+
+    nonempty = [
+        item for item in matches
+        if clean(item[0])
+    ]
+
+    selected = nonempty[0] if nonempty else matches[0]
+    return clean(selected[0]), clean(selected[1])
+
 def row_values_from_xlsx(path):
     wb = load_workbook(path, read_only=True, data_only=True)
     ws = wb.active
@@ -93,13 +149,15 @@ def main():
     whse_iter,_=iter_table(master_dir,'whse_master.csv','warehouse_master.csv','whse_master.xlsx','whse_master.csv.xlsx')
 
     print('Writing customers...', flush=True)
-    customers=[]; c_count=0
+    customers=[]; c_count=0; cancel_open_lines_columns=set()
     for r in customer_iter:
         c_count += 1
         code=clean(r.get('Customer')).upper()
         if not code: continue
-        customers.append({'customer':code,'name':clean(r.get('Cust Name')),'name_norm':norm(r.get('Cust Name')),'terms':clean(r.get('Terms')),'terms_description':clean(r.get('Terms Description')),'ship_via':clean(r.get('Ship Via')),'def_wh':clean(r.get('Def Wh')),'div':clean(r.get('Div')),'active':clean(r.get('Active')),'addr1':clean(r.get('Addr 1')),'city':clean(r.get('City')),'state':clean(r.get('State')),'postal':clean(r.get('Postal'))})
-    write_csv(out_dir/'customers.csv', ['customer','name','name_norm','terms','terms_description','ship_via','def_wh','div','active','addr1','city','state','postal'], customers)
+        cancel_open_lines, cancel_open_lines_source = customer_cancel_open_lines_value(r)
+        if cancel_open_lines_source: cancel_open_lines_columns.add(cancel_open_lines_source)
+        customers.append({'customer':code,'name':clean(r.get('Cust Name')),'name_norm':norm(r.get('Cust Name')),'terms':clean(r.get('Terms')),'terms_description':clean(r.get('Terms Description')),'ship_via':clean(r.get('Ship Via')),'def_wh':clean(r.get('Def Wh')),'div':clean(r.get('Div')),'active':clean(r.get('Active')),'addr1':clean(r.get('Addr 1')),'city':clean(r.get('City')),'state':clean(r.get('State')),'postal':clean(r.get('Postal')),'cancel_open_lines':cancel_open_lines,'cancel_open_lines_source':cancel_open_lines_source})
+    write_csv(out_dir/'customers.csv', ['customer','name','name_norm','terms','terms_description','ship_via','def_wh','div','active','addr1','city','state','postal','cancel_open_lines','cancel_open_lines_source'], customers)
 
     print('Writing stores...', flush=True)
     stores=[]; s_count=0; malformed_store_rows=0
@@ -183,7 +241,7 @@ def main():
         warehouses.append({'wh':code,'name':clean(r.get('Wh Name')),'type':clean(r.get('Wh Type')),'addr1':clean(r.get('Wh Addr 1')),'addr2':clean(r.get('Wh Addr 2')),'city':clean(r.get('Wh City')),'state':clean(r.get('Wh State')),'postal':clean(r.get('Wh Postal')),'country':clean(r.get('Wh Country')),'active':clean(r.get('Wh Active'))})
     write_csv(out_dir/'warehouses.csv', ['wh','name','type','addr1','addr2','city','state','postal','country','active'], warehouses)
 
-    manifest={'version':9,'source_policy':'official_masters_only','customer_profile_policy':'master_only_all_customers_v1','store_csv_policy':'reject_shifted_columns_preserve_customer_store_keys_v1','size_bucket_policy':'vr_sku_z_size_num_to_qty_szn_v1','counts':{'customers':c_count,'stores':s_count,'malformed_store_rows':malformed_store_rows,'sku_rows':sku_count,'sku_z_rows':sku_z_count,'upc_rows':upc_count,'colors':color_count,'warehouses':whse_count}}
+    manifest={'version':9,'source_policy':'official_masters_only','customer_profile_policy':'master_only_all_customers_v1','store_csv_policy':'reject_shifted_columns_preserve_customer_store_keys_v1','size_bucket_policy':'vr_sku_z_size_num_to_qty_szn_v1','customer_cancel_open_lines_policy':'discover_exact_customer_master_column_v1','customer_cancel_open_lines_source_columns':sorted(cancel_open_lines_columns),'counts':{'customers':c_count,'stores':s_count,'malformed_store_rows':malformed_store_rows,'sku_rows':sku_count,'sku_z_rows':sku_z_count,'upc_rows':upc_count,'colors':color_count,'warehouses':whse_count}}
     (out_dir/'manifest.json').write_text(__import__('json').dumps(manifest, indent=2), encoding='utf-8')
     print(f'Wrote compact cache to: {out_dir}', flush=True)
     print('Counts:', manifest['counts'], flush=True)

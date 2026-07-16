@@ -202,7 +202,9 @@ function buildFromCompactCsv() {
       'Addr 1': row.addr1,
       City: row.city,
       State: row.state,
-      Postal: row.postal
+      Postal: row.postal,
+      'Cancel Open Lines': row.cancel_open_lines,
+      'Cancel Open Lines Source Column': row.cancel_open_lines_source
     });
     if (row.name_norm) {
       if (!customerNameCodeSets.has(row.name_norm)) customerNameCodeSets.set(row.name_norm, new Set());
@@ -444,4 +446,29 @@ export function normalizeMasterText(value) {
 
 export function normalizeMasterAddressParts({ customer, address1, city, state, postal } = {}) {
   return addressKey(customer, address1, city, state, postal);
+}
+
+
+export function customerMasterOrderDefaults(
+  customerCode,
+  masters = loadMasterData()
+) {
+  const code = clean(customerCode).toUpperCase();
+  const row = masters?.customerByCode?.get(code) || null;
+  const value = clean(row?.['Cancel Open Lines']);
+  const sourceColumn = clean(
+    row?.['Cancel Open Lines Source Column']
+  );
+
+  return {
+    customer_code: code || null,
+    cancel_open_lines: value || null,
+    cancel_open_lines_source_column: sourceColumn || null,
+    cancel_open_lines_authoritative: Boolean(
+      value && sourceColumn
+    ),
+    source: sourceColumn
+      ? 'OFFICIAL_CUSTOMER_MASTER'
+      : 'NOT_FOUND_IN_CUSTOMER_MASTER'
+  };
 }

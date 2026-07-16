@@ -70,21 +70,41 @@ export function hasBlockingA2000Conflicts(entity = {}) {
   return blockingA2000Conflicts(entity).length > 0;
 }
 
-export function strictHeaderMissing(header = {}) {
+export function strictHeaderMissing(header = {}, lines = []) {
   const missing = [];
   const required = [
-    ['customer_code', header.customer_code], ['store_code', header.store_code], ['order_no', header.order_no],
-    ['order_date', header.order_date], ['start_date', header.start_date], ['cancel_date', header.cancel_date],
-    ['terms_code', header.terms_code], ['division_code', header.division_code], ['warehouse_code', header.warehouse_code]
+    ['customer_code', header.customer_code],
+    ['store_code', header.store_code],
+    ['order_no', header.order_no],
+    ['order_date', header.order_date],
+    ['start_date', header.start_date],
+    ['cancel_date', header.cancel_date],
+    ['terms_code', header.terms_code],
+    ['division_code', header.division_code]
   ];
-  for (const [field, value] of required) if (!clean(value)) missing.push(field);
+
+  for (const [field, value] of required) {
+    if (!clean(value)) missing.push(field);
+  }
+
+  const lineList = Array.isArray(lines) ? lines : [];
+  const everyLineHasWarehouse = (
+    lineList.length > 0
+    && lineList.every(line => clean(line?.warehouse_code || header.warehouse_code))
+  );
+
+  if (!clean(header.warehouse_code) && !everyLineHasWarehouse) {
+    missing.push('warehouse_code');
+  }
 
   const orderNo = clean(header.order_no);
   if (orderNo && orderNo.length > 25) missing.push('order_no_max_length');
+
   for (const field of ['order_date', 'start_date', 'cancel_date']) {
     const value = header[field];
     if (clean(value) && !isValidA2000DateValue(value)) missing.push(`${field}_invalid`);
   }
+
   return [...new Set(missing)];
 }
 
@@ -109,8 +129,8 @@ export function strictLineMissing(header = {}, line = {}) {
   return [...new Set(missing)];
 }
 
-export function isStrictA2000Header(header = {}) {
-  return strictHeaderMissing(header).length === 0;
+export function isStrictA2000Header(header = {}, lines = []) {
+  return strictHeaderMissing(header, lines).length === 0;
 }
 
 export function isStrictA2000Line(header = {}, line = {}) {

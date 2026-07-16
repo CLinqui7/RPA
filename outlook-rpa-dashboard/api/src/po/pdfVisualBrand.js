@@ -10,6 +10,27 @@ const execFileAsync = promisify(execFile);
 // Exact first-page logo fingerprints from the canonical customer hardcopies.
 // Detection is visual-template evidence only. It never derives A2000 style/color/qty.
 const VISUAL_BRANDS = Object.freeze([
+  // CUSTOMER_PATTERN_ENGINE_TJX_FINGERPRINTS
+  {
+    code: 'MARSHALLS',
+    signature: '00000000000000000d8060e00fa1f2e81fbf7bf03dfdfffc2dfdfffe3ffffff8',
+    maxHammingDistance: 12
+  },
+  {
+    code: 'MARSHALLS',
+    signature: '1b0060701b0060703f0060703f6f7b785f3b69fc5b79ebf61bb8edf293f9effc',
+    maxHammingDistance: 12
+  },
+  {
+    code: 'MARSHALLS',
+    signature: '00000000090060701b0060701b6ffb762d3d69f82d7debfe49fceff20979affe',
+    maxHammingDistance: 12
+  },
+  {
+    code: 'TJMAXX',
+    signature: 'fe3f3fb0fe7f7fe4266de6fc3fede6f82e6dfffc266dbf3c0e0000060c000003',
+    maxHammingDistance: 12
+  },
   {
     code: 'VERSONA',
     signature: '78000000f4000000fedfdb4afeecd7f2fa6eddf7b24ffb55e40000007c000000',
@@ -130,12 +151,22 @@ export function hammingDistanceHex(left, right) {
 }
 
 export function identifyVisualBrandBySignature(signature) {
-  const matches = VISUAL_BRANDS
+  const candidates = VISUAL_BRANDS
     .map(brand => ({
       ...brand,
       distance: hammingDistanceHex(signature, brand.signature)
     }))
-    .filter(brand => brand.distance <= brand.maxHammingDistance)
+    .filter(brand => brand.distance <= brand.maxHammingDistance);
+
+  const bestByCode = new Map();
+  for (const candidate of candidates) {
+    const existing = bestByCode.get(candidate.code);
+    if (!existing || candidate.distance < existing.distance) {
+      bestByCode.set(candidate.code, candidate);
+    }
+  }
+
+  const matches = [...bestByCode.values()]
     .sort((left, right) => left.distance - right.distance);
 
   if (!matches.length) return null;

@@ -20,7 +20,8 @@
     "audit:v4772": "bash ./run-v477-final-audit.sh",
     "test:checklists": "node --test test/checklists/*.test.js",
     "verify:checklists": "python3 scripts/verify_canonical_checklists.py",
-    "repair:checklists": "node scripts/repair-generated-checklists.mjs"
+    "repair:checklists": "node scripts/repair-generated-checklists.mjs",
+    "recover:bealls1915414": "node scripts/recover-bealls-1915414.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",

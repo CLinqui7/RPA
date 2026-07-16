@@ -22,6 +22,7 @@ import {
 } from './outlookAttachmentRecovery.js';
 
 // A2000_V4_6_7_OUTLOOK_ATTACHMENT_RECOVERY
+// A2000_V4_7_1_FAST_OUTLOOK_DOWNLOAD
 import { analyzeEmail, cleanSubject, extractPoNumber, extractPtNumber, stableKey } from '../parser.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -475,7 +476,7 @@ function documentExternalKey(email, fileName = '') {
 
 async function saveDownload(download, email, fallbackName, logs) {
   const suggestedName = download.suggestedFilename();
-  const suggested = clean(suggestedName);
+  const suggested = String(suggestedName || '').trim();
 
   if (suggested && !isPdfFileName(suggested)) {
     logs.push(`REJECTED_NON_PDF_DOWNLOAD|SUGGESTED=${suggested}|REASON=filename_not_pdf`);
@@ -1095,11 +1096,20 @@ async function downloadMatchingPdfAttachments(
   const expandMessageAndAttachmentGroups = async () => {
     let total = 0;
 
-    for (let pass = 0; pass < 12; pass += 1) {
-      const candidates = page.locator(
-        'body button, body a, body [role="button"], body [role="link"], body [aria-label], body [title]'
-      );
-      const count = Math.min(await candidates.count().catch(() => 0), 2400);
+    for (let pass = 0; pass < 4; pass += 1) {
+      const candidates = page.locator([
+        'button[aria-label*="attachment" i]',
+        'button[aria-label*="adjunto" i]',
+        'button[aria-label*="expand" i]',
+        'button[aria-label*="mostrar" i]',
+        'button[title*="attachment" i]',
+        'button[title*="adjunto" i]',
+        '[role="button"]:has-text("Show")',
+        '[role="button"]:has-text("Expand")',
+        '[role="button"]:has-text("Mostrar")',
+        '[role="button"]:has-text("Adjunto")'
+      ].join(', '));
+      const count = Math.min(await candidates.count().catch(() => 0), 120);
       let clicked = false;
 
       for (let index = 0; index < count; index += 1) {
@@ -1159,10 +1169,22 @@ async function downloadMatchingPdfAttachments(
   };
 
   const recoverVisibleDownloadAll = async () => {
-    const actions = page.locator(
-      'body button, body a, body [role="button"], body [role="menuitem"], body [aria-label], body [title]'
-    );
-    const count = Math.min(await actions.count().catch(() => 0), 2400);
+    const actions = page.locator([
+      'button:has-text("Download all")',
+      'a:has-text("Download all")',
+      '[role="button"]:has-text("Download all")',
+      '[role="link"]:has-text("Download all")',
+      '[role="menuitem"]:has-text("Download all")',
+      'button:has-text("Descargar todo")',
+      'a:has-text("Descargar todo")',
+      '[role="button"]:has-text("Descargar todo")',
+      '[role="link"]:has-text("Descargar todo")',
+      '[aria-label*="Download all" i]',
+      '[title*="Download all" i]',
+      '[aria-label*="Descargar todo" i]',
+      '[title*="Descargar todo" i]'
+    ].join(', '));
+    const count = Math.min(await actions.count().catch(() => 0), 24);
 
     for (let index = 0; index < count; index += 1) {
       const action = actions.nth(index);
@@ -1217,7 +1239,7 @@ async function downloadMatchingPdfAttachments(
         const download = await clickAndWaitForDownload(
           page,
           () => action.click({ timeout: 3500, force: true }),
-          26000
+          18000
         );
 
         if (!download) {
@@ -1325,7 +1347,7 @@ async function downloadMatchingPdfAttachments(
     }
   };
 
-  const positions = [0, 0.08, 0.16, 0.25, 0.34, 0.43, 0.52, 0.61, 0.7, 0.79, 0.88, 0.96, 1];
+  const positions = [0, 0.5, 1];
 
   for (const position of positions) {
     await scrollConversation(position);
@@ -1611,11 +1633,24 @@ async function collectVisibleEmails(page, maxEmails, logs) {
       processedEmails.add(emailKey);
 
       const existingFileNames = await downloadedDocumentFileNamesForEmail(email.externalKey);
+      logs.push(
+        `OUTLOOK_ATTACHMENT_RECOVERY_START|SUBJECT=${email.subject}`
+        + `|VISIBLE_NAMES=${(email.attachments || []).join(' | ') || '(none)'}`
+        + `|EXISTING=${existingFileNames.length}`
+      );
+
+      const recoveryStartedAt = Date.now();
       const downloadedDocuments = await downloadMatchingPdfAttachments(
         page,
         email,
         logs,
         { skipFileNames: existingFileNames }
+      );
+
+      logs.push(
+        `OUTLOOK_ATTACHMENT_RECOVERY_END|SUBJECT=${email.subject}`
+        + `|NEW_PDFS=${downloadedDocuments.length}`
+        + `|DURATION_MS=${Date.now() - recoveryStartedAt}`
       );
 
       email.downloadedDocuments = downloadedDocuments.map(document => ({
@@ -1640,7 +1675,25 @@ async function collectVisibleEmails(page, maxEmails, logs) {
         complete: true,
         message_group_count: 0
       };
-      const complete = nameCoverage.complete && occurrenceCoverage.complete !== false;
+      const attachmentEvidence = Boolean(
+        email.hasAttachments
+        || expectedNames.length > 0
+        || Number(occurrenceCoverage.expected_count || 0) > 0
+      );
+      const availablePdfCount = existingFileNames.length + downloadedDocuments.length;
+      const unresolvedAttachmentClaim = attachmentEvidence && availablePdfCount === 0;
+      const complete = (
+        nameCoverage.complete
+        && occurrenceCoverage.complete !== false
+        && !unresolvedAttachmentClaim
+      );
+
+      if (unresolvedAttachmentClaim) {
+        logs.push(
+          `OUTLOOK_ATTACHMENT_GUARD_BLOCKED_MARK_READ=${email.subject}`
+          + '|REASON=attachment_evidence_but_no_pdf_available'
+        );
+      }
 
       email.raw = {
         ...(email.raw || {}),

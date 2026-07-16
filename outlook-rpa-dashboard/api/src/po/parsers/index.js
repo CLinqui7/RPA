@@ -19,16 +19,21 @@ import { parseZumiez } from './zumiez.js';
 import { parseMacysBacks } from './macysbacks.js';
 import { parseColony } from './colony.js';
 import { parseCatoCorp, parseCatoCorpOrders } from './catocorp.js';
-import { parseMarshalls } from './marshalls.js';
+import { parseMarshalls, parseMarshallsOrders } from './marshalls.js';
 import { parseTjMaxx } from './tjmaxx.js';
 import { parseMeSalve } from './mesalve.js';
 import { parseKnownUnsupported } from './knownUnsupported.js';
 import { customerHintFromDocument, customerProfile } from '../customerProfiles.js';
 import { strictHeaderMissing, strictLineMissing } from '../../a2000/strictImport.js';
 
+import { detectStrictCustomerPattern } from './customerPatternRegistry.js';
 function detectCustomer({ text, fileName, document }) {
   const sample = compactText(`${fileName || ''} ${text || ''}`).toLowerCase();
 
+
+  const strictPattern = detectStrictCustomerPattern({ text, fileName });
+  if (strictPattern.status === 'matched') return strictPattern.parser;
+  if (strictPattern.status === 'ambiguous') return 'generic';
   // Strict document-family anchors first. These require a layout signature, not just a logo/name.
   if (sample.includes('purchase order:') && sample.includes('cato style') && sample.includes('color/size/diff summary') && sample.includes('catovendors.com')) return 'catocorp';
   if (sample.includes('routing and distribution instructions') && sample.includes('po number:') && sample.includes('tjx style #') && sample.includes('distribution center')) return 'marshalls';
@@ -83,6 +88,7 @@ export function parseRawPurchaseOrders({ text, fileName, document }) {
   const customer = detectCustomer({ text, fileName, document });
   const input = { text, fileName, document };
   if (customer === 'catocorp') return parseCatoCorpOrders(input);
+  if (customer === 'marshalls') return parseMarshallsOrders(input);
   return [parseRawPurchaseOrder(input)];
 }
 
@@ -114,7 +120,7 @@ export function parseRawPurchaseOrder({ text, fileName, document }) {
 function addQuality(parsed) {
   const header = parsed.header || {};
   const lines = parsed.lines || [];
-  const headerMissing = strictHeaderMissing(header);
+  const headerMissing = strictHeaderMissing(header, lines);
   const lineMissing = [];
   for (const line of lines) {
     const missing = strictLineMissing(header, line);

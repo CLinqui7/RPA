@@ -1,0 +1,33 @@
+Pick Ticket
+
+SHIP LOGIC 3PL
+375 E. MARKHAM ST                 Warehouse : PE        Pick Ticket # 1745841
+Ship To:                                                Ctrl # : 3760509
+CITI 100                          CITI                  Order # : 0000184899
+Store# :100
+Style/Sub/Lot# Color Ln Cust Style Cut/PO # Description Ctns Qty
+W3EH1323-11 STR STRAW 1 STRAW SUN HAT 2
+199347342390
+PC
+W7EH00960-11 003 BLACK 3 SILK SCARF 3
+199347342451
+PC
+14
+PAGE 1 OF 1 pickcp
+\f
+Pick Ticket
+
+SHIP LOGIC 3PL
+375 E. MARKHAM ST                 Warehouse : PE        Pick Ticket # 1745842
+Ship To:                                                Ctrl # : 3760510
+TARBORO                           CITI                  Order # : 0000184899
+Store# :101
+Style/Sub/Lot# Color Ln Cust Style Cut/PO # Description Ctns Qty
+W3EH1323-11 STR STRAW 1 STRAW SUN HAT 2
+199347342390
+PC
+W7EH00960-11 003 BLACK 3 SILK SCARF 3
+199347342451
+PC
+14
+PAGE 1 OF 1 pickcp

@@ -1,0 +1,2098 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import {
+  AlertTriangle,
+  Bell,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  Eye,
+  Download,
+  ExternalLink,
+  FileText,
+  Inbox,
+  LayoutDashboard,
+  LogOut,
+  MailCheck,
+  RefreshCcw,
+  Search,
+  ShieldCheck,
+  UserRound,
+  Upload,
+  ScrollText,
+  Play,
+  Send,
+  Activity,
+  X
+} from 'lucide-react';
+import './styles.css';
+
+const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
+const TARGET_SUBJECT_FILTER = 'factura american';
+
+
+const UI_TRANSLATIONS = new Map([
+  ['Outlook RPA Monitor', 'Outlook RPA Monitor'],
+  ['Centro operativo', 'Operations Center'],
+  ['La bandeja operativa solo muestra correos cuyo asunto contiene Factura American. El resto queda fuera de la vista.', 'The operations inbox only shows emails whose subject contains Factura American. Everything else stays outside this view.'],
+  ['Usuario', 'Username'],
+  ['Contraseña', 'Password'],
+  ['Usuario o contraseña incorrecta', 'Incorrect username or password'],
+  ['Entrar', 'Sign in'],
+  ['Operación', 'Operations'],
+  ['LOG A2000', 'A2000 LOG'],
+  ['Salir', 'Sign out'],
+  ['SALES ORDER CONTROL', 'SALES ORDER CONTROL'],
+  ['Solo correos no leídos. Todos los PDF. Lectura, validación y envío claramente separados.', 'Unread emails only. Every PDF. Reading, validation and submission are clearly separated.'],
+  ['CONTROLADO', 'CONTROLLED'],
+  ['Leer correos no leídos', 'Read unread emails'],
+  ['Seleccionar PDF(s)', 'Select PDF(s)'],
+  ['Subir PDF manual', 'Upload PDF manually'],
+  ['Enviar todas a A2000', 'Send all to A2000'],
+  ['Confirmo revisión/limpieza de ORDER_LI antes de cualquier escritura.', 'I confirm ORDER_LI was reviewed and cleared before any write.'],
+  ['Órdenes leídas', 'Orders read'],
+  ['Listas localmente', 'Locally ready'],
+  ['Subidas', 'Uploaded'],
+  ['Revisión', 'Review'],
+  ['Volver a leer:', 'Read again:'],
+  ['PDF + masters, sin conectar A2000.', 'PDF + masters, without connecting to A2000.'],
+  ['Validar A2000:', 'Validate A2000:'],
+  ['consulta live, sin escritura.', 'live lookup, no write.'],
+  ['Enviar:', 'Submit:'],
+  ['único paso que crea la Sales Order.', 'the only step that creates the Sales Order.'],
+  ['Checklists:', 'Checklists:'],
+  ['plantillas únicas del ZIP maestro.', 'unique templates from the master ZIP.'],
+  ['Buscar PO, customer, archivo, style o CTRL', 'Search PO, customer, file, style or CTRL'],
+  ['Actualizar', 'Refresh'],
+  ['No hay órdenes para este filtro.', 'No orders match this filter.'],
+  ['Selecciona una orden', 'Select an order'],
+  ['Aquí verás el PDF, la lectura, los errores exactos y las acciones.', 'The PDF, extracted values, exact errors and actions appear here.'],
+  ['Abrir PDF', 'Open PDF'],
+  ['Descargar', 'Download'],
+  ['Customer', 'Customer'],
+  ['Store', 'Store'],
+  ['Order date', 'Order date'],
+  ['Start', 'Start'],
+  ['Cancel', 'Cancel'],
+  ['Cancel open lines', 'Cancel open lines'],
+  ['No definido en Customer Master', 'Not defined in Customer Master'],
+  ['No exportado en el master actual', 'Not exported in the current master'],
+  ['Div', 'Division'],
+  ['Terms', 'Terms'],
+  ['Lectura completa', 'Reading complete'],
+  ['Lectura incompleta', 'Reading incomplete'],
+  ['Validación local aprobada', 'Local validation approved'],
+  ['Validación local requiere ajuste', 'Local validation needs adjustment'],
+  ['Preflight A2000 aprobado', 'A2000 preflight approved'],
+  ['A2000 no disponible · sin escritura', 'A2000 unavailable · no write'],
+  ['Preflight A2000 fallido', 'A2000 preflight failed'],
+  ['A2000 no disponible en el último intento · sin escritura', 'A2000 was unavailable in the last attempt · no write'],
+  ['Volver a leer PDF', 'Read PDF again'],
+  ['Validar A2000 sin enviar', 'Validate A2000 without submitting'],
+  ['Generar checklist histórica', 'Generate historical checklist'],
+  ['Crear Sales Order en A2000', 'Create Sales Order in A2000'],
+  ['Líneas y master match', 'Lines and master match'],
+  ['Style PDF', 'PDF style'],
+  ['Style A2000', 'A2000 style'],
+  ['Color PDF', 'PDF color'],
+  ['Color A2000', 'A2000 color'],
+  ['Customer SKU', 'Customer SKU'],
+  ['UPC master', 'Master UPC'],
+  ['Sales price', 'Sales price'],
+  ['Omitido', 'Omitted'],
+  ['Size PDF', 'PDF size'],
+  ['No impreso', 'Not printed'],
+  ['Descripción', 'Description'],
+  ['Sin descripción', 'No description'],
+  ['Ver evidencia y QTY_SZn', 'View evidence and QTY_SZn'],
+  ['UPC A2000 no único · REF se omitirá', 'A2000 UPC is not unique · REF will be omitted'],
+  ['AUDIT TRAIL · V4.7.2', 'AUDIT TRAIL · V4.7.2'],
+  ['LOG A2000 detallado', 'Detailed A2000 LOG'],
+  ['Los intentos sin payload se identifican como diagnósticos. Solo existe escritura cuando ves ORDER_HD/ORDER_LI, CTRL o SEQ.', 'Attempts without payload are diagnostics. A write exists only when ORDER_HD/ORDER_LI, CTRL or SEQ is present.'],
+  ['Registros', 'Records'],
+  ['Buscar PO, customer, CTRL, SEQ, style, color...', 'Search PO, customer, CTRL, SEQ, style, color...'],
+  ['Actualizar LOG', 'Refresh LOG'],
+  ['A2000 no disponible', 'A2000 unavailable'],
+  ['Sin escritura', 'No write'],
+  ['Abrir detalle completo ▾', 'Open full details ▾'],
+  ['Diagnóstico de conectividad, no una Sales Order fallida.', 'Connectivity diagnostic, not a failed Sales Order.'],
+  ['Header exacto enviado a ORDER_HD', 'Exact header sent to ORDER_HD'],
+  ['No hay Header persistido para este intento.', 'No header was persisted for this attempt.'],
+  ['Sales Lines exactas enviadas a ORDER_LI', 'Exact Sales Lines sent to ORDER_LI'],
+  ['Payload REST ORDER_HD', 'ORDER_HD REST payload'],
+  ['Respuesta real ORDER_HD', 'Actual ORDER_HD response'],
+  ['Payload REST ORDER_LI', 'ORDER_LI REST payload'],
+  ['Respuesta real ORDER_LI', 'Actual ORDER_LI response'],
+  ['No hubo escritura REST', 'No REST write occurred'],
+  ['No existe Header, Lines, CTRL ni SEQ para este registro.', 'This record has no Header, Lines, CTRL or SEQ.'],
+  ['Detalle técnico', 'Technical details'],
+  ['No hay registros para este filtro.', 'No records match this filter.'],
+  ['Modo oscuro', 'Dark mode'],
+  ['Modo claro', 'Light mode'],
+  ['Cambiar a inglés', 'Switch to English'],
+  ['Cambiar a español', 'Switch to Spanish'],
+  ['Customer no habilitado para escritura', 'Customer is not enabled for writing'],
+  ['La orden ya fue creada en A2000.', 'The order was already created in A2000.'],
+  ['La validación local todavía tiene errores.', 'Local validation still has errors.'],
+  ['El botón se habilita cuando la orden está validada y el customer está permitido.', 'The button is enabled when the order is validated and the customer is allowed.'],
+  ['A2000 AMEXTEST está temporalmente fuera de servicio. No se envió ORDER_HD ni ORDER_LI. La lectura local permanece válida.', 'A2000 AMEXTEST is temporarily unavailable. ORDER_HD and ORDER_LI were not sent. Local reading remains valid.'],
+]);
+
+const UI_TEXT_ORIGINAL = new WeakMap();
+const UI_ATTRIBUTE_ORIGINAL = new WeakMap();
+
+function translateUiString(value, language) {
+  const raw = String(value ?? '');
+  if (language !== 'en') return raw;
+
+  const leading = raw.match(/^\s*/)?.[0] || '';
+  const trailing = raw.match(/\s*$/)?.[0] || '';
+  const trimmed = raw.trim();
+  if (!trimmed) return raw;
+
+  let translated = UI_TRANSLATIONS.get(trimmed);
+
+  if (!translated) {
+    translated = trimmed
+      .replace(/^Línea\s+(\d+)$/i, 'Line $1')
+      .replace(/^(\d+)\s+líneas$/i, '$1 lines')
+      .replace(/^(\d+)\s+línea\(s\)$/i, '$1 line(s)')
+      .replace(/^(\d+)\s+unidades$/i, '$1 units')
+      .replace(/^(\d+)\s+und\.$/i, '$1 units')
+      .replace(/^Sin checklist\s+(.+)$/i, 'No checklist for $1')
+      .replace(/^PO\s+(.+)$/i, 'PO $1')
+      .replace(/^UPC A2000 ·\s*/i, 'A2000 UPC · ')
+      .replace(/^Precio:\s*/i, 'Price: ')
+      .replace(/^Correo:\s*/i, 'Email: ');
+  }
+
+  return `${leading}${translated}${trailing}`;
+}
+
+function useRuntimeUiTranslation(language) {
+  useEffect(() => {
+    let applying = false;
+
+    const skipNode = node => {
+      const parent = node.parentElement;
+      return !parent || ['SCRIPT', 'STYLE', 'PRE', 'CODE', 'TEXTAREA'].includes(parent.tagName);
+    };
+
+    const applyTextNode = node => {
+      if (skipNode(node)) return;
+      const current = node.nodeValue || '';
+      const oldSource = UI_TEXT_ORIGINAL.get(node);
+      const expectedEnglish = oldSource === undefined
+        ? null
+        : translateUiString(oldSource, 'en');
+
+      if (
+        oldSource === undefined
+        || (language === 'en' && current !== expectedEnglish)
+        || (language === 'es' && current !== oldSource)
+      ) {
+        UI_TEXT_ORIGINAL.set(node, current);
+      }
+
+      const source = UI_TEXT_ORIGINAL.get(node) || current;
+      const next = translateUiString(source, language);
+      if (node.nodeValue !== next) node.nodeValue = next;
+    };
+
+    const applyElement = element => {
+      if (!(element instanceof Element)) return;
+      const originals = UI_ATTRIBUTE_ORIGINAL.get(element) || {};
+      for (const attribute of ['placeholder', 'title', 'aria-label']) {
+        if (!element.hasAttribute(attribute)) continue;
+        const current = element.getAttribute(attribute) || '';
+        const prior = originals[attribute];
+        const expectedEnglish = prior === undefined
+          ? null
+          : translateUiString(prior, 'en');
+
+        if (
+          prior === undefined
+          || (language === 'en' && current !== expectedEnglish)
+          || (language === 'es' && current !== prior)
+        ) {
+          originals[attribute] = current;
+        }
+
+        const source = originals[attribute] || current;
+        const next = translateUiString(source, language);
+        if (current !== next) element.setAttribute(attribute, next);
+      }
+      UI_ATTRIBUTE_ORIGINAL.set(element, originals);
+    };
+
+    const apply = root => {
+      if (applying || !root) return;
+      applying = true;
+      try {
+        if (root.nodeType === Node.TEXT_NODE) applyTextNode(root);
+        if (root.nodeType === Node.ELEMENT_NODE) {
+          applyElement(root);
+          const walker = document.createTreeWalker(
+            root,
+            NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT
+          );
+          let node = walker.nextNode();
+          while (node) {
+            if (node.nodeType === Node.TEXT_NODE) applyTextNode(node);
+            else applyElement(node);
+            node = walker.nextNode();
+          }
+        }
+      } finally {
+        applying = false;
+      }
+    };
+
+    apply(document.body);
+
+    const observer = new MutationObserver(mutations => {
+      if (applying) return;
+      for (const mutation of mutations) {
+        if (mutation.type === 'characterData') apply(mutation.target);
+        for (const node of mutation.addedNodes || []) apply(node);
+        if (mutation.type === 'attributes') apply(mutation.target);
+      }
+    });
+
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['placeholder', 'title', 'aria-label']
+    });
+
+    return () => observer.disconnect();
+  }, [language]);
+}
+
+
+const USERS = [
+  { id: 'admin', name: 'Admin Operativo', role: 'admin', password: 'admin123', aliases: ['admin'] },
+  { id: 'carlos', name: 'Carlos Linqui', role: 'user', password: 'carlos123', aliases: ['carlos', 'carlos linqui', 'linqui', '@carlos', 'linquicarloss@gmail.com', 'carlos.linqui@axnygroup.com'] },
+  { id: 'routing', name: 'Routing', role: 'user', password: 'routing123', aliases: ['routing', '@routing', 'routing@axnygroup.com'] },
+  { id: 'warehouse', name: 'Warehouse', role: 'user', password: 'warehouse123', aliases: ['warehouse', '@warehouse', 'bodega'] },
+  { id: 'shipping', name: 'Shipping', role: 'user', password: 'shipping123', aliases: ['shipping', '@shipping'] }
+];
+
+const NAV_ITEMS = [
+  { id: 'today', label: 'Hoy', icon: LayoutDashboard, helper: 'Factura American del día' },
+  { id: 'unanswered', label: 'Sin respuesta', icon: Clock3, helper: 'Requiere seguimiento' },
+  { id: 'urgent', label: 'Urgentes', icon: Bell, helper: 'Urgente o fecha crítica' },
+  { id: 'orders', label: 'Órdenes', icon: Inbox, helper: 'PO/PT Factura American' },
+  { id: 'process', label: 'Procesar + subir', icon: Activity, helper: 'PDF → Sales Order + Lines' },
+  { id: 'log', label: 'LOG', icon: ScrollText, helper: 'A2000 audit trail' },
+  { id: 'a2000', label: 'A2000 Lab', icon: Inbox, helper: 'PDFs, masters y extracción' },
+  { id: 'responses', label: 'Respondidos', icon: MailCheck, helper: 'Con respuesta detectada' },
+  { id: 'all', label: 'Factura American', icon: CheckCircle2, helper: 'Solo asuntos filtrados' }
+];
+
+function normalize(value = '') {
+  return String(value).toLowerCase().trim();
+}
+
+function normalizeSubject(value = '') {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function eventSubjectText(event = {}) {
+  const analysis = getAnalysis(event);
+  return [event.subject, analysis.cleanSubject, analysis.displayTitle].filter(Boolean).join(' ');
+}
+
+function isTargetInvoiceEvent(event = {}) {
+  const target = normalizeSubject(TARGET_SUBJECT_FILTER);
+  if (!target) return true;
+  return normalizeSubject(eventSubjectText(event)).includes(target);
+}
+
+
+function documentToEvent(doc = {}) {
+  const poMatch = String(doc.file_name || '').match(/PurchaseOrder-([0-9]+)/i);
+  const title = doc.subject || doc.raw?.filter || TARGET_SUBJECT_FILTER;
+  return {
+    id: `doc-${doc.id}`,
+    _isDocument: true,
+    document_id: doc.id,
+    created_at: doc.created_at,
+    source: doc.source || 'outlook_rpa_document',
+    subject: title,
+    sender_name: doc.sender_name,
+    sender_email: doc.sender_email,
+    status: doc.status === 'downloaded' ? 'new' : (doc.status || 'new'),
+    message_type: 'order',
+    po_number: poMatch?.[1] || doc.detected_po || null,
+    customer_name: doc.detected_customer || null,
+    has_attachments: true,
+    attachments: [{ file_name: doc.file_name, storage_path: doc.storage_path, local_path: doc.local_path || doc.raw?.localPath }],
+    snippet: `PDF descargado desde correo Factura American: ${doc.file_name}`,
+    body_text: '',
+    raw: { ...(doc.raw || {}), document: doc },
+    analysis: {
+      cleanSubject: title,
+      displayTitle: title,
+      customerName: doc.detected_customer || 'Factura American',
+      poNumber: poMatch?.[1] || doc.detected_po || null,
+      ptNumber: null,
+      operatorName: doc.sender_name || null,
+      mentionedPeople: [],
+      assignedTo: [],
+      explicitMentionHandles: [],
+      hasExplicitMention: false,
+      assignmentLabel: 'Documento descargado desde Outlook',
+      priority: 'low',
+      importantReasons: [`PDF disponible: ${doc.file_name}`],
+      messageType: 'order',
+      requiresResponse: false,
+      completionDetected: false,
+      responseStatus: 'info_only',
+      isOperational: true,
+      summary: `Documento descargado desde correo Factura American. Archivo: ${doc.file_name}`,
+      recommendedAction: 'Abrir A2000 Lab para revisar la extracción del PDF.'
+    }
+  };
+}
+
+function formatDate(value) {
+  if (!value) return 'Sin fecha';
+  try {
+    return new Date(value).toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' });
+  } catch {
+    return value;
+  }
+}
+
+function getAnalysis(event) {
+  return event.analysis || event.raw?.analysis || {};
+}
+
+function isClosed(event) {
+  return event.status === 'closed';
+}
+
+function isAwaiting(event) {
+  const analysis = getAnalysis(event);
+  return !isClosed(event) && analysis.responseStatus === 'awaiting_response';
+}
+
+function isUrgent(event) {
+  const analysis = getAnalysis(event);
+  return !isClosed(event) && analysis.priority === 'high';
+}
+
+function isOrder(event) {
+  const analysis = getAnalysis(event);
+  return analysis.messageType === 'order' || event.message_type === 'order';
+}
+
+function isResponse(event) {
+  const analysis = getAnalysis(event);
+  return analysis.messageType === 'response' || analysis.responseStatus === 'responded' || event.message_type === 'response';
+}
+
+function matchesUser(event, user) {
+  if (!user || user.role === 'admin') return true;
+  const analysis = getAnalysis(event);
+  const haystack = [
+    event.sender_email,
+    event.sender_name,
+    event.operator_name,
+    analysis.operatorName,
+    analysis.assignmentLabel,
+    ...(analysis.explicitMentionHandles || []),
+    ...(analysis.assignedTo || []).map(person => `${person.id} ${person.name} ${person.email || ''}`),
+    analysis.summary,
+    event.snippet,
+    event.body_text
+  ].join(' ').toLowerCase();
+
+  return user.aliases.some(alias => haystack.includes(alias.toLowerCase())) || isUrgent(event);
+}
+
+function statusInfo(event) {
+  const analysis = getAnalysis(event);
+  if (event.status === 'closed') return { label: 'Cerrado', className: 'closed' };
+  if (analysis.responseStatus === 'awaiting_response') return { label: 'Sin respuesta', className: 'pending' };
+  if (analysis.responseStatus === 'responded') return { label: 'Respondido', className: 'done' };
+  if (analysis.priority === 'high') return { label: 'Urgente', className: 'urgent' };
+  return { label: 'Revisar', className: 'review' };
+}
+
+function Badge({ children, tone = 'default' }) {
+  return <span className={`badge ${tone}`}>{children}</span>;
+}
+
+function Field({ label, value }) {
+  if (!value) return null;
+  return (
+    <div className="field">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function Login({ onLogin }) {
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('admin123');
+  const [error, setError] = useState('');
+
+  function submit(event) {
+    event.preventDefault();
+    const user = USERS.find(candidate => candidate.id === normalize(username) && candidate.password === password);
+    if (!user) {
+      setError('Usuario o contraseña incorrecta');
+      return;
+    }
+    localStorage.setItem('rpaUser', JSON.stringify(user));
+    onLogin(user);
+  }
+
+  return (
+    <main className="login-page">
+      <section className="login-card">
+        <p className="eyebrow">Outlook RPA Monitor</p>
+        <h1>Centro operativo</h1>
+        <p>La bandeja operativa solo muestra correos cuyo asunto contiene Factura American. El resto queda fuera de la vista.</p>
+        <form onSubmit={submit} className="login-form">
+          <label>Usuario<input value={username} onChange={e => setUsername(e.target.value)} /></label>
+          <label>Contraseña<input value={password} onChange={e => setPassword(e.target.value)} type="password" /></label>
+          {error && <div className="notice error"><AlertTriangle size={16}/>{error}</div>}
+          <button className="primary" type="submit"><ShieldCheck size={18}/> Entrar</button>
+        </form>
+        <div className="demo-users">
+          <span>admin/admin123</span>
+          <span>carlos/carlos123</span>
+          <span>routing/routing123</span>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function CompactEvent({ event, selected, onSelect, onMark }) {
+  const analysis = getAnalysis(event);
+  const status = statusInfo(event);
+  const title = analysis.displayTitle || analysis.cleanSubject || event.subject || 'Correo operativo';
+  const important = (analysis.importantReasons || []).slice(0, 2);
+  const assignment = analysis.hasExplicitMention ? analysis.assignmentLabel : 'No hay @ / No asignado';
+
+  return (
+    <article className={`event-row ${selected ? 'selected' : ''}`} onClick={() => onSelect(event)}>
+      <div className="event-priority" data-priority={analysis.priority || 'low'} />
+      <div className="event-content">
+        <div className="event-topline">
+          <h3>{title}</h3>
+          <span className={`status-pill ${status.className}`}>{status.label}</span>
+        </div>
+        <p className="event-summary">{analysis.summary || event.snippet || 'Sin resumen disponible.'}</p>
+        <div className="event-meta">
+          <span>{event.sender_email || event.sender_name || 'Remitente desconocido'}</span>
+          <span>{formatDate(event.created_at)}</span>
+        </div>
+        <div className="event-facts">
+          <span><strong>Asignación:</strong> {assignment}</span>
+          {analysis.cancelDate?.label && <span><strong>Cancel Date:</strong> {analysis.cancelDate.label}</span>}
+          {analysis.shipWindow?.label && <span><strong>Ship Window:</strong> {analysis.shipWindow.label}</span>}
+        </div>
+        {important.length > 0 && <p className="event-action">{important.join(' · ')} · {analysis.recommendedAction}</p>}
+      </div>
+      <div className="event-actions" onClick={e => e.stopPropagation()}>
+        <button onClick={() => onSelect(event)}><Eye size={15}/> Detalle</button>
+        {!event._isDocument && <button onClick={() => onMark(event.id, 'reviewed')}>Revisado</button>}
+        {!event._isDocument && <button onClick={() => onMark(event.id, 'closed')}>Cerrar</button>}
+      </div>
+    </article>
+  );
+}
+
+function DetailPanel({ event, onClose, onMark }) {
+  const analysis = getAnalysis(event || {});
+  if (!event) {
+    return (
+      <aside className="detail-panel empty-detail">
+        <Inbox size={28}/>
+        <h2>Selecciona un correo</h2>
+        <p>Abre una tarjeta para ver datos operativos extraídos. No se muestra el correo completo.</p>
+      </aside>
+    );
+  }
+
+  const assignment = analysis.hasExplicitMention ? analysis.assignmentLabel : 'No hay @ en el correo. No fue asignado a nadie.';
+  const status = statusInfo(event);
+
+  return (
+    <aside className="detail-panel">
+      <div className="detail-head">
+        <div>
+          <span className={`status-pill ${status.className}`}>{status.label}</span>
+          <h2>{analysis.displayTitle || event.subject || 'Correo operativo'}</h2>
+        </div>
+        <button className="icon-button" onClick={onClose}><X size={18}/></button>
+      </div>
+
+      <section className="next-action">
+        <span>Siguiente acción</span>
+        <p>{analysis.recommendedAction || 'Revisar y marcar según corresponda.'}</p>
+      </section>
+
+      <div className="detail-grid">
+        <Field label="Cliente" value={analysis.customerName} />
+        <Field label="PO" value={analysis.poNumber || event.po_number} />
+        <Field label="PT" value={analysis.ptNumber || event.raw?.ptNumber} />
+        <Field label="Asignación" value={assignment} />
+        <Field label="Operador" value={analysis.operatorName || event.operator_name} />
+        <Field label="Remitente" value={event.sender_email || event.sender_name} />
+        <Field label="Cancel Date" value={analysis.cancelDate?.label} />
+        <Field label="Ship Window" value={analysis.shipWindow?.label || event.raw?.shipWindow?.label} />
+        <Field label="Adjuntos" value={event.has_attachments ? 'Sí' : 'No'} />
+        <Field label="PDF" value={event.attachments?.[0]?.file_name} />
+        <Field label="Detectado" value={formatDate(event.created_at)} />
+        <Field label="Respondió" value={analysis.respondedBy ? `${analysis.respondedBy} · ${formatDate(analysis.respondedAt)}` : null} />
+      </div>
+
+      {(analysis.importantReasons || []).length > 0 && (
+        <section className="reason-box">
+          <h4>Por qué aparece aquí</h4>
+          <ul>{analysis.importantReasons.map(reason => <li key={reason}>{reason}</li>)}</ul>
+        </section>
+      )}
+
+      <section className="message-box">
+        <h4>Resumen operativo</h4>
+        <p>{analysis.summary || event.snippet}</p>
+      </section>
+
+      <section className="message-box raw">
+        <h4>Alcance del dashboard</h4>
+        <p>Vista filtrada por asunto: <strong>{TARGET_SUBJECT_FILTER}</strong>. El cuerpo completo del correo no se muestra aquí para evitar ruido operativo.</p>
+      </section>
+
+      <div className="detail-actions">
+        {!event._isDocument && <button onClick={() => onMark(event.id, 'reviewed')}>Marcar revisado</button>}
+        {!event._isDocument && <button onClick={() => onMark(event.id, 'closed')}>Cerrar alerta</button>}
+      </div>
+    </aside>
+  );
+}
+
+
+function shortFileName(name = '') {
+  const value = String(name || '');
+  return value.length > 48 ? `${value.slice(0, 28)}…${value.slice(-16)}` : value;
+}
+
+function money(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const num = Number(value);
+  if (!Number.isFinite(num)) return String(value);
+  return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function StatusBadge({ status }) {
+  const tone = status === 'parsed' ? 'done' : status === 'error' ? 'urgent' : status === 'needs_mapping' ? 'pending' : 'review';
+  const label = status === 'parsed' ? 'Parsed' : status === 'needs_mapping' ? 'Needs mapping' : status || 'Revisar';
+  return <span className={`status-pill ${tone}`}>{label}</span>;
+}
+
+function TinyField({ label, value, muted = false }) {
+  if (value === null || value === undefined || value === '') return null;
+  return <div className={`tiny-field ${muted ? 'muted' : ''}`}><span>{label}</span><strong>{String(value)}</strong></div>;
+}
+
+function CandidateChips({ title, rows = [] }) {
+  if (!rows?.length) return null;
+  return (
+    <details className="candidate-box">
+      <summary>{title} ({rows.length})</summary>
+      <div className="candidate-grid">
+        {rows.slice(0, 12).map((row, index) => (
+          <div className="candidate-chip" key={`${row.style || ''}-${row.color || ''}-${index}`}>
+            <strong>{row.style || 'style ?'} / {row.color || 'color ?'}</strong>
+            <span>{row.color_description || row.sku || 'Sin descripción'}</span>
+            {row.div && <em>Div {row.div}</em>}
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function A2000LineCard({ line }) {
+  const rule = line.raw?.color_match_rule;
+  const confidence = line.raw?.color_match_confidence;
+  const family = line.raw?.color_match_family;
+  const missing = line.missing_fields || [];
+  return (
+    <article className="a2000-line-card">
+      <div className="line-card-head">
+        <div>
+          <span className="line-index">Línea {line.line_no || '?'}</span>
+          <h4>{line.style_code || line.style_raw || 'Sin style'} {line.color_code ? `/ ${line.color_code}` : ''}</h4>
+          <p>{line.description || 'Sin descripción'}</p>
+        </div>
+        <div className="line-qty"><span>Qty</span><strong>{line.qty_total ?? '-'}</strong></div>
+      </div>
+
+      <div className="mini-matrix">
+        <TinyField label="Customer SKU" value={line.customer_sku} />
+        <TinyField label="Internal SKU" value={line.internal_sku} />
+        <TinyField label="UPC factura" value={line.customer_upc || line.ticket_sku} />
+        <TinyField label="UPC master" value={line.master_upc} />
+        <TinyField label="Style PDF" value={line.style_raw} />
+        <TinyField label="Style A2000" value={line.style_code} />
+        <TinyField label="Color PDF" value={line.color_raw} />
+        <TinyField label="Color A2000" value={line.color_code} />
+        <TinyField label="Warehouse línea" value={line.warehouse_code} />
+        <TinyField label="Costo PDF" value={line.sales_price} />
+        <TinyField label="Precio master" value={line.master_price} />
+      </div>
+
+      {(rule || family || confidence) && (
+        <div className="resolver-note">
+          <strong>Color resolver</strong>
+          <span>{family || 'familia ?'} · {rule || 'sin regla'} {confidence ? `· confianza ${Math.round(confidence * 100)}%` : ''}</span>
+        </div>
+      )}
+
+      {missing.length > 0 && <div className="missing-strip">Falta: {missing.join(', ')}</div>}
+      <CandidateChips title="Candidatos style" rows={line.master_candidates?.style || []} />
+      <CandidateChips title="Candidatos color" rows={line.master_candidates?.color || []} />
+      <CandidateChips title="Candidatos UPC" rows={line.master_candidates?.upc || []} />
+
+      <details className="raw-json"><summary>Ver raw de línea</summary><pre>{JSON.stringify(line.raw || {}, null, 2)}</pre></details>
+    </article>
+  );
+}
+
+
+function pdfPreviewUrl(item) {
+  if (!item) return '';
+  if (item.document_id) return `${API_URL}/po/pdf-preview?document_id=${encodeURIComponent(item.document_id)}`;
+  if (item.file) return `${API_URL}/po/pdf-preview?file=${encodeURIComponent(item.file)}`;
+  return '';
+}
+
+function CsvPreviewTable({ title, rows = [] }) {
+  if (!rows?.length) return null;
+  const columns = Object.keys(rows[0] || {}).filter(column => rows.some(row => row[column] !== '' && row[column] !== null && row[column] !== undefined)).slice(0, 12);
+  return (
+    <div className="csv-preview-box">
+      <h4>{title}</h4>
+      <div className="csv-table-wrap">
+        <table className="csv-preview-table">
+          <thead><tr>{columns.map(column => <th key={column}>{column}</th>)}</tr></thead>
+          <tbody>{rows.map((row, idx) => <tr key={idx}>{columns.map(column => <td key={column}>{row[column]}</td>)}</tr>)}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ExportPanel({ exportData }) {
+  if (!exportData) return null;
+  return (
+    <section className="extract-section export-panel">
+      <div className="export-head">
+        <div>
+          <h3>Export A2000 listo</h3>
+          <p>{exportData.importable_count} órdenes importables · {exportData.header_rows_count} headers · {exportData.line_rows_count} sales lines</p>
+        </div>
+        <div className="export-actions">
+          {exportData.header_url && <a className="primary link-button" href={exportData.header_url} target="_blank" rel="noreferrer"><Download size={16}/> Headers CSV</a>}
+          {exportData.lines_url && <a className="primary link-button" href={exportData.lines_url} target="_blank" rel="noreferrer"><Download size={16}/> Sales Lines CSV</a>}
+        </div>
+      </div>
+      <CsvPreviewTable title="Preview headers" rows={exportData.preview?.headers || []} />
+      <CsvPreviewTable title="Preview sales lines" rows={exportData.preview?.lines || []} />
+      {(exportData.skipped || []).length > 0 && <details className="raw-json"><summary>PDFs omitidos del export ({exportData.skipped.length})</summary><pre>{JSON.stringify(exportData.skipped, null, 2)}</pre></details>}
+    </section>
+  );
+}
+
+function A2000DocumentDetail({ item }) {
+  if (!item) {
+    return (
+      <aside className="a2000-detail empty-detail">
+        <Inbox size={28}/>
+        <h2>Selecciona un PDF</h2>
+        <p>Vas a ver header, líneas, masters, candidatos, reglas de color, preview PDF y export.</p>
+      </aside>
+    );
+  }
+  const h = item.header || {};
+  const missingHeader = item.missing?.header || [];
+  const lineMissing = item.missing?.lines || [];
+  const master = item.master_lookup || {};
+  const trace = master.trace || {};
+  const counts = master.counts || {};
+  const previewUrl = pdfPreviewUrl(item);
+  return (
+    <aside className="a2000-detail">
+      <div className="a2000-detail-head">
+        <div>
+          <StatusBadge status={item.status} />
+          <h2>{shortFileName(item.file_name)}</h2>
+          <p>{item.parser || 'parser ?'} · {item.line_count || 0} líneas · {item.elapsed_ms ?? '?'} ms</p>
+        </div>
+        {previewUrl && <a className="link-button" href={previewUrl} target="_blank" rel="noreferrer"><ExternalLink size={16}/> Abrir factura</a>}
+      </div>
+
+      {previewUrl && (
+        <section className="extract-section pdf-preview-section">
+          <div className="section-title-row"><h3>Preview factura PDF</h3><a href={previewUrl} target="_blank" rel="noreferrer"><FileText size={15}/> abrir grande</a></div>
+          <iframe className="pdf-preview-frame" src={previewUrl} title={`Preview ${item.file_name || 'PDF'}`} />
+        </section>
+      )}
+
+      <section className="extract-section">
+        <h3>Header extraído</h3>
+        <div className="mini-matrix">
+          <TinyField label="Customer" value={h.customer_code} />
+          <TinyField label="PO" value={h.order_no} />
+          <TinyField label="Order date" value={h.order_date} />
+          <TinyField label="Start/Ship" value={h.start_date} />
+          <TinyField label="Cancel" value={h.cancel_date} />
+          <TinyField label="Terms" value={h.terms_code} />
+          <TinyField label="Div" value={h.division_code} />
+          <TinyField label="Warehouse" value={h.warehouse_code} />
+          <TinyField label="Store" value={h.store_code} />
+          <TinyField label="Ship via" value={h.ship_via_code} />
+          <TinyField label="Qty total" value={item.totals?.qty} />
+          <TinyField label="Amount" value={money(item.totals?.amount)} />
+        </div>
+      </section>
+
+      <section className="extract-section">
+        <h3>Master lookup</h3>
+        <div className="master-health">
+          <span className={master.loaded ? 'health-ok' : 'health-warn'}>{master.loaded ? 'Masters cargados' : 'Masters no cargados'}</span>
+          <small>{master.master_dir}</small>
+        </div>
+        <div className="master-counts">
+          {Object.entries(counts).map(([key, value]) => <TinyField key={key} label={key} value={value} />)}
+        </div>
+        <div className="trace-grid">
+          {trace.customer && <div><strong>Customer master</strong><pre>{JSON.stringify(trace.customer, null, 2)}</pre></div>}
+          {trace.store && <div><strong>Store master</strong><pre>{JSON.stringify(trace.store, null, 2)}</pre></div>}
+          {trace.warehouse && <div><strong>Warehouse</strong><pre>{JSON.stringify(trace.warehouse, null, 2)}</pre></div>}
+        </div>
+      </section>
+
+      {(missingHeader.length > 0 || lineMissing.length > 0 || (item.conflicts || []).length > 0) && (
+        <section className="extract-section warning-section">
+          <h3>Faltantes y conflictos</h3>
+          {missingHeader.length > 0 && <p><strong>Header:</strong> {missingHeader.join(', ')}</p>}
+          {lineMissing.map((line, idx) => <p key={idx}><strong>Línea {line.line_no || '?'}:</strong> {(line.missing || []).join(', ')}</p>)}
+          {(item.conflicts || []).map((conflict, idx) => <p key={`c-${idx}`}><strong>Conflicto:</strong> {conflict.message || JSON.stringify(conflict)}</p>)}
+        </section>
+      )}
+
+      <section className="extract-section">
+        <h3>Líneas extraídas</h3>
+        {(item.lines || []).map(line => <A2000LineCard key={`${item.file_name}-${line.line_no}`} line={line} />)}
+      </section>
+
+      <details className="raw-json full-json"><summary>Ver JSON completo</summary><pre>{JSON.stringify(item, null, 2)}</pre></details>
+    </aside>
+  );
+}
+
+function A2000PdfLab() {
+  const [items, setItems] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [generatedAt, setGeneratedAt] = useState('');
+  const [dir, setDir] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [source, setSource] = useState('email');
+  const [exportData, setExportData] = useState(null);
+  const [exporting, setExporting] = useState(false);
+
+  async function parseCurrentSource(nextSource = source) {
+    setLoading(true);
+    setError('');
+    setExportData(null);
+    try {
+      const endpoint = nextSource === 'email'
+        ? `${API_URL}/po/parse-email-documents?subject=factura%20american`
+        : `${API_URL}/po/parse-test-pdfs`;
+      const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) throw new Error(data.error || 'No se pudieron procesar los PDFs');
+      setItems(data.results || []);
+      setGeneratedAt(data.generated_at || '');
+      setDir(data.dir || (nextSource === 'email' ? 'Supabase documents + downloads de correo' : ''));
+      setSelected((data.results || [])[0] || null);
+    } catch (e) {
+      setError(e.message);
+      setItems([]);
+      setSelected(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+
+  async function exportCurrentSource() {
+    setExporting(true);
+    setError('');
+    try {
+      const body = source === 'email'
+        ? { source, ids: items.map(item => item.document_id).filter(Boolean) }
+        : { source, files: items.map(item => item.file).filter(Boolean) };
+      const res = await fetch(`${API_URL}/po/export-a2000-import?source=${encodeURIComponent(source)}&subject=factura%20american`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) throw new Error(data.error || 'No se pudo generar export A2000');
+      setExportData(data);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function changeSource(nextSource) {
+    setSource(nextSource);
+    setExportData(null);
+    await parseCurrentSource(nextSource);
+  }
+
+  async function runScanAndLoadEmailDocs() {
+    setLoading(true);
+    setError('');
+    try {
+      const scan = await fetch(`${API_URL}/run-scan`, { method: 'POST' });
+      const scanData = await scan.json().catch(() => ({}));
+      if (!scan.ok) throw new Error(scanData.error || 'No se pudo leer Outlook');
+      setSource('email');
+      await parseCurrentSource('email');
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { parseCurrentSource('email'); }, []);
+
+  const stats = useMemo(() => ({
+    total: items.length,
+    parsed: items.filter(item => item.status === 'parsed').length,
+    needs: items.filter(item => item.status === 'needs_mapping').length,
+    errors: items.filter(item => item.status === 'error').length,
+    lines: items.reduce((sum, item) => sum + (item.line_count || 0), 0)
+  }), [items]);
+
+  const visibleItems = useMemo(() => {
+    if (filter === 'all') return items;
+    return items.filter(item => item.status === filter);
+  }, [items, filter]);
+
+  return (
+    <section className="a2000-lab">
+      <div className="a2000-hero">
+        <div>
+          <p className="eyebrow">A2000 extraction lab</p>
+          <h2>{source === 'email' ? 'PDFs de correos Factura American + masters' : 'PDFs de prueba + masters'}</h2>
+          <p>{source === 'email'
+            ? 'Muestra documentos descargados desde Outlook y guardados en Supabase, no solo archivos de test-pdfs.'
+            : <>Lee todos los PDFs de <code>test-pdfs</code>, muestra lo que sale del documento, lo que completó master y lo que aún falta.</>}
+          </p>
+          {dir && <small>Fuente: {dir}</small>}
+        </div>
+        <div className="hero-actions">
+          <button className={source === 'email' ? 'primary' : ''} disabled={loading} onClick={() => changeSource('email')}>Correos / Supabase</button>
+          <button className={source === 'test' ? 'primary' : ''} disabled={loading} onClick={() => changeSource('test')}>Test PDFs</button>
+          <button className="primary" disabled={loading} onClick={() => parseCurrentSource()}><RefreshCcw size={18} className={loading ? 'spin' : ''}/>{loading ? 'Procesando...' : 'Actualizar'}</button>
+          <button disabled={loading || exporting || items.length === 0} onClick={exportCurrentSource}><Download size={16}/>{exporting ? 'Exportando...' : 'Export Header + Sales'}</button>
+          {source === 'email' && <button disabled={loading} onClick={runScanAndLoadEmailDocs}>Leer Outlook y actualizar</button>}
+        </div>
+      </div>
+
+      {error && <div className="notice error"><AlertTriangle size={18}/>{error}</div>}
+      {generatedAt && <div className="notice ok">Última corrida: {formatDate(generatedAt)} · {stats.total} PDFs · {stats.lines} líneas</div>}
+      <ExportPanel exportData={exportData} />
+
+      <section className="stats-row a2000-stats">
+        <Stat label="PDFs" value={stats.total} />
+        <Stat label="Parsed" value={stats.parsed} tone="parsed" />
+        <Stat label="Needs mapping" value={stats.needs} tone="pending" />
+        <Stat label="Errores" value={stats.errors} tone="urgent" />
+      </section>
+
+      <div className="a2000-filters">
+        {['all', 'parsed', 'needs_mapping', 'error'].map(value => <button key={value} className={filter === value ? 'active' : ''} onClick={() => setFilter(value)}>{value === 'all' ? 'Todos' : value}</button>)}
+      </div>
+
+      <section className="a2000-grid">
+        <div className="a2000-list">
+          {visibleItems.length === 0 ? <div className="empty-list"><CheckCircle2 size={24}/><p>{source === 'email' ? 'No hay PDFs de correo Factura American descargados todavía. Usa “Leer Outlook y actualizar”.' : 'No hay PDFs para este filtro.'}</p></div> : visibleItems.map(item => {
+            const h = item.header || {};
+            const missingCount = (item.missing?.header || []).length + (item.missing?.lines || []).reduce((sum, line) => sum + (line.missing || []).length, 0);
+            return (
+              <article key={`${item.source || 'test'}-${item.document_id || item.file}`} className={`a2000-doc-row ${selected?.file === item.file && selected?.document_id === item.document_id ? 'selected' : ''}`} onClick={() => setSelected(item)}>
+                <div className="doc-row-top"><h3>{shortFileName(item.file_name)}</h3><StatusBadge status={item.status} /></div>
+                <p>{item.parser || 'parser ?'} · PO {h.order_no || '?'} · {item.line_count || 0} líneas</p>
+                {item.subject && <p className="event-summary">Correo: {item.subject} · {item.sender_email || 'sin remitente'}</p>}
+                <div className="doc-row-facts">
+                  <span>Customer <strong>{h.customer_code || '?'}</strong></span>
+                  <span>Store <strong>{h.store_code || '?'}</strong></span>
+                  <span>WH <strong>{h.warehouse_code || '?'}</strong></span>
+                  <span>Div <strong>{h.division_code || '?'}</strong></span>
+                </div>
+                <div className="doc-row-facts muted">
+                  <span>{item.file_load_source || source}</span>
+                  <span>Qty {item.totals?.qty ?? '?'}</span>
+                  <span>{money(item.totals?.amount) || 'Amount ?'}</span>
+                  {missingCount > 0 && <span>{missingCount} faltantes</span>}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+        <A2000DocumentDetail item={selected} />
+      </section>
+    </section>
+  );
+}
+
+// A2000_V4_6_STAGE1_WEB
+
+
+// A2000_V4_6_6_ONE_CLICK_PROCESS_UPLOAD
+function lineRawJson(line = {}) {
+  const raw = line?.raw_json;
+  return raw && typeof raw === 'object' ? raw : {};
+}
+
+function customerUpcValue(line = {}) {
+  const raw = lineRawJson(line);
+  return line.customer_upc
+    || line.upc
+    || raw.customer_upc_raw
+    || raw.customer_upc
+    || '-';
+}
+
+function a2000IdentityTrace(line = {}) {
+  return lineRawJson(line).universal_official_master_identity || {};
+}
+
+function a2000QtyResolution(line = {}) {
+  return lineRawJson(line).universal_official_qty_resolution || {};
+}
+
+function a2000MasterUpcValue(line = {}) {
+  return line.master_upc
+    || lineRawJson(line).master_upc
+    || a2000IdentityTrace(line).master_upc
+    || '-';
+}
+
+function a2000InternalSkuValue(line = {}) {
+  return line.internal_sku
+    || a2000IdentityTrace(line).internal_sku
+    || '-';
+}
+
+function a2000ScaleValue(line = {}) {
+  return line.scale_code
+    || a2000QtyResolution(line).scale
+    || a2000IdentityTrace(line).scale
+    || '-';
+}
+
+function a2000QtyBuckets(line = {}) {
+  const buckets = {};
+  for (let index = 1; index <= 18; index += 1) {
+    const value = Number(line[`qty_sz${index}`] || 0);
+    if (Number.isFinite(value) && value > 0) {
+      buckets[`QTY_SZ${index}`] = value;
+    }
+  }
+  return buckets;
+}
+
+function a2000QtySummary(line = {}) {
+  const buckets = a2000QtyBuckets(line);
+  const entries = Object.entries(buckets);
+  if (!entries.length) return '-';
+  return entries
+    .map(([bucket, qty]) => `${bucket.replace('QTY_', '')}=${qty}`)
+    .join(' · ');
+}
+
+function a2000SizeSummary(line = {}) {
+  const resolution = a2000QtyResolution(line);
+  const names = resolution.size_names_by_bucket || {};
+  const distribution = resolution.distribution || a2000QtyBuckets(line);
+
+  const entries = Object.entries(distribution)
+    .filter(([, qty]) => Number(qty) > 0)
+    .sort(([left], [right]) => {
+      const leftNo = Number(String(left).replace(/[^0-9]/g, '')) || 0;
+      const rightNo = Number(String(right).replace(/[^0-9]/g, '')) || 0;
+      return leftNo - rightNo;
+    });
+
+  if (!entries.length) return '-';
+
+  return entries.map(([bucket, qty]) => {
+    const name = names[bucket] || bucket.replace('QTY_', '');
+    return `${name}:${qty}`;
+  }).join(' · ');
+}
+
+function ProcessOrdersPage() {
+  const [orders, setOrders] = useState([]);
+  const [launch, setLaunch] = useState(null);
+  const [catalog, setCatalog] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [query, setQuery] = useState('');
+  const [files, setFiles] = useState([]);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [preflightByOrder, setPreflightByOrder] = useState({});
+
+  const sourceDocumentId = order => order?.document_id || order?.document?.id || null;
+
+  const isServiceUnavailable = payload => {
+    const workflow = payload?.workflow || payload || {};
+    const errors = [
+      ...(workflow.preflight?.errors || []),
+      ...(workflow.last_error ? [workflow.last_error] : []),
+      ...(workflow.upload?.last_error ? [workflow.upload.last_error] : [])
+    ];
+    return (
+      workflow.stage === 'a2000_service_unavailable'
+      || errors.some(item => (
+        item?.code === 'A2000_SERVICE_UNAVAILABLE'
+        || [502, 503, 504].includes(Number(item?.http_status || 0))
+        || /no backend server available|failure of web server bridge/i.test(
+          String(item?.raw_message || item?.message || '')
+        )
+      ))
+    );
+  };
+
+  const friendlyServiceUnavailable = (
+    'A2000 AMEXTEST está temporalmente fuera de servicio. '
+    + 'No se envió ORDER_HD ni ORDER_LI. La lectura local permanece válida.'
+  );
+
+  function workflowErrors(payload = {}) {
+    if (isServiceUnavailable(payload)) return friendlyServiceUnavailable;
+
+    const workflow = payload.workflow || payload;
+    const errors = [
+      ...(workflow.preflight?.errors || []),
+      ...(workflow.upload?.last_error ? [workflow.upload.last_error] : []),
+      ...(workflow.last_error ? [workflow.last_error] : [])
+    ];
+
+    const formatted = errors.map(item => {
+      const line = item.line_no ? `Línea ${item.line_no}: ` : '';
+      const code = item.code || item.stage || item.field || 'ERROR';
+      const detail = item.message || item.error || item.field || JSON.stringify(item);
+      return `${line}${code} · ${detail}`;
+    });
+
+    if (formatted.length) return formatted.join('\n');
+    return payload.error || workflow.stage || 'La operación no pudo completarse.';
+  }
+
+  async function load() {
+    setError('');
+    const [ordersRes, launchRes, checklistRes] = await Promise.all([
+      fetch(`${API_URL}/po/operational-orders?limit=700`),
+      fetch(`${API_URL}/po/launch-status`),
+      fetch(`${API_URL}/po/checklists/status`)
+    ]);
+    const ordersData = await ordersRes.json().catch(() => ({}));
+    const launchData = await launchRes.json().catch(() => ({}));
+    const checklistData = await checklistRes.json().catch(() => ({}));
+    if (!ordersRes.ok || ordersData.ok === false) {
+      throw new Error(ordersData.error || 'No se pudieron cargar las órdenes.');
+    }
+    const next = ordersData.orders || [];
+    setOrders(next);
+    setLaunch(launchData);
+    setCatalog(checklistData);
+    setSelected(current => current
+      ? next.find(item => String(item.id) === String(current.id)) || null
+      : next[0] || null
+    );
+  }
+
+  useEffect(() => {
+    load().catch(event => setError(event.message));
+  }, []);
+
+  async function scanAndProcess() {
+    setLoading(true);
+    setError('');
+    setMessage('Leyendo todas las conversaciones no leídas con asunto Factura American...');
+    try {
+      const response = await fetch(`${API_URL}/run-scan`, { method: 'POST' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.run?.status === 'error') {
+        throw new Error(data.error || data.run?.error_message || 'No se pudo ejecutar Outlook RPA.');
+      }
+
+      const attachmentCount = (data.emails || []).reduce((sum, email) => {
+        const count = email.raw?.attachment_occurrence_coverage?.expected_count
+          || email.raw?.attachment_coverage?.occurrence_coverage?.expected_count
+          || email.attachments?.length
+          || 0;
+        return sum + Number(count || 0);
+      }, 0);
+
+      const uniquePdfs = data.documents?.length || 0;
+      const processed = data.processing?.processed_order_count
+        || data.processing?.processed_document_count
+        || 0;
+
+      setMessage(
+        `Outlook terminado: ${data.emails?.length || 0} conversación(es), `
+        + `${attachmentCount} adjunto(s) PDF recuperados, ${uniquePdfs} PDF(s) únicos guardados, `
+        + `${processed} documento(s) procesados.`
+      );
+      await load();
+    } catch (event) {
+      setError(event.message);
+      setMessage('');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function uploadSelectedFiles() {
+    if (!files.length) return setError('Selecciona uno o más PDF.');
+    setLoading(true);
+    setError('');
+    let completed = 0;
+    try {
+      for (const file of files) {
+        const response = await fetch(`${API_URL}/po/upload-pdf`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/pdf',
+            'X-File-Name': file.name,
+            'X-Email-Subject': 'Manual upload - Factura American'
+          },
+          body: file
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.ok === false) {
+          throw new Error(`${file.name}: ${data.error || 'falló la carga'}`);
+        }
+        completed += 1;
+      }
+      setFiles([]);
+      setMessage(`${completed} PDF(s) subidos, leídos y guardados.`);
+      await load();
+    } catch (event) {
+      setError(event.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function reprocessOrder(order) {
+    if (!sourceDocumentId(order)) {
+      setError('Esta orden viene de históricos/test-pdfs. Puedes abrir el PDF y validar A2000, pero no tiene document_id para volver a leerla desde Supabase.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${API_URL}/po/orders/${encodeURIComponent(order.id)}/reprocess`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok === false) {
+        throw new Error(workflowErrors(data));
+      }
+      setMessage(`PO ${order.order_no} volvió a leerse contra los masters. No se envió a A2000.`);
+      await load();
+    } catch (event) {
+      setError(event.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function preflightOne(order, { quiet = false } = {}) {
+    if (!quiet) {
+      setLoading(true);
+      setError('');
+      setMessage('Validando contra A2000 sin crear la Sales Order...');
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/po/orders/${encodeURIComponent(order.id)}/preflight`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      const data = await response.json().catch(() => ({}));
+      const workflow = data.workflow || data;
+      setPreflightByOrder(current => ({
+        ...current,
+        [String(order.id)]: workflow
+      }));
+
+      if (!response.ok || data.ok === false) {
+        if (!quiet) {
+          if (isServiceUnavailable(data)) {
+            setMessage(friendlyServiceUnavailable);
+            setError('');
+          } else {
+            setError(workflowErrors(data));
+          }
+        }
+        return {
+          ok: false,
+          unavailable: isServiceUnavailable(data),
+          data
+        };
+      }
+
+      if (!quiet) {
+        setMessage(`PO ${order.order_no}: preflight aprobado. Esta prueba no creó ninguna Sales Order.`);
+      }
+      return { ok: true, data };
+    } catch (event) {
+      if (!quiet) setError(event.message);
+      return { ok: false, data: { error: event.message } };
+    } finally {
+      if (!quiet) setLoading(false);
+    }
+  }
+
+  async function sendOne(order) {
+    if (!confirmClear) {
+      setError('Antes de escribir en A2000, confirma que revisaste/limpiaste ORDER_LI para los Upload IDs compartidos.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setMessage('Ejecutando preflight seguro antes de crear la Sales Order...');
+
+    try {
+      const safeCheck = await preflightOne(order, { quiet: true });
+      if (!safeCheck.ok) {
+        throw new Error(workflowErrors(safeCheck.data));
+      }
+
+      setMessage('Preflight aprobado. Enviando Header y Lines a A2000...');
+      const response = await fetch(`${API_URL}/po/orders/${encodeURIComponent(order.id)}/a2000`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm_order_li_cleared: true })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok === false) {
+        throw new Error(workflowErrors(data));
+      }
+      const ctrl = data.workflow?.upload?.a2000_ctrl_no
+        || data.workflow?.upload?.a2000_seq_order_no
+        || 'ver LOG';
+      setMessage(`PO ${order.order_no} creada en A2000. CTRL/SEQ ${ctrl}.`);
+      await load();
+    } catch (event) {
+      setError(event.message);
+      setMessage('');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function sendAllValidated() {
+    if (!confirmClear) {
+      setError('Confirma primero la revisión de ORDER_LI. La carga masiva sí crea Sales Orders.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setMessage('Validando y enviando secuencialmente todas las órdenes elegibles...');
+    try {
+      const response = await fetch(`${API_URL}/po/upload-all-validated`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          limit: 50,
+          confirm_order_li_cleared: true
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      const workflow = data.workflow || {};
+      const failedDetails = (workflow.results || [])
+        .filter(item => !item.ok)
+        .slice(0, 8)
+        .map(item => `${item.customer_code || '?'} PO ${item.order_no || '?'}: ${workflowErrors(item)}`);
+
+      setMessage(
+        `Carga masiva terminada: ${workflow.completed_count || 0} completadas, `
+        + `${workflow.failed_count || 0} fallidas, ${workflow.skipped_count || 0} omitidas.`
+      );
+
+      if (failedDetails.length) {
+        setError(failedDetails.join('\n'));
+      } else if (!response.ok || data.ok === false) {
+        setError(workflowErrors(data));
+      }
+      await load();
+    } catch (event) {
+      setError(event.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function generateChecklist(order) {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${API_URL}/po/orders/${encodeURIComponent(order.id)}/checklist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok === false) {
+        throw new Error(
+          data.reason === 'NO_CUSTOMER_CHECKLIST_TEMPLATE'
+            ? 'No hay una plantilla histórica conectada para este customer.'
+            : data.error || data.reason || 'No se pudo generar checklist.'
+        );
+      }
+      window.open(
+        `${API_URL}/po/orders/${encodeURIComponent(order.id)}/checklist/download`,
+        '_blank',
+        'noopener,noreferrer'
+      );
+      setMessage(`Checklist ${data.file_name} generado conservando formato e imágenes.`);
+    } catch (event) {
+      setError(event.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const visible = useMemo(() => {
+    const value = query.trim().toLowerCase();
+    if (!value) return orders;
+    return orders.filter(order => [
+      order.order_no,
+      order.customer_code,
+      order.status,
+      order.document?.file_name,
+      order.source_file_name,
+      order.a2000_job?.status,
+      order.a2000_job?.a2000_ctrl_no,
+      ...(order.purchase_order_lines || []).flatMap(line => [
+        line.style_code,
+        line.style_raw,
+        line.color_code,
+        line.customer_sku
+      ])
+    ].filter(Boolean).join(' ').toLowerCase().includes(value));
+  }, [orders, query]);
+
+  const stats = useMemo(() => ({
+    read: orders.filter(item => item.reading_valid).length,
+    ready: orders.filter(item => (
+      item.a2000_local_ready
+      && item.stage1_certified
+      && item.a2000_job?.status !== 'completed'
+    )).length,
+    uploaded: orders.filter(item => item.a2000_job?.status === 'completed').length,
+    review: orders.filter(item => !item.a2000_local_ready).length
+  }), [orders]);
+
+  const selectedLines = selected?.purchase_order_lines || [];
+  const selectedPreflight = selected ? preflightByOrder[String(selected.id)] : null;
+  const selectedCancelOpenLines = (
+    selected?.customer_master_defaults?.cancel_open_lines
+    || selectedPreflight?.preflight?.customer_master_defaults?.cancel_open_lines
+    || selectedPreflight?.customer_master_defaults?.cancel_open_lines
+    || null
+  );
+  const previewUrl = selected
+    ? `${API_URL}/po/orders/${encodeURIComponent(selected.id)}/pdf`
+    : '';
+  const downloadUrl = selected
+    ? `${previewUrl}?download=1`
+    : '';
+  const canReprocess = Boolean(sourceDocumentId(selected));
+  const checklistTemplates = catalog?.templates || [];
+  const selectedCustomerCode = String(selected?.customer_code || '').toUpperCase();
+  const checklistAvailable = checklistTemplates.some(item => (
+    !item.error
+    && String(item.customer_code || '').toUpperCase() === selectedCustomerCode
+    && item.best_sheet?.table
+  ));
+  const selectedJobUnavailable = isServiceUnavailable({
+    workflow: {
+      stage: selected?.a2000_job?.status,
+      last_error: selected?.a2000_job?.last_error
+    }
+  });
+
+  const selectedUploadBlockReasons = [];
+  if (selected && !selected.a2000_local_ready) {
+    selectedUploadBlockReasons.push('La validación local todavía tiene errores.');
+  }
+  if (selected && !selected.stage1_certified) {
+    selectedUploadBlockReasons.push(
+      `Customer no habilitado para escritura: ${selected.customer_code || '?'}`
+    );
+  }
+  if (selected?.a2000_job?.status === 'completed') {
+    selectedUploadBlockReasons.push('La orden ya fue creada en A2000.');
+  }
+  const canCreateSalesOrder = Boolean(
+    selected
+    && !loading
+    && selectedUploadBlockReasons.length === 0
+  );
+
+  return <section className="v471-operation">
+    <header className="v471-header">
+      <div>
+        <p className="eyebrow">SALES ORDER CONTROL</p>
+        <h1>Factura American → A2000</h1>
+        <p>Solo correos no leídos. Todos los PDF. Lectura, validación y envío claramente separados.</p>
+      </div>
+      <div className="v470-env">
+        <span>A2000</span>
+        <strong>{launch?.environment || '...'}</strong>
+        <small>{launch?.auto_upload_enabled ? 'AUTO' : 'CONTROLADO'}</small>
+      </div>
+    </header>
+
+    <section className="v471-controls">
+      <div className="v471-actions">
+        <button className="primary" disabled={loading} onClick={scanAndProcess}>
+          <RefreshCcw size={17} className={loading ? 'spin' : ''}/>
+          Leer correos no leídos
+        </button>
+        <label className="v470-file">
+          <Upload size={17}/>
+          <span>{files.length ? `${files.length} PDF(s)` : 'Seleccionar PDF(s)'}</span>
+          <input
+            type="file"
+            multiple
+            accept="application/pdf,.pdf"
+            onChange={event => setFiles([...event.target.files])}
+          />
+        </label>
+        <button disabled={loading || !files.length} onClick={uploadSelectedFiles}>
+          Subir PDF manual
+        </button>
+        <button
+          className="v470-bulk"
+          disabled={loading || stats.ready === 0}
+          onClick={sendAllValidated}
+          title="Este botón sí crea Sales Orders en A2000."
+        >
+          <Send size={17}/>
+          Enviar todas a A2000 ({stats.ready})
+        </button>
+      </div>
+
+      <label className="safety-check v471-safety">
+        <input
+          type="checkbox"
+          checked={confirmClear}
+          onChange={event => setConfirmClear(event.target.checked)}
+        />
+        Confirmo revisión/limpieza de ORDER_LI antes de cualquier escritura.
+      </label>
+    </section>
+
+    <section className="v471-status-row">
+      <div className="v471-stats">
+        <Stat label="Órdenes leídas" value={stats.read}/>
+        <Stat label="Listas localmente" value={stats.ready} tone="pending"/>
+        <Stat label="Subidas" value={stats.uploaded}/>
+        <Stat label="Revisión" value={stats.review} tone="urgent"/>
+      </div>
+      <div className="v471-meaning">
+        <span><strong>Volver a leer:</strong> PDF + masters, sin conectar A2000.</span>
+        <span><strong>Validar A2000:</strong> consulta live, sin escritura.</span>
+        <span><strong>Enviar:</strong> único paso que crea la Sales Order.</span>
+        <span><strong>Checklists:</strong> {catalog?.template_count || 0} plantillas únicas del ZIP maestro.</span>
+      </div>
+    </section>
+
+    {(message || error) && <section className="v471-notices">
+      {message && <div className="notice ok">{message}</div>}
+      {error && <pre className="notice error v471-error"><AlertTriangle size={18}/>{error}</pre>}
+    </section>}
+
+    <section className="v471-workspace">
+      <div className="v471-list-panel">
+        <div className="v471-toolbar">
+          <label className="search">
+            <Search size={16}/>
+            <input
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              placeholder="Buscar PO, customer, archivo, style o CTRL"
+            />
+          </label>
+          <button onClick={() => load().catch(event => setError(event.message))}>Actualizar</button>
+        </div>
+
+        <div className="v471-list">
+          {visible.map(order => <button
+            key={order.id}
+            className={`v470-order ${String(selected?.id) === String(order.id) ? 'selected' : ''}`}
+            onClick={() => {
+              setSelected(order);
+              setError('');
+              setMessage('');
+            }}
+          >
+            <div>
+              <strong>{order.customer_code || 'Customer ?'} · PO {order.order_no || '?'}</strong>
+              <span>{order.document?.file_name || order.source_file_name || 'PDF'}</span>
+            </div>
+            <div className="v470-order-status">
+              <StatusBadge status={
+                order.a2000_job?.status === 'completed'
+                  ? 'completed'
+                  : order.a2000_local_ready
+                    ? 'parsed'
+                    : order.status
+              }/>
+              <small>{order.purchase_order_lines?.length || 0} líneas</small>
+            </div>
+          </button>)}
+          {!visible.length && <div className="empty-list">
+            <CheckCircle2 size={24}/>
+            <p>No hay órdenes para este filtro.</p>
+          </div>}
+        </div>
+      </div>
+
+      <aside className="v471-detail">
+        {!selected ? <div className="empty-detail">
+          <Inbox size={28}/>
+          <h2>Selecciona una orden</h2>
+          <p>Aquí verás el PDF, la lectura, los errores exactos y las acciones.</p>
+        </div> : <>
+          <div className="v471-detail-head">
+            <div>
+              <StatusBadge status={
+                selected.a2000_job?.status === 'completed'
+                  ? 'completed'
+                  : selected.status
+              }/>
+              <h2>{selected.customer_code || '?'} · PO {selected.order_no || '?'}</h2>
+              <p>{selected.document?.file_name || selected.source_file_name || 'PDF'}</p>
+            </div>
+            <div className="v471-pdf-actions">
+              <a className="link-button" href={previewUrl} target="_blank" rel="noreferrer">
+                <ExternalLink size={16}/>Abrir PDF
+              </a>
+              <a className="link-button" href={downloadUrl}>
+                <Download size={16}/>Descargar
+              </a>
+            </div>
+          </div>
+
+          <div className="v471-pdf-frame-wrap">
+            <iframe className="v471-pdf-frame" src={previewUrl} title={`PDF PO ${selected.order_no}`}/>
+          </div>
+
+          <div className="mini-matrix v471-matrix">
+            <TinyField label="Customer" value={selected.customer_code}/>
+            <TinyField label="Store" value={selected.store_code}/>
+            <TinyField label="Order date" value={selected.order_date}/>
+            <TinyField label="Start" value={selected.start_date}/>
+            <TinyField label="Cancel" value={selected.cancel_date}/>
+            <TinyField label="Cancel open lines" value={selectedCancelOpenLines || 'No exportado en el master actual'}/>
+            <TinyField label="Div" value={selected.division_code}/>
+            <TinyField label="Terms" value={selected.terms_code}/>
+            <TinyField label="WH" value={selected.warehouse_code}/>
+            <TinyField label="CTRL" value={selected.a2000_job?.a2000_ctrl_no}/>
+          </div>
+
+          <div className="v470-readiness">
+            <span className={selected.reading_valid ? 'good' : 'bad'}>
+              Lectura {selected.reading_valid ? 'completa' : 'incompleta'}
+            </span>
+            <span className={selected.a2000_local_ready ? 'good' : 'warn'}>
+              Validación local {selected.a2000_local_ready ? 'aprobada' : 'requiere ajuste'}
+            </span>
+            {selectedPreflight && <span className={
+              selectedPreflight.ok
+                ? 'good'
+                : isServiceUnavailable(selectedPreflight)
+                  ? 'warn'
+                  : 'bad'
+            }>
+              {selectedPreflight.ok
+                ? 'Preflight A2000 aprobado'
+                : isServiceUnavailable(selectedPreflight)
+                  ? 'A2000 no disponible · sin escritura'
+                  : 'Preflight A2000 fallido'}
+            </span>}
+            {!selectedPreflight && selectedJobUnavailable && <span className="warn">
+              A2000 no disponible en el último intento · sin escritura
+            </span>}
+          </div>
+
+          <div className="v471-order-actions">
+            <button
+              disabled={loading || !canReprocess}
+              onClick={() => reprocessOrder(selected)}
+              title={canReprocess
+                ? 'Vuelve a leer el PDF y cruza masters. No escribe en A2000.'
+                : 'Orden histórica sin document_id. Usa Abrir PDF y Validar A2000.'}
+            >
+              <Play size={16}/>Volver a leer PDF
+            </button>
+            <button
+              disabled={loading}
+              onClick={() => preflightOne(selected)}
+              title="Consulta y valida contra A2000, pero no crea la orden."
+            >
+              <ShieldCheck size={16}/>Validar A2000 sin enviar
+            </button>
+            <button
+              disabled={loading || !checklistAvailable}
+              onClick={() => generateChecklist(selected)}
+              title={checklistAvailable
+                ? `Genera la checklist ${selectedCustomerCode} desde el ZIP maestro.`
+                : `El ZIP maestro no contiene una checklist compatible para ${selectedCustomerCode || 'este customer'}.`}
+            >
+              <FileText size={16}/>
+              {checklistAvailable ? 'Generar checklist histórica' : `Sin checklist ${selectedCustomerCode || ''}`}
+            </button>
+            <button
+              className="primary"
+              disabled={!canCreateSalesOrder}
+              onClick={() => sendOne(selected)}
+              title={
+                selectedUploadBlockReasons.length
+                  ? selectedUploadBlockReasons.join(' ')
+                  : 'Este botón sí crea la Sales Order en A2000.'
+              }
+            >
+              <Send size={16}/>Crear Sales Order en A2000
+            </button>
+          </div>
+
+          {selectedUploadBlockReasons.length > 0 && <div className="upload-block-reason">
+            <AlertTriangle size={16}/>
+            <span>{selectedUploadBlockReasons.join(' ')}</span>
+          </div>}
+
+          {selectedPreflight && !selectedPreflight.ok && <pre className="notice error v471-error">
+            <AlertTriangle size={18}/>{workflowErrors(selectedPreflight)}
+          </pre>}
+
+          {selected.a2000_job?.last_error && <pre className={
+            `notice ${selectedJobUnavailable ? 'warning' : 'error'} v471-error`
+          }>
+            <AlertTriangle size={18}/>
+            {selectedJobUnavailable
+              ? friendlyServiceUnavailable
+              : workflowErrors({ workflow: { last_error: selected.a2000_job.last_error } })}
+          </pre>}
+
+          {!selected.a2000_local_ready && <div className="notice error">
+            <AlertTriangle size={18}/>
+            {(selected.a2000_local_errors || [])
+              .map(item => `${item.line_no ? `L${item.line_no} ` : ''}${item.field || item.code}`)
+              .join(', ') || 'Requiere revisión de mapping.'}
+          </div>}
+
+          <section className="extract-section v471-lines">
+            <h3>Líneas y master match</h3>
+            {selectedLines.map(line => <article
+              className="a2000-line-card"
+              key={`${selected.id}-${line.line_no}`}
+            >
+              <div className="line-card-head">
+                <div>
+                  <span className="line-index">Línea {line.line_no}</span>
+                  <h4>{line.style_code || line.style_raw || '?'} / {line.color_code || '?'}</h4>
+                  <p>{a2000MasterUpcValue(line) !== '-'
+                    ? `UPC A2000 · ${a2000MasterUpcValue(line)}`
+                    : 'UPC A2000 no único · REF se omitirá'}</p>
+                </div>
+                <div className="line-qty"><span>Qty</span><strong>{line.qty_total ?? '-'}</strong></div>
+              </div>
+              <div className="mini-matrix">
+                <TinyField label="Style PDF" value={line.style_raw}/>
+                <TinyField label="Style A2000" value={line.style_code}/>
+                <TinyField label="Color PDF" value={line.color_raw}/>
+                <TinyField label="Color A2000" value={line.color_code}/>
+                <TinyField label="Customer SKU" value={line.customer_sku}/>
+                <TinyField label="UPC master" value={a2000MasterUpcValue(line)}/>
+                <TinyField label="Descripción" value={line.description || 'Sin descripción'}/>
+                <TinyField label="Sales price" value={line.sales_price ?? 'Omitido'}/>
+                <TinyField label="Size PDF" value={line.size_raw || 'No impreso'}/>
+              </div>
+              <details className="raw-json">
+                <summary>Ver evidencia y QTY_SZn</summary>
+                <pre>{JSON.stringify(line.raw_json || {}, null, 2)}</pre>
+              </details>
+            </article>)}
+          </section>
+        </>}
+      </aside>
+    </section>
+  </section>;
+}
+
+function OpsLogPage() {
+  const [logs, setLogs] = useState([]);
+  const [query, setQuery] = useState('');
+  const [error, setError] = useState('');
+
+  const serviceUnavailable = item => {
+    const detail = item?.last_error || {};
+    return (
+      detail.code === 'A2000_SERVICE_UNAVAILABLE'
+      || [502, 503, 504].includes(Number(detail.http_status || 0))
+      || /no backend server available|failure of web server bridge/i.test(
+        String(detail.raw_message || detail.message || '')
+      )
+    );
+  };
+
+  const writePerformed = item => Boolean(
+    item?.a2000_seq_order_no
+    || item?.a2000_ctrl_no
+    || item?.header_request
+    || item?.lines_request
+    || item?.header_response_json
+    || item?.lines_response_json
+  );
+
+  async function load() {
+    setError('');
+    const response = await fetch(`${API_URL}/po/logs?limit=500`);
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data.ok === false) {
+      throw new Error(data.error || 'No se pudo cargar LOG.');
+    }
+
+    setLogs(data.logs || []);
+  }
+
+  useEffect(() => {
+    load().catch(event => setError(event.message));
+  }, []);
+
+  const visible = useMemo(() => {
+    const value = query.trim().toLowerCase();
+    if (!value) return logs;
+
+    return logs.filter(item => [
+      item.customer_code,
+      item.order_no,
+      item.status,
+      item.a2000_ctrl_no,
+      item.a2000_seq_order_no,
+      ...(item.uploaded_lines || []).flatMap(line => [
+        line.style,
+        line.color_no,
+        line.qty_total,
+        JSON.stringify(line.qty_buckets || {})
+      ]),
+      JSON.stringify(item.last_error || {})
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(value));
+  }, [logs, query]);
+
+  return (
+    <section className="ops-page v472-ops-page">
+      <div className="ops-hero">
+        <div>
+          <p className="eyebrow">Audit trail · V4.7.2</p>
+          <h2>LOG A2000 detallado</h2>
+          <p>Los intentos sin payload se identifican como diagnósticos. Solo existe escritura cuando ves ORDER_HD/ORDER_LI, CTRL o SEQ.</p>
+        </div>
+        <div className="environment-card">
+          <span>Registros</span>
+          <strong>{visible.length}</strong>
+          <small>A2000 REST JOBS</small>
+        </div>
+      </div>
+
+      <div className="ops-toolbar">
+        <label className="search ops-search">
+          <Search size={17}/>
+          <input
+            value={query}
+            onChange={event => setQuery(event.target.value)}
+            placeholder="Buscar PO, customer, CTRL, SEQ, style, color..."
+          />
+        </label>
+        <button onClick={() => load().catch(event => setError(event.message))}>
+          <RefreshCcw size={17}/> Actualizar LOG
+        </button>
+      </div>
+
+      {error && <div className="notice error"><AlertTriangle size={18}/>{error}</div>}
+
+      <div className="log-list detailed-log-list">
+        {visible.map((item, index) => {
+          const unavailable = serviceUnavailable(item);
+          const wrote = writePerformed(item);
+
+          return <details className="log-entry" key={item.id} open={index === 0}>
+            <summary className="log-row">
+              <span>{formatDate(item.updated_at || item.created_at)}</span>
+              <span>
+                <strong>{item.customer_code || '?'}</strong>
+                <small>PO {item.order_no || '?'}</small>
+              </span>
+              <span>
+                {unavailable && !wrote
+                  ? <span className="v472-status unavailable">A2000 no disponible</span>
+                  : <StatusBadge status={item.status}/>}
+                <small className={unavailable ? 'v472-no-write' : 'log-error'}>
+                  {unavailable && !wrote
+                    ? 'Sin escritura'
+                    : item.last_error?.code || ''}
+                </small>
+              </span>
+              <span>
+                <strong>CTRL {item.a2000_ctrl_no || '-'}</strong>
+                <small>SEQ {item.a2000_seq_order_no || '-'}</small>
+              </span>
+              <span>
+                <strong>{item.uploaded_total_qty || 0} und.</strong>
+                <small>{item.uploaded_line_count || 0} línea(s)</small>
+              </span>
+              <span className="log-open-label">Abrir detalle completo ▾</span>
+            </summary>
+
+            <div className="log-detail">
+              {unavailable && !wrote && <section className="notice warning v472-diagnostic">
+                <AlertTriangle size={18}/>
+                <div>
+                  <strong>Diagnóstico de conectividad, no una Sales Order fallida.</strong>
+                  <p>A2000 AMEXTEST devolvió HTTP {item.last_error?.http_status || 503}. No se envió ORDER_HD ni ORDER_LI.</p>
+                </div>
+              </section>}
+
+              {wrote ? <>
+                <section>
+                  <h3>Header exacto enviado a ORDER_HD</h3>
+                  <div className="log-header-grid">
+                    {Object.entries(item.uploaded_header || {}).map(([key, value]) => (
+                      <div className="log-fact" key={key}>
+                        <span>{key}</span>
+                        <strong>{String(value ?? '') || '-'}</strong>
+                      </div>
+                    ))}
+                  </div>
+                  {!item.uploaded_header && <p>No hay Header persistido para este intento.</p>}
+                </section>
+
+                <section>
+                  <div className="log-section-title">
+                    <h3>Sales Lines exactas enviadas a ORDER_LI</h3>
+                    <span>{item.uploaded_line_count || 0} líneas · {item.uploaded_total_qty || 0} unidades</span>
+                  </div>
+
+                  <div className="log-lines">
+                    {(item.uploaded_lines || []).map((line, lineIndex) => (
+                      <article className="log-line-card" key={`${item.id}-${line.line_no}-${lineIndex}`}>
+                        <div className="log-line-top">
+                          <div>
+                            <span>Línea {line.line_no}</span>
+                            <strong>{line.style || '?'} / {line.color_no || '?'}</strong>
+                          </div>
+                          <div>
+                            <span>Qty</span>
+                            <strong>{line.qty_total || 0}</strong>
+                          </div>
+                        </div>
+
+                        <div className="log-line-meta">
+                          <span>Precio: {line.sales_price ?? '-'}</span>
+                          <span>WH: {line.warehouse || '-'}</span>
+                          <span>Store: {line.store_no || '-'}</span>
+                          <span>SEQ: {line.seq_order_no || item.a2000_seq_order_no || '-'}</span>
+                        </div>
+
+                        <div className="log-buckets">
+                          {Object.entries(line.qty_buckets || {}).map(([bucket, qty]) => (
+                            <span key={bucket}><strong>{bucket}</strong> {qty}</span>
+                          ))}
+                          {!Object.keys(line.qty_buckets || {}).length && <span>Sin QTY_SZn positivo</span>}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="log-response-grid">
+                  <div>
+                    <h3>Payload REST ORDER_HD</h3>
+                    <pre>{JSON.stringify(item.header_request, null, 2)}</pre>
+                  </div>
+                  <div>
+                    <h3>Respuesta real ORDER_HD</h3>
+                    <pre>{JSON.stringify(item.header_response_json, null, 2)}</pre>
+                  </div>
+                  <div>
+                    <h3>Payload REST ORDER_LI</h3>
+                    <pre>{JSON.stringify(item.lines_request, null, 2)}</pre>
+                  </div>
+                  <div>
+                    <h3>Respuesta real ORDER_LI</h3>
+                    <pre>{JSON.stringify(item.lines_response_json, null, 2)}</pre>
+                  </div>
+                </section>
+              </> : <section className="v472-no-payload">
+                <h3>No hubo escritura REST</h3>
+                <p>No existe Header, Lines, CTRL ni SEQ para este registro.</p>
+              </section>}
+
+              {item.last_error && (
+                <section>
+                  <h3>Detalle técnico</h3>
+                  <pre>{JSON.stringify(item.last_error, null, 2)}</pre>
+                </section>
+              )}
+            </div>
+          </details>;
+        })}
+
+        {!visible.length && <div className="empty-block">No hay registros para este filtro.</div>}
+      </div>
+    </section>
+  );
+}
+
+
+function Stat({ label, value, tone = 'neutral' }) {
+  return (
+    <div className={`stat ${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function App() {
+  const [authUser, setAuthUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('rpaUser')); } catch { return null; }
+  });
+  const [tab, setTab] = useState('process');
+  const [language, setLanguage] = useState(
+    () => localStorage.getItem('rpaLanguage') || 'es'
+  );
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem('rpaTheme')
+      || (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+  );
+
+  useRuntimeUiTranslation(language);
+
+  useEffect(() => {
+    localStorage.setItem('rpaLanguage', language);
+    document.documentElement.lang = language;
+  }, [language]);
+
+  useEffect(() => {
+    localStorage.setItem('rpaTheme', theme);
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  const preferenceButtons = <div className="ui-preferences">
+    <button
+      type="button"
+      onClick={() => setLanguage(current => current === 'es' ? 'en' : 'es')}
+      title={language === 'es' ? 'Cambiar a inglés' : 'Cambiar a español'}
+      aria-label={language === 'es' ? 'Cambiar a inglés' : 'Cambiar a español'}
+    >
+      {language === 'es' ? 'EN' : 'ES'}
+    </button>
+    <button
+      type="button"
+      onClick={() => setTheme(current => current === 'dark' ? 'light' : 'dark')}
+      title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+      aria-label={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+    >
+      {theme === 'dark' ? '☀' : '☾'}
+    </button>
+  </div>;
+
+  if (!authUser) {
+    return <>
+      <div className="login-preferences">{preferenceButtons}</div>
+      <Login onLogin={setAuthUser}/>
+    </>;
+  }
+
+  const logout = () => {
+    localStorage.removeItem('rpaUser');
+    setAuthUser(null);
+  };
+
+  return <div className="workspace v470-shell">
+    <aside className="sidebar v470-sidebar">
+      <div className="brand">
+        <div className="brand-mark">PO</div>
+        <div><strong>Sales Order</strong><span>American Exchange</span></div>
+      </div>
+      <nav className="nav-list">
+        <button className={tab === 'process' ? 'active' : ''} onClick={() => setTab('process')}>
+          <Activity size={18}/><span>Operación</span>
+        </button>
+        <button className={tab === 'log' ? 'active' : ''} onClick={() => setTab('log')}>
+          <ScrollText size={18}/><span>LOG A2000</span>
+        </button>
+      </nav>
+      {preferenceButtons}
+      <div className="sidebar-footer">
+        <div className="user-block"><UserRound size={16}/><span>{authUser.name}</span></div>
+        <button onClick={logout}><LogOut size={16}/>Salir</button>
+      </div>
+    </aside>
+    <main className="main-panel v470-main">
+      {tab === 'process' ? <ProcessOrdersPage/> : <OpsLogPage/>}
+    </main>
+  </div>;
+}
+
+createRoot(document.getElementById('root')).render(<App />);
