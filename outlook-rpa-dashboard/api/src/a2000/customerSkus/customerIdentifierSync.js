@@ -485,6 +485,7 @@ export async function syncCustomerIdentifiersForOrder(
       stage: 'customer_identifiers_already_synced',
       upload_requested: true,
       idempotent: true,
+      a2000_write_performed: false,
       response: {
         ok: true,
         updated: preflight.row_count,
@@ -516,6 +517,7 @@ export async function syncCustomerIdentifiersForOrder(
     blocked: preflight.blocked,
     warnings: preflight.warnings,
     response: parsed,
+    a2000_write_performed: parsed.ok,
     sales_order_refresh_required_for_existing_order: parsed.ok,
     created_at: new Date().toISOString()
   };
@@ -528,6 +530,7 @@ export async function syncCustomerIdentifiersForOrder(
     stage: audit.stage,
     upload_requested: true,
     response: parsed,
+    a2000_write_performed: parsed.ok,
     sales_order_refresh_required_for_existing_order: parsed.ok
   };
 }

@@ -21,7 +21,8 @@
     "test:checklists": "node --test test/checklists/*.test.js",
     "verify:checklists": "python3 scripts/verify_canonical_checklists.py",
     "repair:checklists": "node scripts/repair-generated-checklists.mjs",
-    "recover:bealls1915414": "node scripts/recover-bealls-1915414.mjs"
+    "recover:bealls1915414": "node scripts/recover-bealls-1915414.mjs",
+    "test:run-scan-wiring": "node --test test/runScanWiring.test.js && node src/runScanWiringCheck.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",

@@ -1,6 +1,9 @@
 import { createOperationalExtensionsRouter, startOperationalExtensions } from './a2000/operationalExtensions.js';
 import { config } from './config.js';
-import { runScan } from './runScan.js';
+import {
+  runScan,
+  runScanDependencyStatus
+} from './runScan.js';
 import { listEvents, markEvent } from './runRepository.js';
 import { listDocuments, saveDownloadedDocuments } from './documentRepository.js';
 import { extractPdfTextFromBuffer } from './po/pdfText.js';
@@ -1050,6 +1053,9 @@ app.post('/events/:id/status', async (req, res) => {
   }
 });
 
+// RPA_OUTLOOK_RUNSCAN_ATOMIC_REPAIR_V2
+// RPA_OUTLOOK_RUNSCAN_ATOMIC_REPAIR_V2
+// RPA_OUTLOOK_RUNSCAN_ATOMIC_REPAIR_V2
 let running = false;
 let scanStatus = {
   running: false,
@@ -1060,7 +1066,54 @@ let scanStatus = {
   result: null
 };
 
+function runScanError(result = {}) {
+  const failed = (
+    result?.ok === false
+    || result?.run?.status === 'error'
+  );
+
+  if (!failed) return null;
+
+  return (
+    result?.error
+    || result?.run?.error_message
+    || result?.run?.finish_error
+    || 'Outlook RPA terminó con error.'
+  );
+}
+
+function publicRunScanResult(result = {}) {
+  const emails = Array.isArray(result?.emails)
+    ? result.emails
+    : [];
+
+  const documents = Array.isArray(result?.documents)
+    ? result.documents
+    : [];
+
+  return {
+    ok: result?.ok !== false,
+    version: result?.version || null,
+    error: runScanError(result),
+    run: result?.run || null,
+    emails,
+    documents,
+    email_count: emails.length,
+    document_count: documents.length,
+    processing: result?.processing || null,
+    customer_identifiers: result?.customer_identifiers || null,
+    logs: Array.isArray(result?.logs) ? result.logs : []
+  };
+}
+
+app.get('/run-scan/dependencies', (_req, res) => {
+  const status = runScanDependencyStatus();
+
+  res.status(status.ok ? 200 : 500).json(status);
+});
+
 app.get('/run-scan/status', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
   res.json(scanStatus);
 });
 
@@ -1096,18 +1149,16 @@ app.post('/run-scan', async (_req, res) => {
 
   void runScan()
     .then(result => {
+      const error = runScanError(result);
+      const runError = Boolean(error);
+
       scanStatus = {
         running: false,
-        status: 'completed',
+        status: runError ? 'error' : 'completed',
         started_at: scanStatus.started_at,
         finished_at: new Date().toISOString(),
-        error: null,
-        result: {
-          run: result.run,
-          email_count: result.emails?.length || 0,
-          document_count: result.documents?.length || 0,
-          processing: result.processing || null
-        }
+        error,
+        result: publicRunScanResult(result)
       };
     })
     .catch(error => {
@@ -1117,7 +1168,18 @@ app.post('/run-scan', async (_req, res) => {
         started_at: scanStatus.started_at,
         finished_at: new Date().toISOString(),
         error: error.message,
-        result: null
+        result: {
+          ok: false,
+          error: error.message,
+          run: null,
+          emails: [],
+          documents: [],
+          email_count: 0,
+          document_count: 0,
+          processing: null,
+          customer_identifiers: null,
+          logs: [error.message]
+        }
       };
     })
     .finally(() => {

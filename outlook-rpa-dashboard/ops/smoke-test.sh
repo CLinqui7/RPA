@@ -6,6 +6,8 @@ WEB_PORT="$(web_port)"
 BASE="http://127.0.0.1:$API_PORT"
 
 curl -fsS "$BASE/health" | python3 -m json.tool >/tmp/rpa-v4-health.json
+curl -fsS "$BASE/run-scan/dependencies" \
+  | python3 -m json.tool >/tmp/rpa-v4-run-scan-dependencies.json
 curl -fsS "$BASE/po/operational-extensions/status" \
   | python3 -m json.tool >/tmp/rpa-v4-extensions.json
 curl -fsS "$BASE/po/customer-identifiers/status" \
@@ -17,6 +19,7 @@ curl -fsS "$BASE/po/checklists/status" \
 curl -fsS "http://127.0.0.1:$WEB_PORT" >/tmp/rpa-v4-web.html
 
 echo "API_HEALTH=PASS"
+echo "RUN_SCAN_DEPENDENCIES=PASS"
 echo "OPERATIONAL_EXTENSIONS=PASS"
 echo "CUSTOMER_IDENTIFIER_STATUS=PASS"
 echo "PICK_TICKET_LIST=PASS"
