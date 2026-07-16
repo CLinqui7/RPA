@@ -72,7 +72,7 @@ test('Pick Ticket always wins a conflict while preserving both values', () => {
   });
 
   assert.equal(result.effective_value, 294);
-  assert.equal(result.source_used, 'pick_ticket');
+  assert.equal(result.source_used, 'pick_ticket_snapshot');
   assert.equal(result.conflict, true);
 });
 

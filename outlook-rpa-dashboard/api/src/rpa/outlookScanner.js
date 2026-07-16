@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { attachmentOccurrenceCoverage, classifyOutlookReadState } from './outlookConversationGuards.js';
+import { inferOutlookMessageMetadata } from './outlookMessageMetadata.js';
 import { completeAttachmentCoverage, rowUnreadDecision, stableRowFingerprint, subjectFilterAlternatives } from './outlookUnreadQueue.js';
 import { config } from '../config.js';
 import {
@@ -1382,13 +1383,27 @@ async function downloadMatchingPdfAttachments(
     recovered: [...recoveredOccurrences]
   });
   const complete = nameCoverage.complete && occurrenceCoverage.complete;
+  const occurrenceCoverageUnknown = (
+    expectedNames.size > 0
+    && Number(occurrenceCoverage.expected_count || 0) === 0
+  );
+
+  if (occurrenceCoverageUnknown) {
+    logs.push(
+      `OUTLOOK_ATTACHMENT_OCCURRENCE_COVERAGE_UNKNOWN`
+      + `|EMAIL=${email.subject}`
+      + `|UNIQUE_NAMES=${expectedNames.size}`
+      + `|ACTION=name_coverage_used_without_blocking`
+    );
+  }
 
   email.attachments = [...expectedNames];
   email.raw = {
     ...(email.raw || {}),
     attachment_occurrence_coverage: {
       ...occurrenceCoverage,
-      message_group_count: messageGroupCount
+      message_group_count: messageGroupCount,
+      coverage_unknown: occurrenceCoverageUnknown
     },
     attachment_download_complete: complete
   };
@@ -1444,11 +1459,19 @@ async function readMessage(page, row, rowText, logs = []) {
 
   const bodyText = await readBestBodyText(page, rowText);
 
+  // RPA_POST_LIVE_OUTLOOK_METADATA_V1
+  const messageMetadata = inferOutlookMessageMetadata({
+    rawSubject,
+    rowText,
+    bodyText,
+    subjectFilter: config.invoiceSubjectFilter
+  });
+
   const allText = `${rawSubject}\n${rowText}\n${bodyText}`;
   const senderEmailMatch = allText.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
   const senderEmail = senderEmailMatch?.[0]?.toLowerCase() || null;
-  const senderName = rowText.split('\n').map(line => line.trim()).find(line => line.length > 2 && !line.includes('@') && !/^po enviado|^caution|^inbox/i.test(line)) || null;
-  const subject = cleanSubject({ subject: rawSubject, rowText, bodyText });
+  const senderName = messageMetadata.senderName;
+  const subject = messageMetadata.subject;
   const poNumber = extractPoNumber(allText);
   const ptNumber = extractPtNumber(allText);
   const attachments = extractAttachmentNames(allText);
@@ -1465,7 +1488,20 @@ async function readMessage(page, row, rowText, logs = []) {
     ptNumber,
     hasAttachments,
     attachments,
-    raw: { rowText, currentUrl: page.url(), rawSubject, scannedMode: config.outlookScanMode }
+    raw: {
+      rowText,
+      currentUrl: page.url(),
+      rawSubject,
+      scannedMode: config.outlookScanMode,
+      message_metadata: {
+        subject_source: messageMetadata.subjectSource,
+        sender_source: messageMetadata.senderSource,
+        configured_subject_line:
+          messageMetadata.configuredSubjectLine,
+        rejected_raw_subject:
+          messageMetadata.rejectedRawSubject
+      }
+    }
   };
 
   email.analysis = analyzeEmail(email);
@@ -1617,10 +1653,47 @@ async function collectVisibleEmails(page, maxEmails, logs) {
     processedRows.add(candidate.fingerprint);
 
     try {
-      const email = await readMessage(page, candidate.row, candidate.rowText, logs);
+      const email = await readMessage(page, candidate.row, candidate.rowText, logs);      if (
+        !subjectMatchesInvoiceFilter(email.subject)
+        && subjectMatchesInvoiceFilter(candidate.rowText)
+      ) {
+        const correctedMetadata = inferOutlookMessageMetadata({
+          rawSubject: email.raw?.rawSubject || '',
+          rowText: candidate.rowText,
+          bodyText: email.bodyText,
+          subjectFilter: config.invoiceSubjectFilter
+        });
 
-      if (!subjectMatchesInvoiceFilter(email.subject) && subjectMatchesInvoiceFilter(candidate.rowText)) {
-        email.subject = config.invoiceSubjectFilter || 'factura american';
+        const previousSubject = email.subject;
+        email.subject = correctedMetadata.subject;
+        email.senderName =
+          correctedMetadata.senderName || email.senderName;
+
+        email.raw = {
+          ...(email.raw || {}),
+          message_metadata: {
+            ...(email.raw?.message_metadata || {}),
+            corrected_after_row_validation: true,
+            previous_subject: previousSubject,
+            subject_source:
+              correctedMetadata.subjectSource,
+            configured_subject_line:
+              correctedMetadata.configuredSubjectLine
+          }
+        };
+
+        email.analysis = analyzeEmail(email);
+        email.messageType = email.analysis.messageType;
+        email.customerName = email.analysis.customerName;
+        email.operatorName = email.analysis.operatorName;
+        email.externalKey = stableKey(email);
+
+        logs.push(
+          `OUTLOOK_EMAIL_METADATA_CORRECTED`
+          + `|FROM=${previousSubject}`
+          + `|TO=${email.subject}`
+          + `|SENDER=${email.senderName || ''}`
+        );
       }
 
       const emailKey = email.externalKey

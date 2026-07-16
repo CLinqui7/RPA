@@ -11,6 +11,22 @@ function numberEnv(value, defaultValue) {
   return Number.isFinite(parsed) ? parsed : defaultValue;
 }
 
+// RPA_CODESPACES_HEADLESS_GUARD_V1
+export function resolveOutlookHeadless({
+  requested = process.env.OUTLOOK_HEADLESS,
+  display = process.env.DISPLAY,
+  waylandDisplay = process.env.WAYLAND_DISPLAY
+} = {}) {
+  const graphicalDisplayAvailable = Boolean(
+    String(display || '').trim()
+    || String(waylandDisplay || '').trim()
+  );
+
+  // A headed Chromium process cannot start without X11/Wayland.
+  // Respect OUTLOOK_HEADLESS=false only when a display actually exists.
+  return boolEnv(requested, true) || !graphicalDisplayAvailable;
+}
+
 export const config = {
   port: numberEnv(process.env.PORT, 4000),
   corsOrigin: process.env.CORS_ORIGIN || '',
@@ -20,7 +36,7 @@ export const config = {
   outlookSearchQuery: process.env.OUTLOOK_SEARCH_QUERY || '',
   outlookScanMode: process.env.OUTLOOK_SCAN_MODE || 'inbox',
   outlookMaxEmails: numberEnv(process.env.OUTLOOK_MAX_EMAILS, 25),
-  outlookHeadless: boolEnv(process.env.OUTLOOK_HEADLESS, true),
+  outlookHeadless: resolveOutlookHeadless(),
   outlookLoginHeadless: boolEnv(process.env.OUTLOOK_LOGIN_HEADLESS, !process.env.DISPLAY),
   outlookLoginWaitMs: numberEnv(process.env.OUTLOOK_LOGIN_WAIT_MS, 10 * 60 * 1000),
   outlookLoadTimeoutMs: numberEnv(process.env.OUTLOOK_LOAD_TIMEOUT_MS, 90000),

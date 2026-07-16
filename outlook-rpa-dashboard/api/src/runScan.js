@@ -1,15 +1,144 @@
-import { syncCustomerIdentifiersForDocuments, customerSkuAutoUploadEnabled } from './a2000/customerSkus/customerIdentifierSync.js';
+import {
+  customerSkuAutoUploadEnabled,
+  syncCustomerIdentifiersForDocuments
+} from './a2000/customerSkus/customerIdentifierSync.js';
 import { config } from './config.js';
+import { saveDownloadedDocuments } from './documentRepository.js';
+import {
+  processScannedDocuments
+} from './po/productionWorkflow.js';
+import { scanOutlook } from './rpa/outlookScanner.js';
 import {
   buildUnreadSearchAttempts,
   subjectFilterAlternatives
 } from './rpa/outlookUnreadQueue.js';
-
 import {
   createRun,
-  finishRun
+  finishRun,
+  upsertEmails
 } from './runRepository.js';
+
+const RUN_SCAN_REPAIR_VERSION = 'RPA_OUTLOOK_RUNSCAN_ATOMIC_REPAIR_V2';
+
+function boolEnv(value, fallback = false) {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+
+  return ['true', '1', 'yes', 'y'].includes(
+    String(value).trim().toLowerCase()
+  );
+}
+
+function dependencyMap() {
+  return {
+    scanOutlook,
+    createRun,
+    finishRun,
+    upsertEmails,
+    saveDownloadedDocuments,
+    processScannedDocuments,
+    syncCustomerIdentifiersForDocuments,
+    customerSkuAutoUploadEnabled
+  };
+}
+
+export function runScanDependencyStatus() {
+  const dependencies = Object.fromEntries(
+    Object.entries(dependencyMap()).map(([name, value]) => [
+      name,
+      typeof value
+    ])
+  );
+
+  const missing = Object.entries(dependencies)
+    .filter(([, type]) => type !== 'function')
+    .map(([name]) => name);
+
+  return {
+    ok: missing.length === 0,
+    version: RUN_SCAN_REPAIR_VERSION,
+    dependencies,
+    missing
+  };
+}
+
+function emptyCustomerIdentifierResult({
+  uploadRequested,
+  stage = 'no_documents'
+} = {}) {
+  return {
+    ok: true,
+    stage,
+    upload_requested: uploadRequested === true,
+    document_count: 0,
+    results: []
+  };
+}
+
+function customerIdentifierSummary(result = {}) {
+  const documentResults = Array.isArray(result.results)
+    ? result.results
+    : [];
+
+  const orderResults = documentResults.flatMap(item => (
+    Array.isArray(item?.results) ? item.results : []
+  ));
+
+  return {
+    upload_requested: result.upload_requested === true,
+    document_count: Number(
+      result.document_count
+      ?? documentResults.length
+      ?? 0
+    ),
+    uploaded_count: orderResults.filter(
+      item => item?.stage === 'customer_identifiers_uploaded'
+    ).length,
+    idempotent_count: orderResults.filter(
+      item => item?.stage === 'customer_identifiers_already_synced'
+    ).length,
+    blocked_count: orderResults.filter(item => item?.ok === false).length,
+    no_identifier_count: orderResults.filter(
+      item => item?.stage === 'no_explicit_customer_identifiers'
+    ).length
+  };
+}
+
+async function safelyFinishRun(runId, patch, originalError = null) {
+  try {
+    return await finishRun(runId, patch);
+  } catch (finishError) {
+    const message = originalError?.message
+      || patch?.error_message
+      || finishError.message;
+
+    console.error(
+      '[RPA_STAGE] FINISH_RUN_FAILED',
+      finishError.message
+    );
+
+    return {
+      id: runId,
+      status: patch?.status || 'error',
+      error_message: message,
+      finish_error: finishError.message,
+      log: patch?.log || []
+    };
+  }
+}
+
 export async function runScan() {
+  const dependencyStatus = runScanDependencyStatus();
+
+  if (!dependencyStatus.ok) {
+    throw new Error(
+      `RUN_SCAN_DEPENDENCY_BINDING_FAILED: ${
+        dependencyStatus.missing.join(', ')
+      }`
+    );
+  }
+
   console.log('[RPA_STAGE] CREATE_RUN_STARTED');
   const run = await createRun();
   console.log(`[RPA_STAGE] CREATE_RUN_COMPLETED id=${run.id}`);
@@ -18,42 +147,61 @@ export async function runScan() {
     const subjects = subjectFilterAlternatives(
       config.invoiceSubjectFilter || 'factura american'
     );
-    const allAttempts = buildUnreadSearchAttempts({
+
+    const attempts = buildUnreadSearchAttempts({
       configuredQuery: config.outlookSearchQuery,
       subjectFilter: config.invoiceSubjectFilter || 'factura american'
     });
 
-    // Fast mode: use only the first Outlook search attempt.
-    // If it finds nothing, move immediately to the raw Inbox fallback.
-    const attempts = allAttempts.slice(0, 1);
-    const maxEmails = Math.max(1, Number(config.outlookMaxEmails || 25));
+    const maxEmails = Math.max(
+      1,
+      Number(config.outlookMaxEmails || 25)
+    );
+
     const mergedEmails = new Map();
     const mergedDocuments = new Map();
     const mergedLogs = [
+      `RUN_SCAN_REPAIR_VERSION=${RUN_SCAN_REPAIR_VERSION}`,
       `OUTLOOK_EFFECTIVE_SUBJECT_FILTER=${config.invoiceSubjectFilter}`,
-      `OUTLOOK_SUBJECT_ALIASES=${subjects.join(' | ')}`
+      `OUTLOOK_SUBJECT_ALIASES=${subjects.join(' | ')}`,
+      `OUTLOOK_SEARCH_ATTEMPT_COUNT=${attempts.length}`,
+      `OUTLOOK_MAX_EMAILS=${maxEmails}`
     ];
 
-    const mergeResult = (result, label) => {
+    const mergeResult = (result = {}, label) => {
       for (const line of result.logs || []) {
         mergedLogs.push(`[${label}] ${line}`);
       }
 
       for (const email of result.emails || []) {
         const key = email.externalKey
-          || `${email.subject}|${email.senderEmail}|${email.receivedAt}|${email.poNumber}`;
-        if (!mergedEmails.has(key)) mergedEmails.set(key, email);
+          || `${email.subject}|${email.senderEmail}|${
+            email.receivedAt
+          }|${email.poNumber}`;
+
+        if (!mergedEmails.has(key)) {
+          mergedEmails.set(key, email);
+        }
       }
 
       for (const document of result.documents || []) {
         const key = document.raw?.sha256
           || document.externalKey
-          || `${document.emailExternalKey}|${document.fileName}|${document.localPath}`;
-        if (!mergedDocuments.has(key)) mergedDocuments.set(key, document);
+          || `${document.emailExternalKey}|${
+            document.fileName
+          }|${document.localPath}`;
+
+        if (!mergedDocuments.has(key)) {
+          mergedDocuments.set(key, document);
+        }
       }
     };
 
-    for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
+    for (
+      let attemptIndex = 0;
+      attemptIndex < attempts.length;
+      attemptIndex += 1
+    ) {
       const query = attempts[attemptIndex];
 
       mergedLogs.push(
@@ -61,14 +209,24 @@ export async function runScan() {
         + `|QUERY=${query}`
       );
 
-      console.log(`[RPA_STAGE] OUTLOOK_SEARCH_STARTED attempt=${attemptIndex + 1}`);
+      console.log(
+        `[RPA_STAGE] OUTLOOK_SEARCH_STARTED `
+        + `attempt=${attemptIndex + 1}/${attempts.length}`
+      );
+
       const result = await scanOutlook({
         maxEmails,
         searchQuery: query,
         forceInbox: false
       });
 
-      console.log(`[RPA_STAGE] OUTLOOK_SEARCH_COMPLETED attempt=${attemptIndex + 1} emails=${result.emails?.length || 0} pdfs=${result.documents?.length || 0}`);
+      console.log(
+        `[RPA_STAGE] OUTLOOK_SEARCH_COMPLETED `
+        + `attempt=${attemptIndex + 1} `
+        + `emails=${result.emails?.length || 0} `
+        + `pdfs=${result.documents?.length || 0}`
+      );
+
       mergeResult(result, `SEARCH_${attemptIndex + 1}`);
 
       mergedLogs.push(
@@ -87,10 +245,10 @@ export async function runScan() {
       }
     }
 
-    const inboxFallbackEnabled =
-      String(process.env.OUTLOOK_ENABLE_INBOX_FALLBACK || '')
-        .trim()
-        .toLowerCase() === 'true';
+    const inboxFallbackEnabled = boolEnv(
+      process.env.OUTLOOK_ENABLE_INBOX_FALLBACK,
+      true
+    );
 
     if (mergedEmails.size === 0 && inboxFallbackEnabled) {
       mergedLogs.push(
@@ -99,6 +257,7 @@ export async function runScan() {
       );
 
       console.log('[RPA_STAGE] OUTLOOK_FALLBACK_STARTED');
+
       const fallback = await scanOutlook({
         maxEmails,
         searchQuery: '',
@@ -108,7 +267,7 @@ export async function runScan() {
       mergeResult(fallback, 'INBOX_FALLBACK');
 
       mergedLogs.push(
-        `OUTLOOK_INBOX_FALLBACK_RESULT`
+        'OUTLOOK_INBOX_FALLBACK_RESULT'
         + `|EMAILS=${fallback.emails?.length || 0}`
         + `|PDFS=${fallback.documents?.length || 0}`
         + `|MERGED_EMAILS=${mergedEmails.size}`
@@ -130,13 +289,20 @@ export async function runScan() {
       logs: mergedLogs
     };
 
-    console.log(`[RPA_STAGE] SAVE_EMAILS_STARTED count=${result.emails.length}`);
+    console.log(
+      `[RPA_STAGE] SAVE_EMAILS_STARTED count=${result.emails.length}`
+    );
+
     const inserted = await upsertEmails(result.emails, {
       runId: run.id,
       allowDuplicates: false
     });
 
-    console.log(`[RPA_STAGE] SAVE_DOCUMENTS_STARTED count=${result.documents.length}`);
+    console.log(
+      `[RPA_STAGE] SAVE_DOCUMENTS_STARTED `
+      + `count=${result.documents.length}`
+    );
+
     const savedDocuments = await saveDownloadedDocuments(
       result.documents,
       result.logs,
@@ -146,80 +312,137 @@ export async function runScan() {
       }
     );
 
-    // Reading Outlook never creates A2000 Sales Orders.
-    console.log(`[RPA_STAGE] PROCESS_DOCUMENTS_STARTED count=${savedDocuments.length}`);
-    const processing = await processScannedDocuments(savedDocuments, {
-      uploadToA2000: false
-    });
-
-    let customerIdentifierSync;
-    try {
-      customerIdentifierSync = await syncCustomerIdentifiersForDocuments(
-        savedDocuments.map(document => document.id),
-        { upload: customerSkuAutoUploadEnabled() }
-      );
-    } catch (error) {
-      customerIdentifierSync = {
-        ok: false,
-        stage: 'customer_identifier_sync_error',
-        error: error.message
-      };
-    }
-
-    const customerIdentifiers = await syncCustomerIdentifiersForDocuments(
-      savedDocuments.map(document => document.id),
-      { upload: customerSkuAutoUploadEnabled() }
+    console.log(
+      `[RPA_STAGE] PROCESS_DOCUMENTS_STARTED `
+      + `count=${savedDocuments.length}`
     );
 
-    const attachmentOccurrences = result.emails.reduce((sum, email) => (
-      sum + Number(
-        email.raw?.attachment_occurrence_coverage?.expected_count
-        || email.raw?.attachment_coverage?.occurrence_coverage?.expected_count
-        || email.attachments?.length
-        || 0
-      )
-    ), 0);
+    // Reading Outlook never creates ORDER_HD or ORDER_LI.
+    const processing = await processScannedDocuments(
+      savedDocuments,
+      { uploadToA2000: false }
+    );
 
-    const finished = await finishRun(run.id, {
+    const identifierUploadRequested =
+      customerSkuAutoUploadEnabled();
+
+    let customerIdentifierSync = emptyCustomerIdentifierResult({
+      uploadRequested: identifierUploadRequested
+    });
+
+    if (savedDocuments.length > 0) {
+      try {
+        customerIdentifierSync =
+          await syncCustomerIdentifiersForDocuments(
+            savedDocuments.map(document => document.id),
+            { upload: identifierUploadRequested }
+          );
+      } catch (error) {
+        customerIdentifierSync = {
+          ok: false,
+          stage: 'customer_identifier_sync_error',
+          upload_requested: identifierUploadRequested,
+          document_count: savedDocuments.length,
+          results: [],
+          error: error.message
+        };
+      }
+    }
+
+    const identifierSummary = customerIdentifierSummary(
+      customerIdentifierSync
+    );
+
+    const attachmentOccurrences = result.emails.reduce(
+      (sum, email) => (
+        sum + Number(
+          email.raw?.attachment_occurrence_coverage?.expected_count
+          || email.raw?.attachment_coverage
+            ?.occurrence_coverage?.expected_count
+          || email.attachments?.length
+          || 0
+        )
+      ),
+      0
+    );
+
+    const finished = await safelyFinishRun(run.id, {
       status: 'success',
       scanned_count: result.emails.length,
       inserted_count: inserted.length,
+      error_message: null,
       log: [
         ...result.logs,
-        `UNREAD_ONLY=true. Matching emails processed: ${result.emails.length}.`,
-        `Attachment occurrences recovered: ${attachmentOccurrences}.`,
+        `UNREAD_ONLY=true. Matching emails processed: ${
+          result.emails.length
+        }.`,
+        `Attachment occurrences recovered: ${
+          attachmentOccurrences
+        }.`,
         `Unique PDF documents saved: ${savedDocuments.length}.`,
-        `Documents parsed: ${processing.processed_document_count}.`,
-        'A2000 auto-upload requested: no.',
-        `Customer identifier sync: ${customerIdentifierSync?.ok ? 'ok' : 'review'}; uploads=${customerIdentifierSync?.results?.filter(item => item.results?.some(order => order.stage === 'customer_identifiers_uploaded')).length || 0}.`,
-        `Customer SKU/UPC master sync: ${customerIdentifiers.upload_requested ? 'write enabled' : 'preflight only'}; ${customerIdentifiers.results?.length || 0} document(s).`,
+        `Documents parsed: ${
+          processing.processed_document_count
+        }.`,
+        'A2000 Sales Order auto-upload requested: no.',
+        `Customer SKU/UPC master sync: ${
+          identifierSummary.upload_requested
+            ? 'write enabled'
+            : 'preflight only'
+        }; documents=${identifierSummary.document_count}; `
+        + `uploaded=${identifierSummary.uploaded_count}; `
+        + `idempotent=${identifierSummary.idempotent_count}; `
+        + `blocked=${identifierSummary.blocked_count}; `
+        + `without identifiers=${
+          identifierSummary.no_identifier_count
+        }.`,
         `Unread search attempts: ${attempts.join(' || ')}.`,
-        `Inbox DOM fallback used: ${mergedLogs.some(line => line.includes('RAW_INBOX_DOM_FALLBACK')) ? 'yes' : 'no'}.`
+        `Inbox DOM fallback used: ${
+          mergedLogs.some(
+            line => line.includes('RAW_INBOX_DOM_FALLBACK')
+          )
+            ? 'yes'
+            : 'no'
+        }.`
       ]
     });
 
     console.log('[RPA_STAGE] FINISHED_SUCCESS');
+
     return {
-      customerIdentifierSync,
+      ok: true,
+      version: RUN_SCAN_REPAIR_VERSION,
       run: finished,
       emails: inserted,
       documents: savedDocuments,
       processing,
-      customer_identifiers: customerIdentifiers,
+      customer_identifiers: customerIdentifierSync,
       logs: finished.log || result.logs
     };
   } catch (error) {
-    const finished = await finishRun(run.id, {
-      status: 'error',
-      error_message: error.message,
-      log: [{ error: error.message, stack: error.stack }]
-    });
+    console.error('[RPA_STAGE] FAILED', error);
+
+    const finished = await safelyFinishRun(
+      run.id,
+      {
+        status: 'error',
+        error_message: error.message,
+        log: [{
+          error: error.message,
+          stack: error.stack
+        }]
+      },
+      error
+    );
 
     return {
+      ok: false,
+      version: RUN_SCAN_REPAIR_VERSION,
+      error: error.message,
       run: finished,
       emails: [],
       documents: [],
       processing: null,
+      customer_identifiers: null,
       logs: [error.message]
     };
   }
