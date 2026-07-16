@@ -1,0 +1,461 @@
+import { compactText, normalizeDate, normalizeInteger } from './helpers.js';
+
+function clean(value) {
+  return String(value ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function linesOf(text) {
+  return String(text || '')
+    .replace(/\u00a0/g, ' ')
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+$/g, ''));
+}
+
+function integerFromSlice(value) {
+  const token = clean(value).match(/\b\d[\d,]*\b/)?.[0];
+  return token ? normalizeInteger(token) : null;
+}
+
+function allIndices(haystack, needle) {
+  const out = [];
+  let offset = 0;
+  while (offset < haystack.length) {
+    const index = haystack.indexOf(needle, offset);
+    if (index < 0) break;
+    out.push(index);
+    offset = index + needle.length;
+  }
+  return out;
+}
+
+function sliceColumns(line, starts) {
+  return starts.map((start, index) => clean(
+    String(line || '').slice(start, starts[index + 1] ?? undefined)
+  ));
+}
+
+function extractHeader(rawLines, oneLine) {
+  const orderNo = clean(oneLine.match(/PO Number:\s*([A-Z0-9-]+)/i)?.[1]) || null;
+  const versionRaw = clean(oneLine.match(/\bVersion:\s*([0-9]+)/i)?.[1]) || null;
+  const versionDateRaw = clean(
+    oneLine.match(/Version Date:\s*([0-9/]+\s+[0-9:]+\s*[AP]M)/i)?.[1]
+  ) || null;
+
+  let deptRaw = null;
+  let orderDateRaw = null;
+  let startDateRaw = null;
+  let cancelDateRaw = null;
+
+  const headerEnd = rawLines.findIndex((line) => /Special Vendor Instructions/i.test(line));
+  const candidates = rawLines.slice(0, headerEnd > 0 ? headerEnd : 30);
+  for (const line of candidates) {
+    const dates = [...String(line).matchAll(/\b(\d{1,2}\/\d{1,2}\/\d{4})\b/g)]
+      .map((match) => match[1]);
+    if (dates.length < 3) continue;
+    const firstDateIndex = line.indexOf(dates[0]);
+    const before = firstDateIndex >= 0 ? line.slice(0, firstDateIndex) : '';
+    deptRaw = clean(before.match(/([A-Z0-9-]+)\s*$/i)?.[1]) || null;
+    [orderDateRaw, startDateRaw, cancelDateRaw] = dates;
+    break;
+  }
+
+  return {
+    orderNo,
+    versionRaw,
+    versionDateRaw,
+    deptRaw,
+    orderDateRaw,
+    startDateRaw,
+    cancelDateRaw
+  };
+}
+
+function extractDistributionCenters(rawLines, sourceOrderNo) {
+  const headingIndex = rawLines.findIndex((line) => allIndices(line, 'Distribution Center').length >= 2);
+  if (headingIndex < 0) return [];
+
+  const heading = rawLines[headingIndex];
+  const starts = allIndices(heading, 'Distribution Center');
+  if (starts.length < 2) return [];
+
+  const blockLines = rawLines.slice(headingIndex, headingIndex + 9);
+  const columns = starts.map((start, index) => {
+    const end = starts[index + 1] ?? undefined;
+    return blockLines.map((line) => clean(String(line || '').slice(start, end)));
+  });
+
+  return columns.map((column, index) => {
+    const poLine = column.find((value) => /^PO\s*#:/i.test(value)) || '';
+    const poMatch = poLine.match(/PO\s*#:\s*([A-Z0-9-]+)\s+([A-Z0-9-]+)/i);
+    const locationLine = column.find((value) => /^[A-Z]{2,6}:\s*\S+/i.test(value)) || '';
+    const locationMatch = locationLine.match(/^([A-Z]{2,6}):\s*(.+)$/i);
+    const dcLine = column.find((value) => /^DC\s*#:/i.test(value)) || '';
+    const dcCode = clean(dcLine.match(/DC\s*#:\s*([A-Z0-9-]+)/i)?.[1]) || null;
+    const address1 = column.find((value) => /^\d+\s+/.test(value)) || null;
+    const cityState = column.find((value) => /^[A-Z .'-]+,\s*[A-Z]{2}$/i.test(value)) || null;
+    const cityMatch = cityState?.match(/^(.+?),\s*([A-Z]{2})$/i);
+    const postal = column.find((value) => /^\d{5}(?:-\d{4})?$/.test(value)) || null;
+
+    return {
+      column_index: index,
+      po_prefix: clean(poMatch?.[1]) || null,
+      source_order_no: clean(poMatch?.[2]) || sourceOrderNo || null,
+      location_code: clean(locationMatch?.[1]).toUpperCase() || null,
+      location_name: clean(locationMatch?.[2]) || null,
+      dc_code: dcCode,
+      address1,
+      city: clean(cityMatch?.[1]) || null,
+      state: clean(cityMatch?.[2]).toUpperCase() || null,
+      postal,
+      raw_column: column
+    };
+  }).filter((center) => center.dc_code);
+}
+
+function findTableLayout(rawLines, centers) {
+  const headerIndex = rawLines.findIndex((line) => (
+    /PG\/L/i.test(line)
+    && /Vendor/i.test(line)
+    && /TJX/i.test(line)
+    && /Total/i.test(line)
+  ));
+  if (headerIndex < 0) return null;
+
+  const line = rawLines[headerIndex];
+  const vendorStart = line.indexOf('Vendor');
+  const tjxStart = line.indexOf('TJX', vendorStart + 1);
+  const descriptionStart = line.indexOf('Description', tjxStart + 1);
+  const colorStart = line.indexOf('Color', descriptionStart + 1);
+  const vendorPackStart = line.indexOf('Vendor', colorStart + 1);
+  const totalStart = line.indexOf('Total', vendorPackStart + 1);
+
+  if ([vendorStart, tjxStart, descriptionStart, colorStart, vendorPackStart, totalStart].some((value) => value < 0)) {
+    return null;
+  }
+
+  const centerStarts = [];
+  let searchFrom = totalStart + 'Total'.length;
+  for (const center of centers) {
+    let start = center.location_code ? line.indexOf(center.location_code, searchFrom) : -1;
+    if (start < 0) {
+      const nextHeader = rawLines[headerIndex + 1] || '';
+      const dcToken = `DC# ${center.dc_code}`;
+      start = nextHeader.indexOf(dcToken, searchFrom);
+    }
+    if (start < 0) return null;
+    centerStarts.push(start);
+    searchFrom = start + 1;
+  }
+
+  return {
+    headerIndex,
+    vendorStart,
+    tjxStart,
+    descriptionStart,
+    colorStart,
+    vendorPackStart,
+    totalStart,
+    centerStarts
+  };
+}
+
+function joinStyleFragments(fragments) {
+  const values = fragments
+    .map((value) => clean(value))
+    .filter((value) => /^[A-Z0-9._/-]+$/i.test(value));
+  if (!values.length) return null;
+  let result = values[0];
+  for (const value of values.slice(1)) {
+    if (result.endsWith('-') || value.startsWith('-')) result += value;
+    else if (value.length <= 4) result += `-${value}`;
+  }
+  return result.replace(/--+/g, '-');
+}
+
+function uniqueText(values) {
+  const out = [];
+  for (const value of values.map(clean).filter(Boolean)) {
+    if (!out.includes(value)) out.push(value);
+  }
+  return out;
+}
+
+function extractSourceLines(rawLines, layout, centers) {
+  const endIndex = rawLines.findIndex((line, index) => index > layout.headerIndex && /Go to TJX's Logistics Website/i.test(line));
+  const effectiveEnd = endIndex > layout.headerIndex ? endIndex : rawLines.length;
+  const rowIndices = [];
+  for (let index = layout.headerIndex + 1; index < effectiveEnd; index += 1) {
+    if (/^\s*\d+[/-]\d+\s+/.test(rawLines[index])) rowIndices.push(index);
+  }
+
+  const rows = [];
+  for (const [rowPosition, rowIndex] of rowIndices.entries()) {
+    const rowLine = rawLines[rowIndex] || '';
+    const previousLine = rawLines[rowIndex - 1] || '';
+    const nextLine = rawLines[rowIndex + 1] || '';
+
+    const previousVendor = previousLine.slice(layout.vendorStart, layout.tjxStart);
+    const currentVendor = rowLine.slice(layout.vendorStart, layout.tjxStart);
+    const nextVendor = nextLine.slice(layout.vendorStart, layout.tjxStart);
+    const styleRaw = joinStyleFragments([previousVendor, currentVendor, nextVendor]);
+
+    const tjxStyleRaw = clean(rowLine.slice(layout.tjxStart, layout.descriptionStart)) || null;
+    const descriptionRaw = clean(rowLine.slice(layout.descriptionStart, layout.colorStart)) || null;
+    const colorRaw = uniqueText([
+      previousLine.slice(layout.colorStart, layout.vendorPackStart),
+      rowLine.slice(layout.colorStart, layout.vendorPackStart),
+      nextLine.slice(layout.colorStart, layout.vendorPackStart)
+    ]).join(' ') || null;
+
+    const totalUnitsRaw = integerFromSlice(
+      rowLine.slice(layout.totalStart, layout.centerStarts[0])
+    );
+
+    const dcQuantities = {};
+    centers.forEach((center, centerIndex) => {
+      const start = layout.centerStarts[centerIndex];
+      const end = layout.centerStarts[centerIndex + 1] ?? undefined;
+      const quantity = integerFromSlice(rowLine.slice(start, end));
+      dcQuantities[center.dc_code] = quantity || 0;
+    });
+
+    const distributedTotal = Object.values(dcQuantities)
+      .reduce((sum, quantity) => sum + Number(quantity || 0), 0);
+
+    rows.push({
+      source_line_no: rowPosition + 1,
+      page_line_raw: clean(rowLine.match(/^\s*(\d+[/-]\d+)/)?.[1]) || null,
+      style_raw: styleRaw,
+      tjx_style_raw: tjxStyleRaw,
+      description_raw: descriptionRaw,
+      color_raw: colorRaw,
+      total_units_raw: totalUnitsRaw,
+      dc_quantities: dcQuantities,
+      distributed_total: distributedTotal,
+      distribution_matches_total: totalUnitsRaw !== null && distributedTotal === totalUnitsRaw,
+      matched_text: clean([previousLine, rowLine, nextLine].join(' '))
+    });
+  }
+  return rows;
+}
+
+function orderForCenter({ center, centerIndex, orderCount, headerInfo, sourceLines }) {
+  const lines = sourceLines
+    .filter((sourceLine) => Number(sourceLine.dc_quantities[center.dc_code] || 0) > 0)
+    .map((sourceLine, index) => {
+      const quantity = Number(sourceLine.dc_quantities[center.dc_code]);
+      return {
+        line_no: index + 1,
+        customer_sku: sourceLine.tjx_style_raw || null,
+        ticket_sku: null,
+        upc: null,
+        style_raw: sourceLine.style_raw,
+        style_code: null,
+        color_raw: sourceLine.color_raw,
+        color_code: null,
+        size_raw: null,
+        size_code: null,
+        description: sourceLine.description_raw,
+        sales_price: null,
+        list_price: null,
+        qty_total: quantity,
+        warehouse_code: null,
+        raw: {
+          source: 'marshalls_routing_distribution_multi_dc_v1',
+          document_role: 'ROUTING_DISTRIBUTION_INSTRUCTIONS',
+          page_line_raw: sourceLine.page_line_raw,
+          vendor_style_raw: sourceLine.style_raw,
+          composite_style_color_semantics: 'STYLE_COLOR_SUFFIX',
+          style_similarity_semantics: 'NEAREST_OFFICIAL_STYLE_CODE',
+          tjx_style_raw: sourceLine.tjx_style_raw,
+          description_raw: sourceLine.description_raw,
+          color_raw: sourceLine.color_raw,
+          source_total_units_raw: sourceLine.total_units_raw,
+          distribution_center_code: center.dc_code,
+          distribution_center_location_code: center.location_code,
+          distribution_quantity: quantity,
+          distribution_quantities_all_centers: sourceLine.dc_quantities,
+          distributed_total: sourceLine.distributed_total,
+          distribution_matches_total: sourceLine.distribution_matches_total,
+          quantity_semantics: 'EACH',
+          quantity_uom_raw: 'DC UNITS',
+          unit_cost_absent_in_source: true,
+          size_ratio_absent_in_source: true,
+          matched_text: sourceLine.matched_text
+        }
+      };
+    });
+
+  const conflicts = sourceLines
+    .filter((sourceLine) => !sourceLine.distribution_matches_total)
+    .map((sourceLine) => ({
+      field: 'qty_total',
+      line_no: sourceLine.source_line_no,
+      code: 'marshalls_dc_distribution_total_mismatch',
+      severity: 'high',
+      blocking: true,
+      message: 'The sum of printed Distribution Center quantities does not equal Total Units.',
+      printed_total_units: sourceLine.total_units_raw,
+      distributed_total: sourceLine.distributed_total,
+      dc_quantities: sourceLine.dc_quantities
+    }));
+
+  const qty = lines.reduce((sum, line) => sum + Number(line.qty_total || 0), 0) || null;
+  const shipTo = {
+    semantics: 'SHIP_TO',
+    location_code_raw: center.location_code,
+    location_name_raw: center.location_name,
+    store_code_raw: center.dc_code,
+    name_raw: center.location_code && center.location_name
+      ? `${center.location_code}: ${center.location_name}`
+      : center.location_name,
+    address1_raw: center.address1,
+    city_raw: center.city,
+    state_raw: center.state,
+    postal_raw: center.postal,
+    block_raw: center.raw_column
+  };
+
+  return {
+    parser: 'marshalls',
+    document_family: 'tjx_marshalls_routing_distribution_instructions',
+    layout_version: 'marshalls_multi_dc_distribution_v1',
+    document_identity: {
+      legal_entity_raw: 'TJX Companies, Inc.',
+      brand_raw: 'Marshalls',
+      customer_candidate: 'MARSHALLS',
+      customer_candidate_source: 'document_family_signature',
+      a2000_customer_code: null
+    },
+    confidence: headerInfo.orderNo && lines.length && !conflicts.length ? 0.99 : 0.75,
+    header: {
+      customer_raw: 'Marshalls',
+      customer_code: null,
+      order_no: headerInfo.orderNo,
+      order_date: normalizeDate(headerInfo.orderDateRaw),
+      start_date: normalizeDate(headerInfo.startDateRaw),
+      cancel_date: normalizeDate(headerInfo.cancelDateRaw),
+      book_date: null,
+      dept_raw: headerInfo.deptRaw,
+      dept_code: null,
+      division_code: null,
+      store_raw: center.dc_code,
+      store_code: center.dc_code,
+      terms_raw: null,
+      terms_code: null,
+      ship_via_code: null,
+      warehouse_code: null,
+      raw: {
+        document_role: 'ROUTING_DISTRIBUTION_INSTRUCTIONS',
+        version_raw: headerInfo.versionRaw,
+        version_date_raw: headerInfo.versionDateRaw,
+        dept_raw: headerInfo.deptRaw,
+        order_date_raw: headerInfo.orderDateRaw,
+        start_ship_date_raw: headerInfo.startDateRaw,
+        cancel_date_raw: headerInfo.cancelDateRaw,
+        ship_to: shipTo,
+        source_order_no: headerInfo.orderNo,
+        source_po_prefix: center.po_prefix,
+        distribution_center: center,
+        order_instance_key: `${headerInfo.orderNo || 'NO_PO'}|DC:${center.dc_code}`,
+        source_document_order_index: centerIndex + 1,
+        source_document_order_count: orderCount,
+        split_semantics: 'ONE_A2000_CONTROL_PER_DISTRIBUTION_CENTER'
+      }
+    },
+    lines,
+    totals: {
+      qty,
+      source_document_total_qty: sourceLines.reduce((sum, line) => sum + Number(line.total_units_raw || 0), 0),
+      distribution_center_code: center.dc_code
+    },
+    conflicts,
+    warnings: [{
+      field: 'document_role',
+      code: 'marshalls_multi_dc_order_split',
+      severity: 'low',
+      blocking: false,
+      message: 'One source PO was split into one internal order/control per printed Distribution Center. The source PO number remains unchanged.'
+    }]
+  };
+}
+
+export function parseMarshallsOrders({ text }) {
+  const rawLines = linesOf(text);
+  const oneLine = compactText(text);
+  const headerInfo = extractHeader(rawLines, oneLine);
+  const centers = extractDistributionCenters(rawLines, headerInfo.orderNo);
+  const layout = findTableLayout(rawLines, centers);
+
+  if (!headerInfo.orderNo || centers.length < 1 || !layout) {
+    return [parseMarshalls({ text })];
+  }
+
+  const sourceLines = extractSourceLines(rawLines, layout, centers);
+  const activeCenters = centers.filter((center) => sourceLines.some(
+    (line) => Number(line.dc_quantities[center.dc_code] || 0) > 0
+  ));
+
+  if (!sourceLines.length || !activeCenters.length) {
+    return [parseMarshalls({ text })];
+  }
+
+  return activeCenters.map((center, index) => orderForCenter({
+    center,
+    centerIndex: index,
+    orderCount: activeCenters.length,
+    headerInfo,
+    sourceLines
+  }));
+}
+
+export function parseMarshalls({ text }) {
+  const rawLines = linesOf(text);
+  const oneLine = compactText(text);
+  const headerInfo = extractHeader(rawLines, oneLine);
+  const centers = extractDistributionCenters(rawLines, headerInfo.orderNo);
+  const layout = findTableLayout(rawLines, centers);
+  const sourceLines = layout ? extractSourceLines(rawLines, layout, centers) : [];
+
+  const conflicts = [{
+    field: 'store_code',
+    code: 'marshalls_multi_dc_document_requires_split',
+    severity: 'high',
+    blocking: true,
+    message: 'This Marshalls source contains multiple Distribution Centers and must be processed through parseMarshallsOrders.'
+  }];
+
+  return {
+    parser: 'marshalls',
+    document_family: 'tjx_marshalls_routing_distribution_instructions',
+    layout_version: 'marshalls_multi_dc_unsplit_guard_v1',
+    document_identity: {
+      legal_entity_raw: 'TJX Companies, Inc.',
+      brand_raw: 'Marshalls',
+      customer_candidate: 'MARSHALLS',
+      customer_candidate_source: 'document_family_signature',
+      a2000_customer_code: null
+    },
+    confidence: 0.8,
+    header: {
+      customer_raw: 'Marshalls', customer_code: null, order_no: headerInfo.orderNo,
+      order_date: normalizeDate(headerInfo.orderDateRaw), start_date: normalizeDate(headerInfo.startDateRaw), cancel_date: normalizeDate(headerInfo.cancelDateRaw), book_date: null,
+      dept_raw: headerInfo.deptRaw, dept_code: null, division_code: null,
+      store_raw: null, store_code: null, terms_raw: null, terms_code: null, ship_via_code: null, warehouse_code: null,
+      raw: {
+        document_role: 'ROUTING_DISTRIBUTION_INSTRUCTIONS',
+        version_raw: headerInfo.versionRaw,
+        version_date_raw: headerInfo.versionDateRaw,
+        distribution_centers: centers,
+        extracted_source_lines: sourceLines
+      }
+    },
+    lines: [],
+    totals: {
+      qty: sourceLines.reduce((sum, line) => sum + Number(line.total_units_raw || 0), 0) || null,
+      distribution_center_count: centers.length
+    },
+    conflicts,
+    warnings: []
+  };
+}

@@ -298,42 +298,94 @@ if [ -z "$PUBLIC_URL" ]; then
 fi
 echo
 echo "=================================================="
-echo " 8. PROBANDO URL PÚBLICA"
+echo " 8. ESPERANDO DNS Y PROBANDO URL PÚBLICA"
 echo "=================================================="
-PUBLIC_WEB_STATUS="$(
- curl -sS \
-   --max-time 20 \
-   -o /dev/null \
-   -w "%{http_code}" \
-   "$PUBLIC_URL/" \
-   || true
+
+PUBLIC_HOST="$(
+  printf '%s' "$PUBLIC_URL" \
+  | sed -E 's#^https?://##; s#/.*$##'
 )"
-PUBLIC_API_STATUS="$(
- curl -sS \
-   --max-time 20 \
-   -o /tmp/rpa-public-health.json \
-   -w "%{http_code}" \
-   "$PUBLIC_URL/api/health" \
-   || true
-)"
+
+echo "PUBLIC_HOST=$PUBLIC_HOST"
+echo "Esperando propagación DNS de Cloudflare..."
+
+DNS_OK=NO
+PUBLIC_WEB_STATUS="000"
+PUBLIC_API_STATUS="000"
+
+for ATTEMPT in $(seq 1 40); do
+  echo "PUBLIC_CHECK_ATTEMPT=$ATTEMPT"
+
+  if getent hosts "$PUBLIC_HOST" \
+    >/tmp/rpa-public-dns.txt \
+    2>/dev/null
+  then
+    DNS_OK=YES
+
+    PUBLIC_WEB_STATUS="$(
+      curl -sS \
+        --connect-timeout 10 \
+        --max-time 20 \
+        -o /dev/null \
+        -w "%{http_code}" \
+        "$PUBLIC_URL/" \
+        || true
+    )"
+
+    PUBLIC_API_STATUS="$(
+      curl -sS \
+        --connect-timeout 10 \
+        --max-time 20 \
+        -o /tmp/rpa-public-health.json \
+        -w "%{http_code}" \
+        "$PUBLIC_URL/api/health" \
+        || true
+    )"
+
+    echo "PUBLIC_WEB_HTTP=$PUBLIC_WEB_STATUS"
+    echo "PUBLIC_API_HTTP=$PUBLIC_API_STATUS"
+
+    if [ "$PUBLIC_WEB_STATUS" = "200" ] \
+      && [ "$PUBLIC_API_STATUS" = "200" ]
+    then
+      break
+    fi
+  else
+    echo "DNS_PENDING=YES"
+  fi
+
+  if ! kill -0 "$TUNNEL_PID" 2>/dev/null; then
+    echo "ERROR: cloudflared se cerró"
+    tail -n 150 "$TUNNEL_LOG" 2>/dev/null || true
+    exit 1
+  fi
+
+  sleep 3
+done
+
+echo "DNS_OK=$DNS_OK"
 echo "PUBLIC_WEB_HTTP=$PUBLIC_WEB_STATUS"
 echo "PUBLIC_API_HTTP=$PUBLIC_API_STATUS"
+
 if [ "$PUBLIC_WEB_STATUS" != "200" ]; then
- echo "ERROR: frontend público no respondió 200"
- tail -n 150 "$TUNNEL_LOG" 2>/dev/null || true
- exit 1
+  echo "ERROR: frontend público no respondió 200"
+  echo "El túnel local continúa activo."
+  echo "RPA_PUBLIC_URL=$PUBLIC_URL"
+  tail -n 150 "$TUNNEL_LOG" 2>/dev/null || true
+  exit 1
 fi
+
 if [ "$PUBLIC_API_STATUS" != "200" ]; then
- echo "ERROR: API pública no respondió 200"
- cat \
-   /tmp/rpa-public-health.json \
-   2>/dev/null || true
- exit 1
+  echo "ERROR: API pública no respondió 200"
+  cat /tmp/rpa-public-health.json 2>/dev/null || true
+  exit 1
 fi
+
 echo
 jq . \
- /tmp/rpa-public-health.json \
- 2>/dev/null || true
+  /tmp/rpa-public-health.json \
+  2>/dev/null || true
+
 echo
 echo "=================================================="
 echo " 9. ESTADO FINAL"

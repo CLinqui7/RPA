@@ -5,6 +5,7 @@ import {
   buildIdempotencyKey,
   mapOrderHd,
   mapOrderLi,
+  officialMasterReferenceUpc,
   quantitiesByBucket,
   validateInternalOrder
 } from './restMapper.js';
@@ -18,6 +19,9 @@ import {
 import {
   validateOrderOfficialMasterIdentity
 } from '../po/enrichment/officialMasterIdentityResolver.js';
+import {
+  customerMasterOrderDefaults
+} from '../po/enrichment/masterData.js';
 
 const HEADER_CREATED_LINES_FAILED = 'HEADER_CREATED_LINES_FAILED';
 
@@ -60,10 +64,13 @@ function verifyHeaderRows(order, viewerRows = []) {
     division_match: Boolean(row)
       && String(row.DIV || '') === String(expected.DIV_NO || ''),
     terms_match: Boolean(row)
-      && String(row.TERMS || '') === String(expected.TERM_NO || ''),
-    warehouse_match: Boolean(row)
-      && String(row.DEF_WH || '') === String(expected.DEF_WHOUSE || '')
+      && String(row.TERMS || '') === String(expected.TERM_NO || '')
   };
+
+  if (expected.DEF_WHOUSE) {
+    checks.warehouse_match = Boolean(row)
+      && String(row.DEF_WH || '') === String(expected.DEF_WHOUSE || '');
+  }
 
   if (expected.SHIP_VIA_NO) {
     checks.ship_via_match = Boolean(row)
@@ -207,6 +214,7 @@ export class A2000RestAdapter {
     const sourceGuardErrors = [];
     const blockingConflicts = blockingA2000Conflicts(order);
     const nativeMasterIdentity = validateOrderOfficialMasterIdentity(order);
+    const customerMasterDefaults = customerMasterOrderDefaults(order.customer_code);
 
     if (order.status && String(order.status).toLowerCase() !== 'parsed') {
       sourceGuardErrors.push({
@@ -266,6 +274,7 @@ export class A2000RestAdapter {
       validation,
       source_guard: sourceGuard,
       official_master_identity: nativeMasterIdentity,
+      customer_master_defaults: customerMasterDefaults,
       live_scale_validation: liveScaleValidation,
       idempotency_key: idempotencyKey,
       header_preview: mapOrderHd(order),
@@ -274,6 +283,7 @@ export class A2000RestAdapter {
         style: line.style_code,
         color: line.color_code,
         warehouse: line.warehouse_code || order.warehouse_code,
+        ref: officialMasterReferenceUpc(line) || null,
         quantities_by_bucket: quantitiesByBucket(line)
       }))
     };

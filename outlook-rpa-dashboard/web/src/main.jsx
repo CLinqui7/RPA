@@ -31,6 +31,247 @@ const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
 const TARGET_SUBJECT_FILTER = 'factura american';
 
 
+const UI_TRANSLATIONS = new Map([
+  ['Outlook RPA Monitor', 'Outlook RPA Monitor'],
+  ['Centro operativo', 'Operations Center'],
+  ['La bandeja operativa solo muestra correos cuyo asunto contiene Factura American. El resto queda fuera de la vista.', 'The operations inbox only shows emails whose subject contains Factura American. Everything else stays outside this view.'],
+  ['Usuario', 'Username'],
+  ['Contraseña', 'Password'],
+  ['Usuario o contraseña incorrecta', 'Incorrect username or password'],
+  ['Entrar', 'Sign in'],
+  ['Operación', 'Operations'],
+  ['LOG A2000', 'A2000 LOG'],
+  ['Salir', 'Sign out'],
+  ['SALES ORDER CONTROL', 'SALES ORDER CONTROL'],
+  ['Solo correos no leídos. Todos los PDF. Lectura, validación y envío claramente separados.', 'Unread emails only. Every PDF. Reading, validation and submission are clearly separated.'],
+  ['CONTROLADO', 'CONTROLLED'],
+  ['Leer correos no leídos', 'Read unread emails'],
+  ['Seleccionar PDF(s)', 'Select PDF(s)'],
+  ['Subir PDF manual', 'Upload PDF manually'],
+  ['Enviar todas a A2000', 'Send all to A2000'],
+  ['Confirmo revisión/limpieza de ORDER_LI antes de cualquier escritura.', 'I confirm ORDER_LI was reviewed and cleared before any write.'],
+  ['Órdenes leídas', 'Orders read'],
+  ['Listas localmente', 'Locally ready'],
+  ['Subidas', 'Uploaded'],
+  ['Revisión', 'Review'],
+  ['Volver a leer:', 'Read again:'],
+  ['PDF + masters, sin conectar A2000.', 'PDF + masters, without connecting to A2000.'],
+  ['Validar A2000:', 'Validate A2000:'],
+  ['consulta live, sin escritura.', 'live lookup, no write.'],
+  ['Enviar:', 'Submit:'],
+  ['único paso que crea la Sales Order.', 'the only step that creates the Sales Order.'],
+  ['Checklists:', 'Checklists:'],
+  ['plantillas únicas del ZIP maestro.', 'unique templates from the master ZIP.'],
+  ['Buscar PO, customer, archivo, style o CTRL', 'Search PO, customer, file, style or CTRL'],
+  ['Actualizar', 'Refresh'],
+  ['No hay órdenes para este filtro.', 'No orders match this filter.'],
+  ['Selecciona una orden', 'Select an order'],
+  ['Aquí verás el PDF, la lectura, los errores exactos y las acciones.', 'The PDF, extracted values, exact errors and actions appear here.'],
+  ['Abrir PDF', 'Open PDF'],
+  ['Descargar', 'Download'],
+  ['Customer', 'Customer'],
+  ['Store', 'Store'],
+  ['Order date', 'Order date'],
+  ['Start', 'Start'],
+  ['Cancel', 'Cancel'],
+  ['Cancel open lines', 'Cancel open lines'],
+  ['No definido en Customer Master', 'Not defined in Customer Master'],
+  ['No exportado en el master actual', 'Not exported in the current master'],
+  ['Div', 'Division'],
+  ['Terms', 'Terms'],
+  ['Lectura completa', 'Reading complete'],
+  ['Lectura incompleta', 'Reading incomplete'],
+  ['Validación local aprobada', 'Local validation approved'],
+  ['Validación local requiere ajuste', 'Local validation needs adjustment'],
+  ['Preflight A2000 aprobado', 'A2000 preflight approved'],
+  ['A2000 no disponible · sin escritura', 'A2000 unavailable · no write'],
+  ['Preflight A2000 fallido', 'A2000 preflight failed'],
+  ['A2000 no disponible en el último intento · sin escritura', 'A2000 was unavailable in the last attempt · no write'],
+  ['Volver a leer PDF', 'Read PDF again'],
+  ['Validar A2000 sin enviar', 'Validate A2000 without submitting'],
+  ['Generar checklist histórica', 'Generate historical checklist'],
+  ['Crear Sales Order en A2000', 'Create Sales Order in A2000'],
+  ['Líneas y master match', 'Lines and master match'],
+  ['Style PDF', 'PDF style'],
+  ['Style A2000', 'A2000 style'],
+  ['Color PDF', 'PDF color'],
+  ['Color A2000', 'A2000 color'],
+  ['Customer SKU', 'Customer SKU'],
+  ['UPC master', 'Master UPC'],
+  ['Sales price', 'Sales price'],
+  ['Omitido', 'Omitted'],
+  ['Size PDF', 'PDF size'],
+  ['No impreso', 'Not printed'],
+  ['Descripción', 'Description'],
+  ['Sin descripción', 'No description'],
+  ['Ver evidencia y QTY_SZn', 'View evidence and QTY_SZn'],
+  ['UPC A2000 no único · REF se omitirá', 'A2000 UPC is not unique · REF will be omitted'],
+  ['AUDIT TRAIL · V4.7.2', 'AUDIT TRAIL · V4.7.2'],
+  ['LOG A2000 detallado', 'Detailed A2000 LOG'],
+  ['Los intentos sin payload se identifican como diagnósticos. Solo existe escritura cuando ves ORDER_HD/ORDER_LI, CTRL o SEQ.', 'Attempts without payload are diagnostics. A write exists only when ORDER_HD/ORDER_LI, CTRL or SEQ is present.'],
+  ['Registros', 'Records'],
+  ['Buscar PO, customer, CTRL, SEQ, style, color...', 'Search PO, customer, CTRL, SEQ, style, color...'],
+  ['Actualizar LOG', 'Refresh LOG'],
+  ['A2000 no disponible', 'A2000 unavailable'],
+  ['Sin escritura', 'No write'],
+  ['Abrir detalle completo ▾', 'Open full details ▾'],
+  ['Diagnóstico de conectividad, no una Sales Order fallida.', 'Connectivity diagnostic, not a failed Sales Order.'],
+  ['Header exacto enviado a ORDER_HD', 'Exact header sent to ORDER_HD'],
+  ['No hay Header persistido para este intento.', 'No header was persisted for this attempt.'],
+  ['Sales Lines exactas enviadas a ORDER_LI', 'Exact Sales Lines sent to ORDER_LI'],
+  ['Payload REST ORDER_HD', 'ORDER_HD REST payload'],
+  ['Respuesta real ORDER_HD', 'Actual ORDER_HD response'],
+  ['Payload REST ORDER_LI', 'ORDER_LI REST payload'],
+  ['Respuesta real ORDER_LI', 'Actual ORDER_LI response'],
+  ['No hubo escritura REST', 'No REST write occurred'],
+  ['No existe Header, Lines, CTRL ni SEQ para este registro.', 'This record has no Header, Lines, CTRL or SEQ.'],
+  ['Detalle técnico', 'Technical details'],
+  ['No hay registros para este filtro.', 'No records match this filter.'],
+  ['Modo oscuro', 'Dark mode'],
+  ['Modo claro', 'Light mode'],
+  ['Cambiar a inglés', 'Switch to English'],
+  ['Cambiar a español', 'Switch to Spanish'],
+  ['Customer no habilitado para escritura', 'Customer is not enabled for writing'],
+  ['La orden ya fue creada en A2000.', 'The order was already created in A2000.'],
+  ['La validación local todavía tiene errores.', 'Local validation still has errors.'],
+  ['El botón se habilita cuando la orden está validada y el customer está permitido.', 'The button is enabled when the order is validated and the customer is allowed.'],
+  ['A2000 AMEXTEST está temporalmente fuera de servicio. No se envió ORDER_HD ni ORDER_LI. La lectura local permanece válida.', 'A2000 AMEXTEST is temporarily unavailable. ORDER_HD and ORDER_LI were not sent. Local reading remains valid.'],
+]);
+
+const UI_TEXT_ORIGINAL = new WeakMap();
+const UI_ATTRIBUTE_ORIGINAL = new WeakMap();
+
+function translateUiString(value, language) {
+  const raw = String(value ?? '');
+  if (language !== 'en') return raw;
+
+  const leading = raw.match(/^\s*/)?.[0] || '';
+  const trailing = raw.match(/\s*$/)?.[0] || '';
+  const trimmed = raw.trim();
+  if (!trimmed) return raw;
+
+  let translated = UI_TRANSLATIONS.get(trimmed);
+
+  if (!translated) {
+    translated = trimmed
+      .replace(/^Línea\s+(\d+)$/i, 'Line $1')
+      .replace(/^(\d+)\s+líneas$/i, '$1 lines')
+      .replace(/^(\d+)\s+línea\(s\)$/i, '$1 line(s)')
+      .replace(/^(\d+)\s+unidades$/i, '$1 units')
+      .replace(/^(\d+)\s+und\.$/i, '$1 units')
+      .replace(/^Sin checklist\s+(.+)$/i, 'No checklist for $1')
+      .replace(/^PO\s+(.+)$/i, 'PO $1')
+      .replace(/^UPC A2000 ·\s*/i, 'A2000 UPC · ')
+      .replace(/^Precio:\s*/i, 'Price: ')
+      .replace(/^Correo:\s*/i, 'Email: ');
+  }
+
+  return `${leading}${translated}${trailing}`;
+}
+
+function useRuntimeUiTranslation(language) {
+  useEffect(() => {
+    let applying = false;
+
+    const skipNode = node => {
+      const parent = node.parentElement;
+      return !parent || ['SCRIPT', 'STYLE', 'PRE', 'CODE', 'TEXTAREA'].includes(parent.tagName);
+    };
+
+    const applyTextNode = node => {
+      if (skipNode(node)) return;
+      const current = node.nodeValue || '';
+      const oldSource = UI_TEXT_ORIGINAL.get(node);
+      const expectedEnglish = oldSource === undefined
+        ? null
+        : translateUiString(oldSource, 'en');
+
+      if (
+        oldSource === undefined
+        || (language === 'en' && current !== expectedEnglish)
+        || (language === 'es' && current !== oldSource)
+      ) {
+        UI_TEXT_ORIGINAL.set(node, current);
+      }
+
+      const source = UI_TEXT_ORIGINAL.get(node) || current;
+      const next = translateUiString(source, language);
+      if (node.nodeValue !== next) node.nodeValue = next;
+    };
+
+    const applyElement = element => {
+      if (!(element instanceof Element)) return;
+      const originals = UI_ATTRIBUTE_ORIGINAL.get(element) || {};
+      for (const attribute of ['placeholder', 'title', 'aria-label']) {
+        if (!element.hasAttribute(attribute)) continue;
+        const current = element.getAttribute(attribute) || '';
+        const prior = originals[attribute];
+        const expectedEnglish = prior === undefined
+          ? null
+          : translateUiString(prior, 'en');
+
+        if (
+          prior === undefined
+          || (language === 'en' && current !== expectedEnglish)
+          || (language === 'es' && current !== prior)
+        ) {
+          originals[attribute] = current;
+        }
+
+        const source = originals[attribute] || current;
+        const next = translateUiString(source, language);
+        if (current !== next) element.setAttribute(attribute, next);
+      }
+      UI_ATTRIBUTE_ORIGINAL.set(element, originals);
+    };
+
+    const apply = root => {
+      if (applying || !root) return;
+      applying = true;
+      try {
+        if (root.nodeType === Node.TEXT_NODE) applyTextNode(root);
+        if (root.nodeType === Node.ELEMENT_NODE) {
+          applyElement(root);
+          const walker = document.createTreeWalker(
+            root,
+            NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT
+          );
+          let node = walker.nextNode();
+          while (node) {
+            if (node.nodeType === Node.TEXT_NODE) applyTextNode(node);
+            else applyElement(node);
+            node = walker.nextNode();
+          }
+        }
+      } finally {
+        applying = false;
+      }
+    };
+
+    apply(document.body);
+
+    const observer = new MutationObserver(mutations => {
+      if (applying) return;
+      for (const mutation of mutations) {
+        if (mutation.type === 'characterData') apply(mutation.target);
+        for (const node of mutation.addedNodes || []) apply(node);
+        if (mutation.type === 'attributes') apply(mutation.target);
+      }
+    });
+
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['placeholder', 'title', 'aria-label']
+    });
+
+    return () => observer.disconnect();
+  }, [language]);
+}
+
+
 const USERS = [
   { id: 'admin', name: 'Admin Operativo', role: 'admin', password: 'admin123', aliases: ['admin'] },
   { id: 'carlos', name: 'Carlos Linqui', role: 'user', password: 'carlos123', aliases: ['carlos', 'carlos linqui', 'linqui', '@carlos', 'linquicarloss@gmail.com', 'carlos.linqui@axnygroup.com'] },
@@ -759,6 +1000,7 @@ function a2000QtyResolution(line = {}) {
 
 function a2000MasterUpcValue(line = {}) {
   return line.master_upc
+    || lineRawJson(line).master_upc
     || a2000IdentityTrace(line).master_upc
     || '-';
 }
@@ -880,9 +1122,18 @@ function ProcessOrdersPage() {
   async function load() {
     setError('');
     const [ordersRes, launchRes, checklistRes] = await Promise.all([
-      fetch(`${API_URL}/po/operational-orders?limit=700`),
-      fetch(`${API_URL}/po/launch-status`),
-      fetch(`${API_URL}/po/checklists/status`)
+      fetch(
+        `${API_URL}/po/operational-orders?limit=700&ts=${Date.now()}`,
+        { cache: 'no-store' }
+      ),
+      fetch(
+        `${API_URL}/po/launch-status?ts=${Date.now()}`,
+        { cache: 'no-store' }
+      ),
+      fetch(
+        `${API_URL}/po/checklists/status?ts=${Date.now()}`,
+        { cache: 'no-store' }
+      )
     ]);
     const ordersData = await ordersRes.json().catch(() => ({}));
     const launchData = await launchRes.json().catch(() => ({}));
@@ -907,35 +1158,160 @@ function ProcessOrdersPage() {
   async function scanAndProcess() {
     setLoading(true);
     setError('');
-    setMessage('Leyendo todas las conversaciones no leídas con asunto Factura American...');
+    setMessage('Iniciando lectura de correos no leídos Factura American...');
+
+    const wait = milliseconds => new Promise(resolve => {
+      window.setTimeout(resolve, milliseconds);
+    });
+
     try {
-      const response = await fetch(`${API_URL}/run-scan`, { method: 'POST' });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || data.run?.status === 'error') {
-        throw new Error(data.error || data.run?.error_message || 'No se pudo ejecutar Outlook RPA.');
+      const response = await fetch(`${API_URL}/run-scan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+
+      const accepted = await response.json().catch(() => ({}));
+
+      const existingRun = (
+        response.status === 409
+        && (
+          accepted.running === true
+          || accepted.code === 'RPA_ALREADY_RUNNING'
+        )
+      );
+
+      if (!response.ok && !existingRun) {
+        throw new Error(
+          accepted.error
+          || accepted.message
+          || 'No se pudo iniciar Outlook RPA.'
+        );
       }
 
-      const attachmentCount = (data.emails || []).reduce((sum, email) => {
-        const count = email.raw?.attachment_occurrence_coverage?.expected_count
-          || email.raw?.attachment_coverage?.occurrence_coverage?.expected_count
+      let data = accepted;
+
+      const asynchronousRun = (
+        response.status === 202
+        || accepted.accepted === true
+        || accepted.running === true
+        || ['accepted', 'running'].includes(
+          String(accepted.status || '').toLowerCase()
+        )
+      );
+
+      if (asynchronousRun || existingRun) {
+        const startedAt = Date.now();
+        const maximumWaitMs = 15 * 60 * 1000;
+
+        while (true) {
+          const elapsedMs = Date.now() - startedAt;
+          const elapsedSeconds = Math.floor(elapsedMs / 1000);
+
+          if (elapsedMs > maximumWaitMs) {
+            throw new Error(
+              'El RPA tardó más de 15 minutos. Revisa el estado y el log de la API.'
+            );
+          }
+
+          setMessage(
+            `Outlook está trabajando... ${elapsedSeconds} segundo(s). `
+            + 'El dashboard se actualizará automáticamente al terminar.'
+          );
+
+          await wait(2000);
+
+          const statusResponse = await fetch(
+            `${API_URL}/run-scan/status?ts=${Date.now()}`,
+            {
+              method: 'GET',
+              cache: 'no-store'
+            }
+          );
+
+          const statusData = await statusResponse
+            .json()
+            .catch(() => ({}));
+
+          if (!statusResponse.ok) {
+            throw new Error(
+              statusData.error
+              || 'No se pudo consultar el estado del RPA.'
+            );
+          }
+
+          const state = String(
+            statusData.status || ''
+          ).toLowerCase();
+
+          if (['completed', 'success', 'done'].includes(state)) {
+            data = statusData.result || statusData;
+            break;
+          }
+
+          if (['failed', 'error'].includes(state)) {
+            throw new Error(
+              statusData.error
+              || statusData.result?.error
+              || statusData.result?.run?.error_message
+              || 'El RPA terminó con error.'
+            );
+          }
+        }
+      }
+
+      if (data.run?.status === 'error') {
+        throw new Error(
+          data.run?.error_message
+          || data.error
+          || 'Outlook RPA terminó con error.'
+        );
+      }
+
+      const emails = Array.isArray(data.emails)
+        ? data.emails
+        : [];
+
+      const documents = Array.isArray(data.documents)
+        ? data.documents
+        : [];
+
+      const attachmentCount = emails.reduce((sum, email) => {
+        const count = (
+          email.raw?.attachment_occurrence_coverage?.expected_count
+          || email.raw?.attachment_coverage
+            ?.occurrence_coverage?.expected_count
           || email.attachments?.length
-          || 0;
+          || 0
+        );
+
         return sum + Number(count || 0);
       }, 0);
 
-      const uniquePdfs = data.documents?.length || 0;
-      const processed = data.processing?.processed_order_count
+      const processed = (
+        data.processing?.processed_order_count
         || data.processing?.processed_document_count
-        || 0;
+        || 0
+      );
 
       setMessage(
-        `Outlook terminado: ${data.emails?.length || 0} conversación(es), `
-        + `${attachmentCount} adjunto(s) PDF recuperados, ${uniquePdfs} PDF(s) únicos guardados, `
+        `Outlook terminado: ${emails.length} conversación(es), `
+        + `${attachmentCount} adjunto(s), `
+        + `${documents.length} PDF(s) guardados en Supabase, `
+        + `${processed} documento(s) procesados. `
+        + 'Actualizando dashboard...'
+      );
+
+      await wait(800);
+      await load();
+
+      setMessage(
+        `Proceso terminado: ${emails.length} conversación(es), `
+        + `${documents.length} PDF(s) guardados, `
         + `${processed} documento(s) procesados.`
       );
-      await load();
     } catch (event) {
-      setError(event.message);
+      setError(event.message || String(event));
       setMessage('');
     } finally {
       setLoading(false);
@@ -1066,7 +1442,7 @@ function ProcessOrdersPage() {
       }
 
       setMessage('Preflight aprobado. Enviando Header y Lines a A2000...');
-      const response = await fetch(`${API_URL}/po/orders/${encodeURIComponent(order.id)}/a2000`, {
+      const response = await fetch(`${API_URL}/po/orders/${encodeURIComponent(order.id)}/complete-flow`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ confirm_order_li_cleared: true })
@@ -1075,8 +1451,8 @@ function ProcessOrdersPage() {
       if (!response.ok || data.ok === false) {
         throw new Error(workflowErrors(data));
       }
-      const ctrl = data.workflow?.upload?.a2000_ctrl_no
-        || data.workflow?.upload?.a2000_seq_order_no
+      const ctrl = data.sales_order?.upload?.a2000_ctrl_no || data.workflow?.upload?.a2000_ctrl_no
+        || data.sales_order?.upload?.a2000_seq_order_no || data.workflow?.upload?.a2000_seq_order_no
         || 'ver LOG';
       setMessage(`PO ${order.order_no} creada en A2000. CTRL/SEQ ${ctrl}.`);
       await load();
@@ -1098,7 +1474,7 @@ function ProcessOrdersPage() {
     setError('');
     setMessage('Validando y enviando secuencialmente todas las órdenes elegibles...');
     try {
-      const response = await fetch(`${API_URL}/po/upload-all-validated`, {
+      const response = await fetch(`${API_URL}/po/complete-flow-all`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1194,6 +1570,12 @@ function ProcessOrdersPage() {
 
   const selectedLines = selected?.purchase_order_lines || [];
   const selectedPreflight = selected ? preflightByOrder[String(selected.id)] : null;
+  const selectedCancelOpenLines = (
+    selected?.customer_master_defaults?.cancel_open_lines
+    || selectedPreflight?.preflight?.customer_master_defaults?.cancel_open_lines
+    || selectedPreflight?.customer_master_defaults?.cancel_open_lines
+    || null
+  );
   const previewUrl = selected
     ? `${API_URL}/po/orders/${encodeURIComponent(selected.id)}/pdf`
     : '';
@@ -1214,6 +1596,24 @@ function ProcessOrdersPage() {
       last_error: selected?.a2000_job?.last_error
     }
   });
+
+  const selectedUploadBlockReasons = [];
+  if (selected && !selected.a2000_local_ready) {
+    selectedUploadBlockReasons.push('La validación local todavía tiene errores.');
+  }
+  if (selected && !selected.stage1_certified) {
+    selectedUploadBlockReasons.push(
+      `Customer no habilitado para escritura: ${selected.customer_code || '?'}`
+    );
+  }
+  if (selected?.a2000_job?.status === 'completed') {
+    selectedUploadBlockReasons.push('La orden ya fue creada en A2000.');
+  }
+  const canCreateSalesOrder = Boolean(
+    selected
+    && !loading
+    && selectedUploadBlockReasons.length === 0
+  );
 
   return <section className="v471-operation">
     <header className="v471-header">
@@ -1371,6 +1771,7 @@ function ProcessOrdersPage() {
             <TinyField label="Order date" value={selected.order_date}/>
             <TinyField label="Start" value={selected.start_date}/>
             <TinyField label="Cancel" value={selected.cancel_date}/>
+            <TinyField label="Cancel open lines" value={selectedCancelOpenLines || 'No exportado en el master actual'}/>
             <TinyField label="Div" value={selected.division_code}/>
             <TinyField label="Terms" value={selected.terms_code}/>
             <TinyField label="WH" value={selected.warehouse_code}/>
@@ -1431,18 +1832,22 @@ function ProcessOrdersPage() {
             </button>
             <button
               className="primary"
-              disabled={
-                loading
-                || !selected.a2000_local_ready
-                || !selected.stage1_certified
-                || selected.a2000_job?.status === 'completed'
-              }
+              disabled={!canCreateSalesOrder}
               onClick={() => sendOne(selected)}
-              title="Este botón sí crea la Sales Order en A2000."
+              title={
+                selectedUploadBlockReasons.length
+                  ? selectedUploadBlockReasons.join(' ')
+                  : 'Este botón sí crea la Sales Order en A2000.'
+              }
             >
               <Send size={16}/>Crear Sales Order en A2000
             </button>
           </div>
+
+          {selectedUploadBlockReasons.length > 0 && <div className="upload-block-reason">
+            <AlertTriangle size={16}/>
+            <span>{selectedUploadBlockReasons.join(' ')}</span>
+          </div>}
 
           {selectedPreflight && !selectedPreflight.ok && <pre className="notice error v471-error">
             <AlertTriangle size={18}/>{workflowErrors(selectedPreflight)}
@@ -1474,7 +1879,9 @@ function ProcessOrdersPage() {
                 <div>
                   <span className="line-index">Línea {line.line_no}</span>
                   <h4>{line.style_code || line.style_raw || '?'} / {line.color_code || '?'}</h4>
-                  <p>{line.description || 'Sin descripción'}</p>
+                  <p>{a2000MasterUpcValue(line) !== '-'
+                    ? `UPC A2000 · ${a2000MasterUpcValue(line)}`
+                    : 'UPC A2000 no único · REF se omitirá'}</p>
                 </div>
                 <div className="line-qty"><span>Qty</span><strong>{line.qty_total ?? '-'}</strong></div>
               </div>
@@ -1484,7 +1891,8 @@ function ProcessOrdersPage() {
                 <TinyField label="Color PDF" value={line.color_raw}/>
                 <TinyField label="Color A2000" value={line.color_code}/>
                 <TinyField label="Customer SKU" value={line.customer_sku}/>
-                <TinyField label="UPC master" value={line.raw_json?.master_upc}/>
+                <TinyField label="UPC master" value={a2000MasterUpcValue(line)}/>
+                <TinyField label="Descripción" value={line.description || 'Sin descripción'}/>
                 <TinyField label="Sales price" value={line.sales_price ?? 'Omitido'}/>
                 <TinyField label="Size PDF" value={line.size_raw || 'No impreso'}/>
               </div>
@@ -1495,6 +1903,365 @@ function ProcessOrdersPage() {
             </article>)}
           </section>
         </>}
+      </aside>
+    </section>
+  </section>;
+}
+
+function PickTicketsPage() {
+  const [items, setItems] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
+  async function load({ quiet = false } = {}) {
+    if (!quiet) setError('');
+    const response = await fetch(
+      `${API_URL}/po/pick-tickets?limit=700`
+    );
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data.ok === false) {
+      throw new Error(
+        data.error || 'No se pudieron cargar los Pick Tickets.'
+      );
+    }
+
+    const next = data.pick_tickets || [];
+    setItems(next);
+    setSelected(current => current
+      ? next.find(
+          item => String(item.id) === String(current.id)
+        ) || next[0] || null
+      : next[0] || null
+    );
+  }
+
+  useEffect(() => {
+    load().catch(event => setError(event.message));
+  }, []);
+
+  useEffect(() => {
+    if (!autoRefresh) return undefined;
+
+    const timer = setInterval(() => {
+      load({ quiet: true }).catch(event => {
+        setError(event.message);
+      });
+    }, 10000);
+
+    return () => clearInterval(timer);
+  }, [autoRefresh]);
+
+  async function reconcile() {
+    setLoading(true);
+    setError('');
+    setMessage(
+      'Buscando nuevos Pick Tickets en A2000 y PDF disponibles...'
+    );
+
+    try {
+      const response = await fetch(
+        `${API_URL}/po/pick-tickets/reconcile`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}'
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.ok === false) {
+        throw new Error(
+          data.error
+          || data.result?.snapshots?.results
+            ?.filter(item => !item.ok)
+            .map(item => item.error)
+            .join('\n')
+          || 'Falló la reconciliación.'
+        );
+      }
+
+      const snapshots = data.result?.snapshots || {};
+      const pdfs = data.result?.pdfs || {};
+
+      setMessage(
+        `Observer terminado: ${snapshots.matched_count || 0} snapshot(s) `
+        + `con match, ${snapshots.unmatched_count || 0} sin match, `
+        + `${snapshots.generated_checklist_count || 0} checklist(s) generadas; `
+        + `${pdfs.pick_ticket_count || 0} Pick Ticket(s) encontrados en PDF.`
+      );
+      await load();
+    } catch (event) {
+      setError(event.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function generateChecklist(item) {
+    setLoading(true);
+    setError('');
+    setMessage(
+      `Generando checklist del Control ${item.control_no || '?'} `
+      + `con la plantilla aprobada del customer...`
+    );
+
+    try {
+      const response = await fetch(
+        `${API_URL}/po/pick-tickets/${encodeURIComponent(item.id)}/checklist`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}'
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.ok === false) {
+        throw new Error(
+          data.block_reason
+          || data.reason
+          || data.error
+          || 'No se pudo generar la checklist.'
+        );
+      }
+
+      setMessage(
+        `Checklist ${data.file_name} generada para `
+        + `Control ${data.control_no}.`
+      );
+      await load();
+
+      window.open(
+        `${API_URL}/po/pick-tickets/${encodeURIComponent(item.id)}/checklist/download`,
+        '_blank',
+        'noopener,noreferrer'
+      );
+    } catch (event) {
+      setError(event.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const snapshotLines = selected?.raw
+    ?.pick_ticket_snapshot?.lines || [];
+
+  return <section className="pt-page v400-pt-page">
+    <header className="pt-hero">
+      <div>
+        <p className="eyebrow">PICK TICKET OBSERVER · V4.0</p>
+        <h1>Pick Tickets por Control</h1>
+        <p>
+          A2000 se consulta apenas aparece el Pick Ticket. Cada Control hijo
+          conserva sus líneas, cantidades, Store y checklist. El PDF se adjunta
+          después y tiene prioridad sobre el snapshot; ambos tienen prioridad
+          sobre la hardcopy.
+        </p>
+      </div>
+
+      <div className="pt-hero-actions">
+        <label className="pt-auto-refresh">
+          <input
+            type="checkbox"
+            checked={autoRefresh}
+            onChange={event => setAutoRefresh(event.target.checked)}
+          />
+          Actualizar cada 10 segundos
+        </label>
+
+        <button
+          className="primary"
+          disabled={loading}
+          onClick={reconcile}
+        >
+          <RefreshCcw
+            size={17}
+            className={loading ? 'spin' : ''}
+          />
+          Reconciliar ahora
+        </button>
+      </div>
+    </header>
+
+    {message && <div className="notice ok">{message}</div>}
+    {error && <pre className="notice error v471-error">
+      <AlertTriangle size={18}/>{error}
+    </pre>}
+
+    <section className="pt-stats">
+      <div><span>Pick Tickets</span><strong>{items.length}</strong></div>
+      <div>
+        <span>Con match</span>
+        <strong>{items.filter(item => item.purchase_order_id).length}</strong>
+      </div>
+      <div>
+        <span>PDF disponibles</span>
+        <strong>{items.filter(item => item.pdf_available).length}</strong>
+      </div>
+      <div>
+        <span>Checklists</span>
+        <strong>{items.filter(item => item.checklist_available).length}</strong>
+      </div>
+    </section>
+
+    <section className="pt-layout">
+      <div className="pt-list">
+        {items.map(item => <button
+          key={item.id}
+          className={`pt-row ${
+            selected?.id === item.id ? 'selected' : ''
+          }`}
+          onClick={() => setSelected(item)}
+        >
+          <span>
+            <strong>PT {item.pick_ticket_no || '?'}</strong>
+            <small>CTRL {item.control_no || '?'}</small>
+          </span>
+          <span>
+            <strong>PO {item.order_no || '?'}</strong>
+            <small>Store {item.store_code || '?'}</small>
+          </span>
+          <span>
+            <StatusBadge status={item.status}/>
+            <small>
+              {item.pdf_available
+                ? 'PDF disponible'
+                : item.snapshot_available
+                  ? 'Datos listos · PDF pendiente'
+                  : 'Pendiente'}
+            </small>
+          </span>
+          <span>
+            <strong>{item.picked_quantity || 0} und.</strong>
+            <small>{item.snapshot_line_count || 0} línea(s)</small>
+          </span>
+        </button>)}
+
+        {!items.length && <div className="empty-block">
+          Aún no hay Pick Tickets persistidos. Presiona “Reconciliar ahora”
+          después de crear el Pick Ticket en A2000.
+        </div>}
+      </div>
+
+      <aside className="pt-detail">
+        {!selected
+          ? <div className="empty-block">Selecciona un Pick Ticket.</div>
+          : <>
+            <div className="pt-detail-head">
+              <div>
+                <p className="eyebrow">
+                  CONTROL {selected.control_no || '?'}
+                </p>
+                <h2>PT {selected.pick_ticket_no || '?'}</h2>
+                <p>
+                  {selected.customer_code || '?'} · PO {selected.order_no || '?'}
+                  {' · '}Store {selected.store_code || '?'}
+                </p>
+              </div>
+
+              <div className="pt-detail-actions">
+                {selected.pdf_available
+                  ? <a
+                      className="button"
+                      href={`${API_URL}/po/pick-tickets/${encodeURIComponent(selected.id)}/pdf`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <ExternalLink size={16}/>Abrir PDF
+                    </a>
+                  : <span className="status-pill pending">
+                      PDF pendiente
+                    </span>}
+
+                {selected.checklist_available
+                  ? <a
+                      className="button primary"
+                      href={`${API_URL}/po/pick-tickets/${encodeURIComponent(selected.id)}/checklist/download`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Download size={16}/>Abrir checklist
+                    </a>
+                  : <button
+                      className="primary"
+                      disabled={
+                        loading
+                        || !selected.purchase_order_id
+                        || !selected.checklist_input_path
+                      }
+                      onClick={() => generateChecklist(selected)}
+                    >
+                      <FileText size={16}/>Generar checklist
+                    </button>}
+              </div>
+            </div>
+
+            <div className="mini-matrix">
+              <TinyField label="Control" value={selected.control_no}/>
+              <TinyField label="Pick Ticket" value={selected.pick_ticket_no}/>
+              <TinyField label="PO" value={selected.order_no}/>
+              <TinyField label="A2000 Order" value={selected.a2000_order_no}/>
+              <TinyField label="Store" value={selected.store_code}/>
+              <TinyField label="Customer" value={selected.customer_code}/>
+              <TinyField label="Líneas PT" value={selected.snapshot_line_count}/>
+              <TinyField label="Picked Qty" value={selected.picked_quantity}/>
+              <TinyField label="Conflictos" value={selected.checklist_conflict_count}/>
+              <TinyField label="Match score" value={selected.match_score}/>
+            </div>
+
+            <div className={`notice ${
+              selected.purchase_order_id ? 'ok' : 'warning'
+            }`}>
+              {selected.purchase_order_id
+                ? `Match confirmado: ${selected.match_reason || 'evidencia exacta'}.`
+                : `Sin match exacto. ${selected.match_reason || 'Revisar PO, Store y Control.'}`}
+            </div>
+
+            <div className="notice warning">
+              Prioridad fija: Pick Ticket PDF → snapshot de A2000 → hardcopy.
+              Si existe conflicto, gana el Pick Ticket y se conservan ambos
+              valores en el input autoritativo.
+            </div>
+
+            {snapshotLines.length > 0 && <section className="pt-lines">
+              <h3>Líneas del Pick Ticket</h3>
+              {snapshotLines.map((line, index) => <article
+                key={`${selected.id}-${line.line_no || index}`}
+              >
+                <div>
+                  <span>Línea {line.line_no || index + 1}</span>
+                  <strong>
+                    {line.style || '?'} / {line.color || '?'}
+                  </strong>
+                </div>
+                <div>
+                  <span>Pick Qty</span>
+                  <strong>{line.pick_qty ?? '-'}</strong>
+                </div>
+                <div>
+                  <span>Order Qty</span>
+                  <strong>{line.order_qty ?? '-'}</strong>
+                </div>
+                <div>
+                  <span>Ship Qty</span>
+                  <strong>{line.ship_qty ?? '-'}</strong>
+                </div>
+              </article>)}
+            </section>}
+
+            {selected.checklist_input_path && <a
+              className="button"
+              href={`${API_URL}/po/pick-tickets/${encodeURIComponent(selected.id)}/checklist-input`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <FileText size={16}/>Ver input autoritativo
+            </a>}
+          </>}
       </aside>
     </section>
   </section>;
@@ -1744,18 +2511,83 @@ function App() {
     try { return JSON.parse(localStorage.getItem('rpaUser')); } catch { return null; }
   });
   const [tab, setTab] = useState('process');
-  if (!authUser) return <Login onLogin={setAuthUser}/>;
-  const logout = () => { localStorage.removeItem('rpaUser'); setAuthUser(null); };
+  const [language, setLanguage] = useState(
+    () => localStorage.getItem('rpaLanguage') || 'es'
+  );
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem('rpaTheme')
+      || (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+  );
+
+  useRuntimeUiTranslation(language);
+
+  useEffect(() => {
+    localStorage.setItem('rpaLanguage', language);
+    document.documentElement.lang = language;
+  }, [language]);
+
+  useEffect(() => {
+    localStorage.setItem('rpaTheme', theme);
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  const preferenceButtons = <div className="ui-preferences">
+    <button
+      type="button"
+      onClick={() => setLanguage(current => current === 'es' ? 'en' : 'es')}
+      title={language === 'es' ? 'Cambiar a inglés' : 'Cambiar a español'}
+      aria-label={language === 'es' ? 'Cambiar a inglés' : 'Cambiar a español'}
+    >
+      {language === 'es' ? 'EN' : 'ES'}
+    </button>
+    <button
+      type="button"
+      onClick={() => setTheme(current => current === 'dark' ? 'light' : 'dark')}
+      title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+      aria-label={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+    >
+      {theme === 'dark' ? '☀' : '☾'}
+    </button>
+  </div>;
+
+  if (!authUser) {
+    return <>
+      <div className="login-preferences">{preferenceButtons}</div>
+      <Login onLogin={setAuthUser}/>
+    </>;
+  }
+
+  const logout = () => {
+    localStorage.removeItem('rpaUser');
+    setAuthUser(null);
+  };
+
   return <div className="workspace v470-shell">
     <aside className="sidebar v470-sidebar">
-      <div className="brand"><div className="brand-mark">PO</div><div><strong>Sales Order</strong><span>American Exchange</span></div></div>
+      <div className="brand">
+        <div className="brand-mark">PO</div>
+        <div><strong>Sales Order</strong><span>American Exchange</span></div>
+      </div>
       <nav className="nav-list">
-        <button className={tab === 'process' ? 'active' : ''} onClick={() => setTab('process')}><Activity size={18}/><span>Operación</span></button>
-        <button className={tab === 'log' ? 'active' : ''} onClick={() => setTab('log')}><ScrollText size={18}/><span>LOG A2000</span></button>
+        <button className={tab === 'process' ? 'active' : ''} onClick={() => setTab('process')}>
+          <Activity size={18}/><span>Operación</span>
+        </button>
+        <button className={tab === 'log' ? 'active' : ''} onClick={() => setTab('log')}>
+          <ScrollText size={18}/><span>LOG A2000</span>
+        </button>
+        <button className={tab === 'picktickets' ? 'active' : ''} onClick={() => setTab('picktickets')}><FileText size={18}/><span>Pick Tickets</span></button>
       </nav>
-      <div className="sidebar-footer"><div className="user-block"><UserRound size={16}/><span>{authUser.name}</span></div><button onClick={logout}><LogOut size={16}/>Salir</button></div>
+      {preferenceButtons}
+      <div className="sidebar-footer">
+        <div className="user-block"><UserRound size={16}/><span>{authUser.name}</span></div>
+        <button onClick={logout}><LogOut size={16}/>Salir</button>
+      </div>
     </aside>
-    <main className="main-panel v470-main">{tab === 'process' ? <ProcessOrdersPage/> : <OpsLogPage/>}</main>
+    <main className="main-panel v470-main">{tab === 'process'
+      ? <ProcessOrdersPage/>
+      : tab === 'picktickets'
+        ? <PickTicketsPage/>
+        : <OpsLogPage/>}</main>
   </div>;
 }
 

@@ -2461,7 +2461,12 @@ export function resolveOrderOfficialMasterIdentity(
       );
 
       if (masterUpc.upc) {
+        const source = 'VR_UPC_STYLE_UNIQUE_MASTER_UPC';
         line.master_upc = masterUpc.upc;
+        line.master_upc_source = source;
+        line.raw.master_upc = masterUpc.upc;
+        line.raw.master_upc_source = source;
+        line.raw.master_upc_reason = masterUpc.reason;
       } else {
         const bySize = masterUpcsBySize(
           masters,

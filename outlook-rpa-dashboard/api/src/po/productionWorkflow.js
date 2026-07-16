@@ -5,19 +5,37 @@ import { buildIdempotencyKey, validateInternalOrder } from '../a2000/restMapper.
 import { createOrLoadA2000Job, updateA2000Job } from '../a2000/orderJobRepository.js';
 import { processDownloadedDocuments } from './poRepository.js';
 import { generateChecklistForOrder } from '../checklists/checklistService.js';
+import {
+  customerMasterOrderDefaults
+} from './enrichment/masterData.js';
 
 const DEFAULT_CERTIFIED_CUSTOMERS = [
   '10BELOW',
   'BEALLSOUTL',
+  'CATO',
   'CITI',
+  'COLONY',
   'GABRIELBRO',
+  'GORBRORET',
   'ITSFASHION',
+  'MACYSBACKS',
+  'MARSHALLS',
   'MESALVEINC',
   'OLLIES',
   'SHOE4500',
+  'SPENCER',
+  'TILLYS',
   'VARIETYWHO',
   'VERSONA',
   'ZUMIEZ'
+];
+
+const DEFAULT_BLOCKED_CUSTOMERS = [
+  'CARNIVAL',
+  'HAMRICKS',
+  'IPC',
+  'MANDEE',
+  'TJMAXX'
 ];
 
 function clean(value) {
@@ -37,10 +55,24 @@ function csvSet(value, fallback = []) {
   return new Set(parts.length ? parts : fallback);
 }
 
-export function certifiedCustomerSet() {
+export function blockedCustomerSet() {
   return csvSet(
+    process.env.A2000_STAGE1_BLOCKED_CUSTOMERS,
+    DEFAULT_BLOCKED_CUSTOMERS
+  );
+}
+
+export function certifiedCustomerSet() {
+  const configured = csvSet(
     process.env.A2000_STAGE1_CERTIFIED_CUSTOMERS,
-    DEFAULT_CERTIFIED_CUSTOMERS
+    []
+  );
+  const blocked = blockedCustomerSet();
+  return new Set(
+    [...DEFAULT_CERTIFIED_CUSTOMERS, ...configured]
+      .map(item => clean(item).toUpperCase())
+      .filter(Boolean)
+      .filter(item => !blocked.has(item))
   );
 }
 
@@ -70,6 +102,8 @@ export function launchStatus() {
     base_url: clean(process.env.A2000_BASE_URL),
     auto_upload_enabled: autoUploadEnabled(),
     certified_customers: [...certifiedCustomerSet()].sort(),
+    blocked_customers: [...blockedCustomerSet()].sort(),
+    manual_upload_eligible_customers: [...certifiedCustomerSet()].sort(),
     header_upload_id: headerUploadId,
     line_upload_id: lineUploadId,
     shared_upload_ids: sharedUploadIds,
@@ -172,6 +206,8 @@ function summarizePreflight(preflight = {}) {
     local_valid: preflight.validation?.valid === true,
     source_guard_valid: preflight.source_guard?.valid === true,
     live_scale_valid: preflight.live_scale_validation?.valid === true,
+    customer_master_defaults: preflight.customer_master_defaults || null,
+    line_reference_preview: preflight.line_preview_without_seq || [],
     errors
   };
 }
@@ -632,6 +668,7 @@ export async function listOperationalOrders({
         ...order,
         document,
         a2000_job: a2000Job,
+        customer_master_defaults: customerMasterOrderDefaults(order.customer_code),
         stage1_certified: isCertifiedCustomer(order.customer_code),
         reading_valid: reading.valid,
         reading_missing: reading.missing,

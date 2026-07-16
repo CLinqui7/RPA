@@ -104,7 +104,11 @@ function parseTotals(oneLine) {
 function parsePoLines(oneLine) {
   const afterTableHeader = oneLine.split(/Internal\s+Item\s+#\s*\/\s*Ticket|Internal\s+Item\s+#/i).slice(-1)[0] || oneLine;
   const beforeFooter = afterTableHeader.split(/\bTotal\s+[\d,]+\s+\$/i)[0] || afterTableHeader;
-  const rowPattern = /(\d{4}-\d{4}-\d{2}-\d-\d)\s+(\d{10})\s+(\d{1,3})\s+([\d,]+)\s+([A-Z0-9]+(?:-[A-Z0-9]+){1,4})\s+(.+?)\s+\$\s*(\d+(?:\.\d{2})?)\s+\$\s*([\d,]+\.\d{2})/gi;
+  // GABES_VENDOR_ORIGINAL_VARIABLE_ITEM_STYLE_V3
+  // Gabe's item numbers do not use one fixed segment width:
+  // 7313-1424-1-0-0 and 1279-1424-19-0-0 are both valid.
+  // Printed PO styles may be plain (PL1033NL) or segmented (DAX-39M).
+  const rowPattern = /\b(\d{4}-\d{4}-\d{1,4}-\d{1,4}-\d{1,4})\s+(\d{8,14})\s+(\d{1,4})\s+([\d,]+)\s+([A-Z0-9]+(?:[-/][A-Z0-9]+){0,5})\s+(.+?)\s+\$\s*(\d+(?:\.\d{2})?)\s+\$\s*([\d,]+\.\d{2})\b/gi;
   const lines = [];
   let match;
   while ((match = rowPattern.exec(beforeFooter)) !== null) {

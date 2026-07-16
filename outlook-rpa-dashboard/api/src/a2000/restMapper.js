@@ -1,5 +1,12 @@
 import crypto from 'node:crypto';
 
+// A2000_BUSINESS_RULES_V2_INTEGRATED
+import {
+  resolveBackOrderForOrder,
+  resolveCustomerSkuForLine,
+  resolveSalesRepForOrder
+} from './businessRules/index.js';
+
 function clean(value) {
   if (value === null || value === undefined) return '';
   return String(value).trim();
@@ -14,6 +21,54 @@ function numeric(value) {
 function positiveQuantity(value) {
   const parsed = numeric(value);
   return parsed !== null && parsed > 0 ? parsed : 0;
+}
+
+
+export function officialMasterReferenceUpc(line = {}) {
+  const raw = (
+    line.raw_json
+    && typeof line.raw_json === 'object'
+  )
+    ? line.raw_json
+    : (
+      line.raw
+      && typeof line.raw === 'object'
+        ? line.raw
+        : {}
+    );
+
+  const identity = (
+    raw.universal_official_master_identity
+    && typeof raw.universal_official_master_identity === 'object'
+  )
+    ? raw.universal_official_master_identity
+    : {};
+
+  const candidate = clean(
+    line.master_upc
+    || raw.master_upc
+    || identity.master_upc
+  ).replace(/[^0-9]/g, '');
+
+  const source = clean(
+    line.master_upc_source
+    || raw.master_upc_source
+    || identity.master_upc_source
+    || identity.source
+  ).toUpperCase();
+
+  const allowedSources = new Set([
+    'VR_UPC_STYLE_UNIQUE_MASTER_UPC',
+    'VR_UPC_STYLE_EXACT_UPC',
+    'EXACT_OFFICIAL_UPC',
+    'UNIQUE_MASTER_UPC',
+    'VR_UPC_STYLE_EXACT_UNIQUE_UPC'
+  ]);
+
+  if (!/^\d{11,14}$/.test(candidate)) return '';
+  if (!allowedSources.has(source)) return '';
+
+  return candidate;
 }
 
 export function formatDateForA2000(value) {
@@ -101,7 +156,6 @@ export function validateInternalOrder(order = {}) {
     ['cancel_date', order.cancel_date],
     ['division_code', order.division_code],
     ['terms_code', order.terms_code],
-    ['warehouse_code', order.warehouse_code]
   ];
 
   for (const [field, value] of requiredHeader) {
@@ -115,6 +169,23 @@ export function validateInternalOrder(order = {}) {
   const lines = Array.isArray(order.purchase_order_lines)
     ? order.purchase_order_lines
     : Array.isArray(order.lines) ? order.lines : [];
+
+  const resolvedLineWarehouses = [
+    ...new Set(
+      lines
+        .map(line => clean(line?.warehouse_code || order.warehouse_code))
+        .filter(Boolean)
+    )
+  ];
+
+  if (!clean(order.warehouse_code) && resolvedLineWarehouses.length > 1) {
+    warnings.push({
+      scope: 'header',
+      code: 'MIXED_LINE_WAREHOUSES_HEADER_DEFAULT_OMITTED',
+      warehouses: resolvedLineWarehouses,
+      message: 'DEF_WHOUSE is omitted because this control contains multiple exact ORDER_LI WHOUSE values.'
+    });
+  }
 
   if (!lines.length) errors.push({ scope: 'lines', field: 'lines', message: 'At least one Sales Order Line is required.' });
   const seenLineNumbers = new Set();
@@ -187,7 +258,9 @@ export function mapOrderHd(order = {}) {
     START_DATE: formatDateForA2000(order.start_date),
     CANCEL_DATE: formatDateForA2000(order.cancel_date),
     DIV_NO: clean(order.division_code),
-    TERM_NO: clean(order.terms_code)
+    TERM_NO: clean(order.terms_code),
+    BACK_ORDER: resolveBackOrderForOrder(order).value,
+    SMAN1_NO: resolveSalesRepForOrder(order).value
   };
 
   if (clean(order.ship_via_code)) {
@@ -214,11 +287,15 @@ export function mapOrderLi(order = {}, line = {}, seqOrderNo, fallbackLineNo) {
     ORDER_NO: clean(order.order_no),
     STYLE: clean(line.style_code),
     COLOR_NO: clean(line.color_code),
-    WHOUSE: clean(line.warehouse_code || order.warehouse_code)
+    WHOUSE: clean(line.warehouse_code || order.warehouse_code),
+    CUST_STYLE1: resolveCustomerSkuForLine(line, order).value
   };
 
   const price = numeric(line.sales_price);
   if (price !== null && price >= 0) row.SALES_PRICE = price;
+
+  const referenceUpc = officialMasterReferenceUpc(line);
+  if (referenceUpc) row.REF = referenceUpc;
 
   const distribution = quantitiesByBucket(line);
   for (const [bucket, quantity] of Object.entries(distribution)) {
@@ -253,6 +330,7 @@ export function canonicalOrderForIdempotency(order = {}) {
         warehouse_code: clean(
           line.warehouse_code || order.warehouse_code
         ).toUpperCase(),
+        reference_upc: officialMasterReferenceUpc(line),
         quantities_by_bucket: quantitiesByBucket(line)
       }))
       .sort((left, right) => left.line_no - right.line_no)
